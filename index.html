@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in · Livinkey Admin</title>
+<link rel="icon" href="assets/img/logo.svg">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="auth-shell">
+  <div class="auth-visual d-none d-lg-flex">
+    <div class="brand-mark">
+      <div class="brand-dot">L</div> Livinkey Admin
+    </div>
+    <div class="tagline">
+      <h2>Every room, every rupee, one dashboard.</h2>
+      <p>Manage members, guests, rent cycles and conversations for your PG properties — all from a single, secure console.</p>
+    </div>
+    <svg class="auth-key-svg" width="320" height="320" viewBox="0 0 24 24" fill="white"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+    <div class="small" style="color:rgba(255,255,255,.6);">© 2026 Livinkey. All rights reserved.</div>
+  </div>
+
+  <div class="auth-form-side">
+    <div class="auth-card fade-in">
+      <div class="d-lg-none text-center mb-4">
+        <img src="assets/img/logo.svg" height="34" alt="Livinkey">
+      </div>
+      <span class="step-eyebrow">Welcome back</span>
+      <h1 class="h3 mb-1">Sign in to your account</h1>
+      <p class="text-muted-soft mb-4">Enter your registered admin email and password to continue.</p>
+
+      <div class="alert alert-danger py-2 small d-none" id="loginError"></div>
+
+      <form id="loginForm" novalidate>
+        <div class="mb-3">
+          <label class="form-label">Email address</label>
+          <input type="email" class="form-control" id="email" placeholder="you@livinkey.com" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Password</label>
+          <div class="position-relative">
+            <input type="password" class="form-control pe-5" id="password" placeholder="••••••••" required>
+            <button type="button" id="togglePwd" class="btn btn-sm position-absolute top-50 end-0 translate-middle-y me-1 border-0 bg-transparent">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+        </div>
+        <div class="text-end mb-4">
+          <a href="forgot-password.html" class="small">Forgot password?</a>
+        </div>
+        <button type="submit" class="btn btn-brand w-100 py-2">Continue <i class="bi bi-arrow-right ms-1"></i></button>
+      </form>
+
+      <div class="instr-note mt-4">
+        <i class="bi bi-info-circle"></i>
+        <div>After your password is verified, you'll be asked to enter a one-time code (OTP) sent to your registered email to finish signing in.</div>
+      </div>
+
+      <p class="auth-footer-links text-center mt-4 mb-0">
+        By continuing you agree to our <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/mock-data.js"></script>
+<script src="assets/js/auth.js"></script>
+</body>
+</html>
