@@ -7,7 +7,9 @@ const LK = window.LK || {};
 
 LK.credentials = {
   "molittle1011@gmail.com": { password: "super@123", role: "Super Admin", name: "Molly Little" },
-  "mosnake111@gmail.com":   { password: "admin@123",  role: "Admin",       name: "Mo Snake" }
+  "mosnake111@gmail.com":   { password: "admin@123",  role: "Admin",       name: "Mo Snake" },
+  "neha.joshi@livinkey.com": { password: "admin@123", role: "Admin", name: "Neha Joshi" },
+  "rahul.bose@livinkey.com": { password: "admin@123", role: "Admin", name: "Rahul Bose" }
 };
 
 LK.notificationsCount = 6;
