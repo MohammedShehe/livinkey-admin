@@ -47,7 +47,7 @@ function renderLayout(activeKey, pageTitle, pageSub){
   document.getElementById("sidebarMount").innerHTML = `
     <aside class="sidebar" id="sidebarEl">
       <div class="side-brand">
-        <img src="assets/img/logo.svg" alt="Livinkey" height="28">
+        <img src="assets/img/logo.png" alt="Livinkey" height="28">
       </div>
       <nav class="side-nav">
         <div class="side-section-label">Management</div>
