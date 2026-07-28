@@ -109,7 +109,7 @@ function initOtpPage(){
     if(purpose === "login"){
       AUTH.clearPending("lk_login_pending");
       AUTH.setSession(email);
-      window.location.href = "members.html";
+      window.location.href = "tenants.html";
     } else {
       AUTH.setPending("lk_reset_pending", { email, verified: true });
       window.location.href = "forgot-password.html#reset";

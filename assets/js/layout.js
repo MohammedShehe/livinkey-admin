@@ -3,12 +3,13 @@
    ========================================================================== */
 
 const MENU = [
-  { key: "members", label: "Members Management", icon: "bi-people-fill",        href: "members.html" },
-  { key: "guests",  label: "Guests",              icon: "bi-person-badge",      href: "guests.html" },
-  { key: "admins",  label: "Admins Management",   icon: "bi-shield-lock-fill",  href: "admins.html" },
-  { key: "messages",label: "Messages",            icon: "bi-chat-dots-fill",    href: "messages.html" },
-  { key: "bills",   label: "Bills",               icon: "bi-receipt-cutoff",    href: "bills.html" },
-  { key: "rooms",   label: "Rooms",                icon: "bi-door-open-fill",   href: "rooms.html" }
+  { key: "tenants", label: "Tenants Management", icon: "bi-people-fill", href: "tenants.html" },
+  { key: "guests",  label: "Guests", icon: "bi-person-badge", href: "guests.html" },
+  { key: "admins",  label: "Admins Management", icon: "bi-shield-lock-fill", href: "admins.html" },
+  { key: "bills",   label: "Bills", icon: "bi-receipt-cutoff", href: "bills.html" },
+  { key: "pgs",     label: "PGs Management", icon: "bi-building", href: "pgs.html" },
+  { key: "maintenance", label: "Maintenance", icon: "bi-tools", href: "maintenance.html" },
+  { key: "documents", label: "Documents", icon: "bi-files", href: "documents.html" }
 ];
 
 function currentAdminRecord(){
@@ -23,7 +24,7 @@ function canView(moduleKey){
   const rec = currentAdminRecord();
   if(!rec) return false;
   if(rec.access === "all") return true;
-  if(moduleKey === "admins") return false; // admins list is Super Admin only in this build
+  if(moduleKey === "admins") return false;
   return rec.access?.[moduleKey]?.v !== false;
 }
 
@@ -47,7 +48,7 @@ function renderLayout(activeKey, pageTitle, pageSub){
   document.getElementById("sidebarMount").innerHTML = `
     <aside class="sidebar" id="sidebarEl">
       <div class="side-brand">
-        <img src="assets/img/logo.png" alt="Livinkey" height="28">
+        <img src="assets/img/white_logo.png" alt="Livinkey" height="34">
       </div>
       <nav class="side-nav">
         <div class="side-section-label">Management</div>
@@ -78,9 +79,8 @@ function renderLayout(activeKey, pageTitle, pageSub){
           <div class="dropdown-menu dropdown-menu-end p-2" style="width:320px;">
             <p class="fw-bold px-2 mb-2" style="font-family:'Sora';">Notifications</p>
             <a class="dropdown-item rounded-3 py-2 mb-1" href="bills.html"><i class="bi bi-exclamation-circle text-danger me-2"></i>Sara Chen's payment is 9 days overdue</a>
-            <a class="dropdown-item rounded-3 py-2 mb-1" href="messages.html"><i class="bi bi-chat-dots text-success me-2"></i>2 new messages from members</a>
-            <a class="dropdown-item rounded-3 py-2 mb-1" href="guests.html"><i class="bi bi-person-plus text-info me-2"></i>New guest registered: Ken Tanaka</a>
-            <a class="dropdown-item rounded-3 py-2" href="bills.html"><i class="bi bi-cash-coin text-warning me-2"></i>Riya Kapoor's payment received</a>
+            <a class="dropdown-item rounded-3 py-2 mb-1" href="bills.html"><i class="bi bi-cash-coin text-warning me-2"></i>Riya Kapoor's payment received</a>
+            <a class="dropdown-item rounded-3 py-2" href="guests.html"><i class="bi bi-person-plus text-info me-2"></i>New guest registered: Ken Tanaka</a>
           </div>
         </div>
         <div class="dropdown">

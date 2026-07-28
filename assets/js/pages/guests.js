@@ -1,15 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
   renderLayout("guests", "Guests", "Everyone visiting or newly registered at Livinkey");
 
-  function guests(){ return LK.users.filter(u => u.role === "Guest"); }
+  function guests(){ return LK.guests || []; }
   function isThisMonth(dateStr){
     if(!dateStr) return false;
     const d = new Date(dateStr);
-    const now = new Date("2026-07-28");
+    const now = new Date();
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }
   function daysAgo(dateStr){
-    const diff = (new Date("2026-07-28") - new Date(dateStr)) / (1000*60*60*24);
+    const diff = (new Date() - new Date(dateStr)) / (1000*60*60*24);
     return Math.round(diff);
   }
 
@@ -75,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /* -------- Message modal -------- */
   const msgModal = new bootstrap.Modal(document.getElementById("msgModal"));
   window.openMsg = function(id){
-    const g = LK.users.find(x => x.id === id);
+    const g = LK.guests.find(x => x.id === id);
     document.getElementById("msgGuestName").textContent = g.name;
     document.getElementById("msgText").value =
 `Hi ${g.name.split(" ")[0]}, welcome to Livinkey! 🎉
@@ -94,7 +94,7 @@ Enjoy your stay!
   /* -------- Edit -------- */
   const editModal = new bootstrap.Modal(document.getElementById("editGuestModal"));
   window.editGuest = function(id){
-    const g = LK.users.find(x => x.id === id);
+    const g = LK.guests.find(x => x.id === id);
     document.getElementById("egId").value = g.id;
     document.getElementById("egName").value = g.name;
     document.getElementById("egEmail").value = g.email;
@@ -104,30 +104,35 @@ Enjoy your stay!
   };
   document.getElementById("editGuestForm").addEventListener("submit", (e) => {
     e.preventDefault();
-    const g = LK.users.find(x => x.id === document.getElementById("egId").value);
+    const g = LK.guests.find(x => x.id === document.getElementById("egId").value);
     g.name = document.getElementById("egName").value.trim();
     g.email = document.getElementById("egEmail").value.trim();
     g.country = document.getElementById("egCountry").value.trim();
     g.phone = document.getElementById("egPhone").value.trim();
     editModal.hide();
     showToast(`${g.name}'s details were updated.`, "success");
-    renderNewGuests(); renderGrid(document.getElementById("guestSearch").value);
+    renderNewGuests(); 
+    renderGrid(document.getElementById("guestSearch").value);
   });
 
   /* -------- Delete -------- */
   const confirmModal = new bootstrap.Modal(document.getElementById("confirmModal"));
   window.deleteGuest = function(id){
-    const g = LK.users.find(x => x.id === id);
+    const g = LK.guests.find(x => x.id === id);
     document.getElementById("confirmTitle").textContent = `Delete ${g.name}?`;
     document.getElementById("confirmBody").textContent = "This will permanently remove this guest's record.";
     document.getElementById("confirmActionBtn").onclick = () => {
-      LK.users = LK.users.filter(x => x.id !== id);
+      LK.guests = LK.guests.filter(x => x.id !== id);
       confirmModal.hide();
       showToast(`${g.name} was deleted.`, "danger");
-      renderStats(); renderNewGuests(); renderGrid(document.getElementById("guestSearch").value);
+      renderStats(); 
+      renderNewGuests(); 
+      renderGrid(document.getElementById("guestSearch").value);
     };
     confirmModal.show();
   };
 
-  renderStats(); renderNewGuests(); renderGrid();
+  renderStats(); 
+  renderNewGuests(); 
+  renderGrid();
 });

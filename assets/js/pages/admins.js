@@ -2,12 +2,14 @@ document.addEventListener("DOMContentLoaded", () => {
   renderLayout("admins", "Admins Management", "Manage admin accounts and their module permissions");
 
   const MODULES = [
-    { key: "members",  label: "Members Management" },
-    { key: "guests",   label: "Guests" },
-    { key: "admins",   label: "Admins Management" },
-    { key: "messages", label: "Messages" },
-    { key: "bills",    label: "Bills" },
-    { key: "rooms",    label: "Rooms" }
+    { key: "tenants",    label: "Tenants Management" },
+    { key: "guests",     label: "Guests" },
+    { key: "admins",     label: "Admins Management" },
+    { key: "messages",   label: "Messages" },
+    { key: "bills",      label: "Bills" },
+    { key: "pgs",        label: "PGs Management" },
+    { key: "maintenance", label: "Maintenance" },
+    { key: "documents",  label: "Documents" }
   ];
 
   function renderTable(filter = ""){
@@ -18,6 +20,9 @@ document.addEventListener("DOMContentLoaded", () => {
         <td><span class="name-link" onclick="openAccess('${a.id}')">${a.name}</span></td>
         <td>${a.email}</td>
         <td>${a.phone}</td>
+        <td>
+          ${a.aadhar ? `<img src="${a.aadhar}" alt="Aadhar" style="width:40px;height:30px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="previewAadhar('${a.id}')">` : "—"}
+        </td>
         <td class="text-end">
           <button class="btn-icon me-1" title="Edit" onclick="editAdmin('${a.id}')"><i class="bi bi-pencil"></i></button>
           <button class="btn-icon" title="Delete" onclick="deleteAdmin('${a.id}')"><i class="bi bi-trash3"></i></button>
@@ -34,8 +39,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const name = document.getElementById("aaName").value.trim();
     const email = document.getElementById("aaEmail").value.trim();
     const phone = document.getElementById("aaPhone").value.trim();
+    const aadharFile = document.getElementById("aaAadhar").files[0];
 
-    // Validation
     if(!name || !email || !phone){
       showToast("Please fill in all fields.", "warning");
       return;
@@ -45,31 +50,31 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Generate new admin ID
     const maxId = LK.admins.reduce((max, a) => {
       const num = parseInt(a.id.replace('A', ''));
       return num > max ? num : max;
     }, 0);
     const newId = 'A' + String(maxId + 1).padStart(3, '0');
 
-    // Add admin
     LK.admins.push({
       id: newId,
       name: name,
       email: email,
       phone: phone,
       role: "Admin",
+      aadhar: aadharFile ? URL.createObjectURL(aadharFile) : null,
       access: {
-        members: { v: false, a: false, e: false, d: false },
+        tenants: { v: false, a: false, e: false, d: false },
         guests:  { v: false, a: false, e: false, d: false },
         admins:  { v: false, a: false, e: false, d: false },
         messages:{ v: false, a: false, e: false, d: false },
         bills:   { v: false, a: false, e: false, d: false },
-        rooms:   { v: false, a: false, e: false, d: false }
+        pgs:     { v: false, a: false, e: false, d: false },
+        maintenance: { v: false, a: false, e: false, d: false },
+        documents: { v: false, a: false, e: false, d: false }
       }
     });
 
-    // Also add to credentials for login simulation with default password
     LK.credentials[email] = { password: "admin@123", role: "Admin", name: name };
 
     addModal.hide();
@@ -97,19 +102,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const newName = document.getElementById("eaName").value.trim();
     const newEmail = document.getElementById("eaEmail").value.trim();
     const newPhone = document.getElementById("eaPhone").value.trim();
+    const aadharFile = document.getElementById("eaAadhar").files[0];
 
-    // Check if email changed and update credentials
     if(a.email !== newEmail){
-      // Remove old credential
       delete LK.credentials[a.email];
-      // Add new credential with default password
-      LK.credentials[newEmail] = { 
-        password: "admin@123", 
-        role: "Admin", 
-        name: newName 
-      };
+      LK.credentials[newEmail] = { password: "admin@123", role: "Admin", name: newName };
     } else {
-      // Update name in credentials
       if(LK.credentials[a.email]){
         LK.credentials[a.email].name = newName;
       }
@@ -118,6 +116,9 @@ document.addEventListener("DOMContentLoaded", () => {
     a.name = newName;
     a.email = newEmail;
     a.phone = newPhone;
+    if(aadharFile){
+      a.aadhar = URL.createObjectURL(aadharFile);
+    }
     editModal.hide();
     showToast(`${a.name}'s details were updated.`, "success");
     renderTable(document.getElementById("adminSearch").value);
@@ -131,15 +132,25 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("confirmTitle").textContent = `Delete ${a.name}?`;
     document.getElementById("confirmBody").textContent = "This admin will lose all access to the Livinkey console immediately.";
     document.getElementById("confirmActionBtn").onclick = () => {
-      // Remove from admins
       LK.admins = LK.admins.filter(x => x.id !== id);
-      // Remove from credentials
       delete LK.credentials[a.email];
       confirmModal.hide();
       showToast(`${a.name} was removed as an admin.`, "danger");
       renderTable(document.getElementById("adminSearch").value);
     };
     confirmModal.show();
+  };
+
+  /* -------- Aadhar Preview -------- */
+  const aadharPreviewModal = new bootstrap.Modal(document.getElementById("aadharPreviewModal"));
+  window.previewAadhar = function(id){
+    const a = LK.admins.find(x => x.id === id);
+    if(!a || !a.aadhar) return;
+    document.getElementById("aadharPreviewImg").src = a.aadhar;
+    document.getElementById("downloadAadharBtn").onclick = () => {
+      showToast("Aadhar download started.", "info");
+    };
+    aadharPreviewModal.show();
   };
 
   /* -------- Give Access -------- */
