@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderGrid(filter = ""){
     const f = filter.trim().toLowerCase();
-    const rows = guests().filter(g => !f || g.name.toLowerCase().includes(f) || g.country.toLowerCase().includes(f));
+    const rows = guests().filter(g => !f || g.name.toLowerCase().includes(f) || g.nationality.toLowerCase().includes(f));
     document.getElementById("guestsGrid").innerHTML = rows.map(g => `
       <div class="col-md-6 col-lg-4">
         <div class="border rounded-4 p-3 h-100 hover-lift" style="border-color:var(--border) !important;">
@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="avatar-circle">${g.name.split(" ").map(w=>w[0]).slice(0,2).join("")}</div>
               <div>
                 <div class="fw-bold">${g.name}</div>
-                <div class="small text-muted-soft">${g.country}</div>
+                <div class="small text-muted-soft">${g.nationality}</div>
               </div>
             </div>
             <div class="dropdown">
@@ -98,7 +98,7 @@ Enjoy your stay!
     document.getElementById("egId").value = g.id;
     document.getElementById("egName").value = g.name;
     document.getElementById("egEmail").value = g.email;
-    document.getElementById("egCountry").value = g.country;
+    document.getElementById("egNationality").value = g.nationality;
     document.getElementById("egPhone").value = g.phone;
     editModal.show();
   };
@@ -107,7 +107,7 @@ Enjoy your stay!
     const g = LK.guests.find(x => x.id === document.getElementById("egId").value);
     g.name = document.getElementById("egName").value.trim();
     g.email = document.getElementById("egEmail").value.trim();
-    g.country = document.getElementById("egCountry").value.trim();
+    g.nationality = document.getElementById("egNationality").value.trim();
     g.phone = document.getElementById("egPhone").value.trim();
     editModal.hide();
     showToast(`${g.name}'s details were updated.`, "success");

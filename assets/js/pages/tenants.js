@@ -12,31 +12,32 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentFilter = "";
   let isEditMode = false;
 
-  // All countries list
-  const COUNTRIES = [
-    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", 
-    "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", 
-    "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", 
-    "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad", 
-    "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", 
-    "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", 
-    "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", 
-    "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", 
-    "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", 
-    "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Korea, North", "Korea, South", "Kuwait", "Kyrgyzstan", "Laos", 
-    "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", 
-    "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", 
-    "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", 
-    "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Macedonia", "Norway", 
-    "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", 
-    "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", 
-    "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", 
-    "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", 
-    "South Africa", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", 
-    "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", 
-    "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", 
-    "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", 
-    "Zambia", "Zimbabwe"
+  // All nationalities list
+  const NATIONALITIES = [
+    "Afghan", "Albanian", "Algerian", "Andorran", "Angolan", "Argentinian", "Armenian", "Australian", 
+    "Austrian", "Azerbaijani", "Bahamian", "Bahraini", "Bangladeshi", "Barbadian", "Belarusian", "Belgian", 
+    "Belizean", "Beninese", "Bhutanese", "Bolivian", "Bosnian", "Botswanan", "Brazilian", "British", 
+    "Bruneian", "Bulgarian", "Burkinabe", "Burmese", "Burundian", "Cambodian", "Cameroonian", "Canadian", 
+    "Chadian", "Chilean", "Chinese", "Colombian", "Comoran", "Congolese", "Costa Rican", "Croatian", 
+    "Cuban", "Cypriot", "Czech", "Danish", "Djiboutian", "Dominican", "Dutch", "Ecuadorian", "Egyptian", 
+    "Emirati", "English", "Eritrean", "Estonian", "Ethiopian", "Fijian", "Filipino", "Finnish", "French", 
+    "Gabonese", "Gambian", "Georgian", "German", "Ghanaian", "Greek", "Grenadian", "Guatemalan", 
+    "Guinean", "Guyanese", "Haitian", "Honduran", "Hungarian", "Icelandic", "Indian", "Indonesian", 
+    "Iranian", "Iraqi", "Irish", "Israeli", "Italian", "Jamaican", "Japanese", "Jordanian", 
+    "Kazakhstani", "Kenyan", "Korean", "Kuwaiti", "Kyrgyz", "Laotian", "Latvian", "Lebanese", 
+    "Liberian", "Libyan", "Liechtensteiner", "Lithuanian", "Luxembourger", "Malagasy", "Malawian", 
+    "Malaysian", "Maldivian", "Malian", "Maltese", "Marshallese", "Mauritanian", "Mauritian", 
+    "Mexican", "Micronesian", "Moldovan", "Monacan", "Mongolian", "Montenegrin", "Moroccan", 
+    "Mozambican", "Namibian", "Nauruan", "Nepalese", "New Zealander", "Nicaraguan", "Nigerian", 
+    "North Korean", "Norwegian", "Omani", "Pakistani", "Palauan", "Palestinian", "Panamanian", 
+    "Papua New Guinean", "Paraguayan", "Peruvian", "Polish", "Portuguese", "Qatari", "Romanian", 
+    "Russian", "Rwandan", "Saint Lucian", "Salvadoran", "Samoan", "San Marinese", "Saudi Arabian", 
+    "Senegalese", "Serbian", "Seychellois", "Sierra Leonean", "Singaporean", "Slovak", "Slovenian", 
+    "Solomon Islander", "Somali", "South African", "South Korean", "Spanish", "Sri Lankan", 
+    "Sudanese", "Surinamese", "Swazi", "Swedish", "Swiss", "Syrian", "Taiwanese", "Tajik", 
+    "Tanzanian", "Thai", "Togolese", "Tongan", "Trinidadian", "Tunisian", "Turkish", "Turkmen", 
+    "Tuvaluan", "Ugandan", "Ukrainian", "Uruguayan", "Uzbek", "Vanuatuan", "Vatican", 
+    "Venezuelan", "Vietnamese", "Yemeni", "Zambian", "Zimbabwean"
   ];
 
   // All country codes with country names
@@ -236,15 +237,15 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  let countryDropdownInstance = null;
+  let nationalityDropdownInstance = null;
   let codeDropdownInstance = null;
 
   function initDropdowns() {
-    countryDropdownInstance = initSearchableDropdown(
-      'countrySearch', 
-      'countryOptions', 
-      'tCountry', 
-      COUNTRIES,
+    nationalityDropdownInstance = initSearchableDropdown(
+      'nationalitySearch', 
+      'nationalityOptions', 
+      'tNationality', 
+      NATIONALITIES,
       null
     );
     
@@ -291,7 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
       currentFilter = "";
     } else {
       const filterMap = {
-        "national": "India",
+        "national": "Indian",
         "international": "International",
         "male": "Male",
         "female": "Female"
@@ -310,7 +311,7 @@ document.addEventListener("DOMContentLoaded", () => {
       rows = rows.filter(t =>
         t.name.toLowerCase().includes(f) || 
         t.roomNo.toLowerCase().includes(f) ||
-        t.country.toLowerCase().includes(f) || 
+        t.nationality.toLowerCase().includes(f) || 
         String(t.rent).includes(f) ||
         t.gender.toLowerCase().includes(f) ||
         t.residency.toLowerCase().includes(f)
@@ -326,7 +327,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${t.roomNo || "—"}</td>
         <td>${fmtINR(t.rent || 0)}</td>
         <td>${fmtINR(t.securityFee || 0)}</td>
-        <td>${t.country}</td>
+        <td>${t.nationality}</td>
         <td>${t.gender}</td>
         <td>${t.paymentDate ? "Day " + t.paymentDate : "—"}</td>
         <td><span class="chip ${st.chip}">${st.label}</span></td>
@@ -375,11 +376,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
   
-  function toggleCountryFields(){
+  function toggleFields(){
     const isNational = residencySelect.value === "National";
     const isGuest = roleSelect.value === "Guest";
     
-    // Show/hide country-specific fields
+    // Show/hide nationality-specific fields
     if(isGuest){
       document.querySelectorAll(".national-only").forEach(el => el.classList.add("d-none"));
       document.querySelectorAll(".international-only").forEach(el => el.classList.add("d-none"));
@@ -404,16 +405,16 @@ document.addEventListener("DOMContentLoaded", () => {
       roomField.classList.toggle("d-none", !isNational);
     }
     
-    // Set default country based on residency
+    // Set default nationality based on residency
     if(isNational && !isGuest){
-      if (countryDropdownInstance) {
-        countryDropdownInstance.setValue("India");
+      if (nationalityDropdownInstance) {
+        nationalityDropdownInstance.setValue("Indian");
       }
     } else if (!isGuest) {
-      if (countryDropdownInstance) {
-        const currentVal = countryDropdownInstance.getValue();
-        if (currentVal === "India" || !currentVal) {
-          countryDropdownInstance.setValue("United States");
+      if (nationalityDropdownInstance) {
+        const currentVal = nationalityDropdownInstance.getValue();
+        if (currentVal === "Indian" || !currentVal) {
+          nationalityDropdownInstance.setValue("American");
         }
       }
     }
@@ -421,9 +422,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   roleSelect.addEventListener("change", function(){
     toggleTenantOnly();
-    toggleCountryFields();
+    toggleFields();
   });
-  residencySelect.addEventListener("change", toggleCountryFields);
+  residencySelect.addEventListener("change", toggleFields);
 
   document.getElementById("tPg").addEventListener("change", function(){
     const pgId = this.value;
@@ -451,14 +452,14 @@ document.addEventListener("DOMContentLoaded", () => {
       
       setTimeout(() => {
         initDropdowns();
-        if (countryDropdownInstance) {
-          countryDropdownInstance.setValue("India");
+        if (nationalityDropdownInstance) {
+          nationalityDropdownInstance.setValue("Indian");
         }
         if (codeDropdownInstance) {
           codeDropdownInstance.setValue("+91");
         }
         toggleTenantOnly();
-        toggleCountryFields();
+        toggleFields();
       }, 100);
     }
   });
@@ -474,7 +475,7 @@ document.addEventListener("DOMContentLoaded", () => {
       email: document.getElementById("tEmail").value.trim(),
       role: role,
       residency: residency,
-      country: document.getElementById("tCountry").value,
+      nationality: document.getElementById("tNationality").value,
       countryCode: document.getElementById("tCode").value,
       phone: document.getElementById("tPhone").value.trim(),
     };
@@ -638,14 +639,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initialize dropdowns and set values
     setTimeout(() => {
       initDropdowns();
-      if (countryDropdownInstance) {
-        countryDropdownInstance.setValue(t.country || "India");
+      if (nationalityDropdownInstance) {
+        nationalityDropdownInstance.setValue(t.nationality || "Indian");
       }
       if (codeDropdownInstance) {
         codeDropdownInstance.setValue(t.countryCode || "+91");
       }
       toggleTenantOnly();
-      toggleCountryFields();
+      toggleFields();
     }, 100);
     
     tenantModal.show();

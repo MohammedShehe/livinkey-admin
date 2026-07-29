@@ -91,7 +91,7 @@
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <div class="table-search">
               <i class="bi bi-search"></i>
-              <input type="text" class="form-control" style="width:260px;" id="tenantSearch" placeholder="Search by name, room no, country or rent">
+              <input type="text" class="form-control" style="width:260px;" id="tenantSearch" placeholder="Search by name, room no, nationality or rent">
             </div>
             <button class="btn-fab" data-bs-toggle="modal" data-bs-target="#addTenantModal" title="Add new tenant">
               <i class="bi bi-plus-lg"></i>
@@ -103,7 +103,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Name</th><th>PG</th><th>Room No</th><th>Rent</th><th>Security Fee</th><th>Country</th><th>Gender</th><th>Payment Date</th><th>Bill Status</th><th class="text-end">Actions</th>
+                <th>Name</th><th>PG</th><th>Room No</th><th>Rent</th><th>Security Fee</th><th>Nationality</th><th>Gender</th><th>Payment Date</th><th>Bill Status</th><th class="text-end">Actions</th>
               </tr>
             </thead>
             <tbody id="tenantsTbody"></tbody>
@@ -112,7 +112,7 @@
         <div id="tenantsEmpty" class="empty-state d-none">
           <i class="bi bi-people"></i>
           <p class="mb-0 fw-semibold">No tenants match your search</p>
-          <p class="small">Try a different name, room number, country or rent amount.</p>
+          <p class="small">Try a different name, room number, nationality or rent amount.</p>
         </div>
       </div>
     </main>
@@ -163,11 +163,11 @@
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Country</label>
-              <div class="searchable-dropdown" id="countryDropdown">
-                <input type="text" class="dropdown-search" id="countrySearch" placeholder="Search or select country..." autocomplete="off">
-                <input type="hidden" id="tCountry" value="India">
-                <div class="dropdown-options" id="countryOptions"></div>
+              <label class="form-label">Nationality</label>
+              <div class="searchable-dropdown" id="nationalityDropdown">
+                <input type="text" class="dropdown-search" id="nationalitySearch" placeholder="Search or select nationality..." autocomplete="off">
+                <input type="hidden" id="tNationality" value="Indian">
+                <div class="dropdown-options" id="nationalityOptions"></div>
               </div>
             </div>
             <!-- International fields -->

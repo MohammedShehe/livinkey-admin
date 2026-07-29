@@ -77,7 +77,7 @@ LK.pgs = [
   }
 ];
 
-// Tenants (Members) - Updated with securityFee field
+// Tenants (Members) - Updated with nationality instead of country
 LK.tenants = [
   {
     id: "T001", 
@@ -85,7 +85,7 @@ LK.tenants = [
     email: "amit.sharma@example.com", 
     role: "Tenant",
     residency: "National", 
-    country: "India", 
+    nationality: "Indian", 
     countryCode: "+91", 
     phone: "9876543210",
     gender: "Male", 
@@ -121,7 +121,7 @@ LK.tenants = [
     email: "diego.alvarez@example.com", 
     role: "Tenant",
     residency: "International", 
-    country: "Argentina", 
+    nationality: "Argentinian", 
     countryCode: "+54", 
     phone: "91123456",
     gender: "Male", 
@@ -157,7 +157,7 @@ LK.tenants = [
     email: "riya.kapoor@example.com", 
     role: "Tenant",
     residency: "National", 
-    country: "India", 
+    nationality: "Indian", 
     countryCode: "+91", 
     phone: "9812345678",
     gender: "Female", 
@@ -196,7 +196,7 @@ LK.tenants = [
     email: "sara.chen@example.com", 
     role: "Tenant",
     residency: "International", 
-    country: "Singapore", 
+    nationality: "Singaporean", 
     countryCode: "+65", 
     phone: "81234567",
     gender: "Female", 
@@ -232,7 +232,7 @@ LK.tenants = [
     email: "karan.mehta@example.com", 
     role: "Tenant",
     residency: "National", 
-    country: "India", 
+    nationality: "Indian", 
     countryCode: "+91", 
     phone: "9900112233",
     gender: "Male", 
@@ -271,7 +271,7 @@ LK.tenants = [
     email: "vikram.rao@example.com", 
     role: "Tenant",
     residency: "National", 
-    country: "India", 
+    nationality: "Indian", 
     countryCode: "+91", 
     phone: "9871234560",
     gender: "Male", 
@@ -307,7 +307,7 @@ LK.tenants = [
     email: "anjali.nair@example.com", 
     role: "Tenant",
     residency: "National", 
-    country: "India", 
+    nationality: "Indian", 
     countryCode: "+91", 
     phone: "9765432109",
     gender: "Female", 
@@ -346,7 +346,7 @@ LK.tenants = [
     email: "priya.patel@example.com", 
     role: "Tenant",
     residency: "National", 
-    country: "India", 
+    nationality: "Indian", 
     countryCode: "+91", 
     phone: "9876543120",
     gender: "Female", 
@@ -381,7 +381,7 @@ LK.tenants = [
   }
 ];
 
-// Guests
+// Guests - Updated with nationality instead of country
 LK.guests = [
   {
     id: "G001", 
@@ -389,7 +389,7 @@ LK.guests = [
     email: "louis.meyer@example.com", 
     role: "Guest",
     residency: "International", 
-    country: "France", 
+    nationality: "French", 
     countryCode: "+33", 
     phone: "612345678",
     joinedOn: "2026-07-18"
@@ -400,7 +400,7 @@ LK.guests = [
     email: "ken.tanaka@example.com", 
     role: "Guest",
     residency: "International", 
-    country: "Japan", 
+    nationality: "Japanese", 
     countryCode: "+81", 
     phone: "9012345678",
     joinedOn: "2026-06-30"
@@ -411,7 +411,7 @@ LK.guests = [
     email: "maria.garcia@example.com", 
     role: "Guest",
     residency: "International", 
-    country: "Spain", 
+    nationality: "Spanish", 
     countryCode: "+34", 
     phone: "611223344",
     joinedOn: "2026-07-25"
