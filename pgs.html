@@ -8,6 +8,171 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <link href="assets/css/style.css" rel="stylesheet">
+<style>
+  .floor-card {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1.5px solid var(--border);
+    transition: 0.2s;
+  }
+  .floor-card:hover {
+    border-color: var(--lk-green);
+  }
+  .floor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .floor-header h6 {
+    margin: 0;
+    font-family: 'Sora', sans-serif;
+    font-weight: 600;
+  }
+  .room-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .room-item .room-number {
+    font-weight: 700;
+    min-width: 60px;
+    font-size: 0.85rem;
+  }
+  .room-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+  .room-input-group input[type="text"] {
+    width: 100px;
+    min-width: 60px;
+  }
+  .room-input-group input[type="number"] {
+    width: 70px;
+    min-width: 50px;
+  }
+  .room-item .btn-remove-room {
+    margin-left: auto;
+    color: var(--danger);
+    background: none;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: 0.15s;
+  }
+  .room-item .btn-remove-room:hover {
+    background: var(--danger-bg);
+    color: #b33a32;
+  }
+  .btn-add-room {
+    width: 100%;
+    border: 2px dashed var(--border);
+    background: transparent;
+    border-radius: var(--radius-sm);
+    padding: 0.6rem;
+    color: var(--muted);
+    transition: 0.2s;
+    font-weight: 500;
+  }
+  .btn-add-room:hover {
+    border-color: var(--lk-green);
+    color: var(--lk-green-darker);
+    background: var(--lk-green-100);
+  }
+  .floor-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .floor-actions button {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  /* Modal scroll fixes */
+  .modal-dialog-scrollable .modal-content {
+    max-height: calc(100vh - 60px);
+    overflow: hidden;
+  }
+  
+  .modal-dialog-scrollable .modal-body {
+    overflow-y: auto;
+    max-height: calc(100vh - 200px);
+    padding: 1.4rem;
+  }
+  
+  .modal-dialog-scrollable .modal-body::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .modal-dialog-scrollable .modal-body::-webkit-scrollbar-thumb {
+    background: var(--lk-green);
+    border-radius: 10px;
+  }
+  
+  .modal-dialog-scrollable .modal-body::-webkit-scrollbar-track {
+    background: var(--bg);
+    border-radius: 10px;
+  }
+
+  /* Ensure floors container scrolls properly */
+  #floorsContainer {
+    max-height: none;
+  }
+
+  /* Responsive adjustments for floor builder */
+  @media (max-width: 768px) {
+    .room-item {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .room-item .room-number {
+      min-width: auto;
+    }
+    .room-input-group {
+      flex-wrap: wrap;
+    }
+    .room-input-group input[type="text"],
+    .room-input-group input[type="number"] {
+      width: 100% !important;
+      min-width: 0;
+    }
+    .room-item .btn-remove-room {
+      margin-left: 0;
+      align-self: flex-end;
+    }
+    .floor-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .floor-actions {
+      flex-wrap: wrap;
+    }
+    
+    .modal-dialog-scrollable .modal-body {
+      max-height: calc(100vh - 180px);
+    }
+  }
+  
+  @media (max-width: 576px) {
+    .modal-dialog-scrollable .modal-body {
+      max-height: calc(100vh - 160px);
+      padding: 1rem;
+    }
+  }
+</style>
 </head>
 <body>
 <div class="app-shell">
@@ -39,7 +204,7 @@
 
 <!-- Add/Edit PG Modal -->
 <div class="modal fade" id="addPgModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="pgModalTitle">Add PG</h5>
@@ -48,32 +213,33 @@
       <form id="pgForm">
         <div class="modal-body">
           <input type="hidden" id="pgId">
-          <div class="row g-3">
+          
+          <!-- PG Basic Info -->
+          <div class="row g-3 mb-4">
             <div class="col-md-6">
-              <label class="form-label">PG Name</label>
+              <label class="form-label">PG Name *</label>
               <input class="form-control" id="pName" required placeholder="e.g. Alishan PG">
             </div>
             <div class="col-md-6">
-              <label class="form-label">Location</label>
+              <label class="form-label">Location *</label>
               <input class="form-control" id="pLocation" required placeholder="Full address">
             </div>
-            <div class="col-md-4">
-              <label class="form-label">Number of Floors</label>
-              <input type="number" class="form-control" id="pFloors" required min="1">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Rooms per Floor</label>
-              <input type="number" class="form-control" id="pRoomsPerFloor" required min="1">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Capacity per Room</label>
-              <input type="number" class="form-control" id="pCapacity" required min="1">
-            </div>
           </div>
+
+          <!-- Floor Configuration -->
+          <div class="mb-3">
+            <label class="form-label">Number of Floors *</label>
+            <div class="d-flex gap-2 align-items-center">
+              <input type="number" class="form-control" style="width:120px;" id="pFloors" required min="1" max="10" value="1">
+              <button type="button" class="btn btn-brand" id="applyFloorsBtn">Apply Floors</button>
+            </div>
+            <div class="text-muted-soft small mt-1">Set the number of floors, then configure rooms and capacities for each floor.</div>
+          </div>
+
           <hr>
-          <div id="pgRoomDetails">
-            <p class="text-muted-soft small">Room details will be auto-generated based on floors and rooms per floor.</p>
-          </div>
+
+          <!-- Dynamic Floor Rooms -->
+          <div id="floorsContainer"></div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
