@@ -379,6 +379,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const isNational = residencySelect.value === "National";
     const isGuest = roleSelect.value === "Guest";
     
+    // Show/hide country-specific fields
     if(isGuest){
       document.querySelectorAll(".national-only").forEach(el => el.classList.add("d-none"));
       document.querySelectorAll(".international-only").forEach(el => el.classList.add("d-none"));
@@ -387,6 +388,23 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll(".international-only").forEach(el => el.classList.toggle("d-none", isNational));
     }
     
+    // Show/hide PG selection based on residency
+    const pgField = document.getElementById("tPg").parentElement;
+    if(isGuest){
+      pgField.classList.add("d-none");
+    } else {
+      pgField.classList.toggle("d-none", !isNational);
+    }
+    
+    // Show/hide room selection based on residency
+    const roomField = document.getElementById("tRoom").parentElement;
+    if(isGuest){
+      roomField.classList.add("d-none");
+    } else {
+      roomField.classList.toggle("d-none", !isNational);
+    }
+    
+    // Set default country based on residency
     if(isNational && !isGuest){
       if (countryDropdownInstance) {
         countryDropdownInstance.setValue("India");
@@ -462,19 +480,25 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     if(role === "Tenant"){
+      // Only require PG and room for National tenants
       const pgId = document.getElementById("tPg").value;
-      if(!pgId){
-        showToast("Please select a PG.", "warning");
-        return;
+      const roomNo = document.getElementById("tRoom").value;
+      
+      // For National tenants, PG and room are required
+      if(residency === "National"){
+        if(!pgId){
+          showToast("Please select a PG.", "warning");
+          return;
+        }
+        if(!roomNo){
+          showToast("Please select a room.", "warning");
+          return;
+        }
       }
+      
       const rent = Number(document.getElementById("tRent").value || 0);
       if(rent <= 0){
         showToast("Please enter a valid rent amount.", "warning");
-        return;
-      }
-      const roomNo = document.getElementById("tRoom").value;
-      if(!roomNo){
-        showToast("Please select a room.", "warning");
         return;
       }
       
@@ -502,9 +526,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       
       Object.assign(payload, {
-        pgId: pgId,
+        pgId: residency === "National" ? pgId : "",
         gender: document.getElementById("tGender").value,
-        roomNo: roomNo,
+        roomNo: residency === "National" ? roomNo : "",
         rent: rent,
         securityFee: Number(document.getElementById("tSecurityFee").value || 0),
         paymentDate: Number(document.getElementById("tPayDate").value || 1),
@@ -590,12 +614,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("tPhone").value = t.phone || "";
     document.getElementById("tGender").value = t.gender || "Male";
     
-    // Set PG and Room
+    // Set PG and Room (only if National)
     populatePgDropdown();
-    if(t.pgId){
+    if(t.residency === "National" && t.pgId){
       document.getElementById("tPg").value = t.pgId;
       populateRoomDropdown(t.pgId, t.roomNo);
       document.getElementById("tRoom").value = t.roomNo || "";
+    } else {
+      document.getElementById("tPg").value = "";
+      document.getElementById("tRoom").innerHTML = `<option value="">Select room...</option>`;
     }
     
     // Set tenant-specific fields
