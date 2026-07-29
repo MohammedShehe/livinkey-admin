@@ -86,9 +86,15 @@ Enjoy your stay!
 — Livinkey Team`;
     msgModal.show();
   };
-  document.getElementById("sendMsgBtn").addEventListener("click", () => {
-    msgModal.hide();
-    showToast("Message sent successfully.", "success");
+  
+  document.getElementById("sendMsgBtn").addEventListener("click", function(){
+    const btn = this;
+    LOADER.show(btn, 'Sending...');
+    setTimeout(() => {
+      msgModal.hide();
+      showToast("Message sent successfully.", "success");
+      LOADER.hide(btn);
+    }, 600);
   });
 
   /* -------- Edit -------- */
@@ -102,17 +108,24 @@ Enjoy your stay!
     document.getElementById("egPhone").value = g.phone;
     editModal.show();
   };
-  document.getElementById("editGuestForm").addEventListener("submit", (e) => {
+  
+  document.getElementById("editGuestForm").addEventListener("submit", function(e){
     e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Saving...');
+    
     const g = LK.guests.find(x => x.id === document.getElementById("egId").value);
-    g.name = document.getElementById("egName").value.trim();
-    g.email = document.getElementById("egEmail").value.trim();
-    g.nationality = document.getElementById("egNationality").value.trim();
-    g.phone = document.getElementById("egPhone").value.trim();
-    editModal.hide();
-    showToast(`${g.name}'s details were updated.`, "success");
-    renderNewGuests(); 
-    renderGrid(document.getElementById("guestSearch").value);
+    setTimeout(() => {
+      g.name = document.getElementById("egName").value.trim();
+      g.email = document.getElementById("egEmail").value.trim();
+      g.nationality = document.getElementById("egNationality").value.trim();
+      g.phone = document.getElementById("egPhone").value.trim();
+      editModal.hide();
+      showToast(`${g.name}'s details were updated.`, "success");
+      renderNewGuests(); 
+      renderGrid(document.getElementById("guestSearch").value);
+      LOADER.hide(btn);
+    }, 500);
   });
 
   /* -------- Delete -------- */
@@ -121,13 +134,18 @@ Enjoy your stay!
     const g = LK.guests.find(x => x.id === id);
     document.getElementById("confirmTitle").textContent = `Delete ${g.name}?`;
     document.getElementById("confirmBody").textContent = "This will permanently remove this guest's record.";
-    document.getElementById("confirmActionBtn").onclick = () => {
-      LK.guests = LK.guests.filter(x => x.id !== id);
-      confirmModal.hide();
-      showToast(`${g.name} was deleted.`, "danger");
-      renderStats(); 
-      renderNewGuests(); 
-      renderGrid(document.getElementById("guestSearch").value);
+    document.getElementById("confirmActionBtn").onclick = function(){
+      const btn = this;
+      LOADER.show(btn, 'Deleting...');
+      setTimeout(() => {
+        LK.guests = LK.guests.filter(x => x.id !== id);
+        confirmModal.hide();
+        showToast(`${g.name} was deleted.`, "danger");
+        renderStats(); 
+        renderNewGuests(); 
+        renderGrid(document.getElementById("guestSearch").value);
+        LOADER.hide(btn);
+      }, 500);
     };
     confirmModal.show();
   };

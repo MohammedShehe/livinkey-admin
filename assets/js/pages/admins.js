@@ -34,53 +34,61 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* -------- Add admin -------- */
   const addModal = new bootstrap.Modal(document.getElementById("addAdminModal"));
-  document.getElementById("addAdminForm").addEventListener("submit", (e) => {
+  document.getElementById("addAdminForm").addEventListener("submit", function(e){
     e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Adding...');
+    
     const name = document.getElementById("aaName").value.trim();
     const email = document.getElementById("aaEmail").value.trim();
     const phone = document.getElementById("aaPhone").value.trim();
     const aadharFile = document.getElementById("aaAadhar").files[0];
 
-    if(!name || !email || !phone){
-      showToast("Please fill in all fields.", "warning");
-      return;
-    }
-    if(LK.admins.some(a => a.email === email)){
-      showToast("An admin with this email already exists.", "danger");
-      return;
-    }
-
-    const maxId = LK.admins.reduce((max, a) => {
-      const num = parseInt(a.id.replace('A', ''));
-      return num > max ? num : max;
-    }, 0);
-    const newId = 'A' + String(maxId + 1).padStart(3, '0');
-
-    LK.admins.push({
-      id: newId,
-      name: name,
-      email: email,
-      phone: phone,
-      role: "Admin",
-      aadhar: aadharFile ? URL.createObjectURL(aadharFile) : null,
-      access: {
-        tenants: { v: false, a: false, e: false, d: false },
-        guests:  { v: false, a: false, e: false, d: false },
-        admins:  { v: false, a: false, e: false, d: false },
-        messages:{ v: false, a: false, e: false, d: false },
-        bills:   { v: false, a: false, e: false, d: false },
-        pgs:     { v: false, a: false, e: false, d: false },
-        maintenance: { v: false, a: false, e: false, d: false },
-        documents: { v: false, a: false, e: false, d: false }
+    setTimeout(() => {
+      if(!name || !email || !phone){
+        showToast("Please fill in all fields.", "warning");
+        LOADER.hide(btn);
+        return;
       }
-    });
+      if(LK.admins.some(a => a.email === email)){
+        showToast("An admin with this email already exists.", "danger");
+        LOADER.hide(btn);
+        return;
+      }
 
-    LK.credentials[email] = { password: "admin@123", role: "Admin", name: name };
+      const maxId = LK.admins.reduce((max, a) => {
+        const num = parseInt(a.id.replace('A', ''));
+        return num > max ? num : max;
+      }, 0);
+      const newId = 'A' + String(maxId + 1).padStart(3, '0');
 
-    addModal.hide();
-    showToast(`${name} has been added as an admin.`, "success");
-    renderTable(document.getElementById("adminSearch").value);
-    document.getElementById("addAdminForm").reset();
+      LK.admins.push({
+        id: newId,
+        name: name,
+        email: email,
+        phone: phone,
+        role: "Admin",
+        aadhar: aadharFile ? URL.createObjectURL(aadharFile) : null,
+        access: {
+          tenants: { v: false, a: false, e: false, d: false },
+          guests:  { v: false, a: false, e: false, d: false },
+          admins:  { v: false, a: false, e: false, d: false },
+          messages:{ v: false, a: false, e: false, d: false },
+          bills:   { v: false, a: false, e: false, d: false },
+          pgs:     { v: false, a: false, e: false, d: false },
+          maintenance: { v: false, a: false, e: false, d: false },
+          documents: { v: false, a: false, e: false, d: false }
+        }
+      });
+
+      LK.credentials[email] = { password: "admin@123", role: "Admin", name: name };
+
+      addModal.hide();
+      showToast(`${name} has been added as an admin.`, "success");
+      renderTable(document.getElementById("adminSearch").value);
+      document.getElementById("addAdminForm").reset();
+      LOADER.hide(btn);
+    }, 600);
   });
 
   /* -------- Edit admin -------- */
@@ -94,8 +102,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("eaPhone").value = a.phone;
     editModal.show();
   };
-  document.getElementById("editAdminForm").addEventListener("submit", (e) => {
+  
+  document.getElementById("editAdminForm").addEventListener("submit", function(e){
     e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Saving...');
+    
     const id = document.getElementById("eaId").value;
     const a = LK.admins.find(x => x.id === id);
     if(!a) return;
@@ -104,24 +116,27 @@ document.addEventListener("DOMContentLoaded", () => {
     const newPhone = document.getElementById("eaPhone").value.trim();
     const aadharFile = document.getElementById("eaAadhar").files[0];
 
-    if(a.email !== newEmail){
-      delete LK.credentials[a.email];
-      LK.credentials[newEmail] = { password: "admin@123", role: "Admin", name: newName };
-    } else {
-      if(LK.credentials[a.email]){
-        LK.credentials[a.email].name = newName;
+    setTimeout(() => {
+      if(a.email !== newEmail){
+        delete LK.credentials[a.email];
+        LK.credentials[newEmail] = { password: "admin@123", role: "Admin", name: newName };
+      } else {
+        if(LK.credentials[a.email]){
+          LK.credentials[a.email].name = newName;
+        }
       }
-    }
 
-    a.name = newName;
-    a.email = newEmail;
-    a.phone = newPhone;
-    if(aadharFile){
-      a.aadhar = URL.createObjectURL(aadharFile);
-    }
-    editModal.hide();
-    showToast(`${a.name}'s details were updated.`, "success");
-    renderTable(document.getElementById("adminSearch").value);
+      a.name = newName;
+      a.email = newEmail;
+      a.phone = newPhone;
+      if(aadharFile){
+        a.aadhar = URL.createObjectURL(aadharFile);
+      }
+      editModal.hide();
+      showToast(`${a.name}'s details were updated.`, "success");
+      renderTable(document.getElementById("adminSearch").value);
+      LOADER.hide(btn);
+    }, 500);
   });
 
   /* -------- Delete admin -------- */
@@ -131,12 +146,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if(!a) return;
     document.getElementById("confirmTitle").textContent = `Delete ${a.name}?`;
     document.getElementById("confirmBody").textContent = "This admin will lose all access to the Livinkey console immediately.";
-    document.getElementById("confirmActionBtn").onclick = () => {
-      LK.admins = LK.admins.filter(x => x.id !== id);
-      delete LK.credentials[a.email];
-      confirmModal.hide();
-      showToast(`${a.name} was removed as an admin.`, "danger");
-      renderTable(document.getElementById("adminSearch").value);
+    document.getElementById("confirmActionBtn").onclick = function(){
+      const btn = this;
+      LOADER.show(btn, 'Deleting...');
+      setTimeout(() => {
+        LK.admins = LK.admins.filter(x => x.id !== id);
+        delete LK.credentials[a.email];
+        confirmModal.hide();
+        showToast(`${a.name} was removed as an admin.`, "danger");
+        renderTable(document.getElementById("adminSearch").value);
+        LOADER.hide(btn);
+      }, 500);
     };
     confirmModal.show();
   };
@@ -147,8 +167,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const a = LK.admins.find(x => x.id === id);
     if(!a || !a.aadhar) return;
     document.getElementById("aadharPreviewImg").src = a.aadhar;
-    document.getElementById("downloadAadharBtn").onclick = () => {
-      showToast("Aadhar download started.", "info");
+    document.getElementById("downloadAadharBtn").onclick = function(){
+      const btn = this;
+      LOADER.show(btn, 'Downloading...');
+      setTimeout(() => {
+        showToast("Aadhar download started.", "info");
+        LOADER.hide(btn);
+      }, 500);
     };
     aadharPreviewModal.show();
   };
@@ -174,15 +199,20 @@ document.addEventListener("DOMContentLoaded", () => {
     accessModal.show();
   };
 
-  document.getElementById("confirmAccessBtn").addEventListener("click", () => {
-    const a = LK.admins.find(x => x.id === activeAdminId);
-    if(!a) return;
-    document.querySelectorAll(".access-cb").forEach(cb => {
-      const m = cb.dataset.module, p = cb.dataset.perm;
-      a.access[m][p] = cb.checked;
-    });
-    accessModal.hide();
-    showToast(`Access permissions updated for ${a.name}.`, "success");
+  document.getElementById("confirmAccessBtn").addEventListener("click", function(){
+    const btn = this;
+    LOADER.show(btn, 'Saving...');
+    setTimeout(() => {
+      const a = LK.admins.find(x => x.id === activeAdminId);
+      if(!a) return;
+      document.querySelectorAll(".access-cb").forEach(cb => {
+        const m = cb.dataset.module, p = cb.dataset.perm;
+        a.access[m][p] = cb.checked;
+      });
+      accessModal.hide();
+      showToast(`Access permissions updated for ${a.name}.`, "success");
+      LOADER.hide(btn);
+    }, 500);
   });
 
   renderTable();

@@ -186,12 +186,22 @@ Livinkey Team`;
   };
 
   window.sendDetailMessage = function(id){
-    detailModal.hide();
-    showToast("Message sent to tenant.", "success");
+    const btn = document.querySelector('#detailFooter .btn-brand');
+    if(btn) LOADER.show(btn, 'Sending...');
+    setTimeout(() => {
+      detailModal.hide();
+      showToast("Message sent to tenant.", "success");
+      if(btn) LOADER.hide(btn);
+    }, 600);
   };
   
   window.generateReceipt = function(id){
-    showToast("Receipt generated and sent to tenant's email.", "success");
+    const btn = document.querySelector('#detailFooter .btn-dark-brand');
+    if(btn) LOADER.show(btn, 'Generating...');
+    setTimeout(() => {
+      showToast("Receipt generated and sent to tenant's email.", "success");
+      if(btn) LOADER.hide(btn);
+    }, 800);
   };
 
   window.generateAndSendQR = function(id){
@@ -206,22 +216,27 @@ Livinkey Team`;
       billId: `BILL-${t.id}-${Date.now().toString().slice(-6)}`
     };
     
-    showToast(`📱 QR Code generated for ${t.name} (₹${amount})`, "info");
-    
-    const conv = LK.conversations[t.id] || (LK.conversations[t.id] = []);
-    conv.push({ 
-      from: "admin", 
-      text: `🔷 Payment QR Code attached — Bill ID: ${qrData.billId}, Amount: ${fmtINR(amount)}. Please scan to pay.`, 
-      time: "Just now",
-      hasQR: true,
-      qrData: qrData
-    });
+    const btn = document.querySelector('#detailFooter .btn-dark-brand');
+    if(btn) LOADER.show(btn, 'Generating...');
     
     setTimeout(() => {
-      showToast(`✅ QR Code sent to ${t.name} via messages.`, "success");
-    }, 500);
-    
-    detailModal.hide();
+      showToast(`📱 QR Code generated for ${t.name} (₹${amount})`, "info");
+      
+      const conv = LK.conversations[t.id] || (LK.conversations[t.id] = []);
+      conv.push({ 
+        from: "admin", 
+        text: `🔷 Payment QR Code attached — Bill ID: ${qrData.billId}, Amount: ${fmtINR(amount)}. Please scan to pay.`, 
+        time: "Just now",
+        hasQR: true,
+        qrData: qrData
+      });
+      
+      setTimeout(() => {
+        showToast(`✅ QR Code sent to ${t.name} via messages.`, "success");
+        if(btn) LOADER.hide(btn);
+        detailModal.hide();
+      }, 400);
+    }, 600);
   };
 
   /* -------- Attach and QR Code -------- */
@@ -233,8 +248,13 @@ Livinkey Team`;
       showToast("File attached successfully.", "info");
     }
   });
-  document.getElementById("qrBtn")?.addEventListener("click", () => {
-    showToast("QR Code generated for payment.", "success");
+  document.getElementById("qrBtn")?.addEventListener("click", function(){
+    const btn = this;
+    LOADER.show(btn, 'Generating...');
+    setTimeout(() => {
+      showToast("QR Code generated for payment.", "success");
+      LOADER.hide(btn);
+    }, 500);
   });
 
   /* -------- Cash payment + OTP -------- */
@@ -245,8 +265,11 @@ Livinkey Team`;
   const cashOtpModal = new bootstrap.Modal(document.getElementById("cashOtpModal"));
   let pendingCash = null;
 
-  document.getElementById("cashForm").addEventListener("submit", (e) => {
+  document.getElementById("cashForm").addEventListener("submit", function(e){
     e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Processing...');
+    
     const t = LK.tenants.find(x => x.id === document.getElementById("cashTenant").value);
     pendingCash = {
       tenantId: t.id,
@@ -254,11 +277,15 @@ Livinkey Team`;
       till: document.getElementById("cashTill").value,
       amount: Number(document.getElementById("cashAmount").value)
     };
-    bootstrap.Modal.getInstance(cashModal).hide();
-    document.getElementById("cashOtpTenant").textContent = t.name;
-    document.querySelectorAll(".cash-otp-box").forEach(b => b.value = "");
-    showToast(`Demo OTP sent to ${t.name}: <strong>123456</strong>`, "info");
-    cashOtpModal.show();
+    
+    setTimeout(() => {
+      bootstrap.Modal.getInstance(cashModal).hide();
+      document.getElementById("cashOtpTenant").textContent = t.name;
+      document.querySelectorAll(".cash-otp-box").forEach(b => b.value = "");
+      showToast(`Demo OTP sent to ${t.name}: <strong>123456</strong>`, "info");
+      cashOtpModal.show();
+      LOADER.hide(btn);
+    }, 500);
   });
 
   document.querySelectorAll(".cash-otp-box").forEach((box, i, arr) => {
@@ -268,26 +295,33 @@ Livinkey Team`;
     });
   });
 
-  document.getElementById("verifyCashOtpBtn").addEventListener("click", () => {
+  document.getElementById("verifyCashOtpBtn").addEventListener("click", function(){
+    const btn = this;
+    LOADER.show(btn, 'Verifying...');
+    
     const code = Array.from(document.querySelectorAll(".cash-otp-box")).map(b => b.value).join("");
-    if(code !== "1234" && code !== "123456"){
-      showToast("Incorrect OTP. Please try again.", "danger");
-      return;
-    }
-    const t = LK.tenants.find(x => x.id === pendingCash.tenantId);
-    t.billStatus = "cash";
-    t.dueMonths = []; 
-    t.dueAmount = 0; 
-    t.delayedDays = 0; 
-    t.fine = 0;
-    t.paidAmount = pendingCash.amount; 
-    t.paidDate = pendingCash.till; 
-    t.nextPaymentDate = pendingCash.till;
-    cashOtpModal.hide();
-    showToast(`Cash payment of ${fmtINR(pendingCash.amount)} collected from ${t.name}.`, "success");
-    renderStats(); 
-    renderTabs(); 
-    renderTable();
+    setTimeout(() => {
+      if(code !== "1234" && code !== "123456"){
+        showToast("Incorrect OTP. Please try again.", "danger");
+        LOADER.hide(btn);
+        return;
+      }
+      const t = LK.tenants.find(x => x.id === pendingCash.tenantId);
+      t.billStatus = "cash";
+      t.dueMonths = []; 
+      t.dueAmount = 0; 
+      t.delayedDays = 0; 
+      t.fine = 0;
+      t.paidAmount = pendingCash.amount; 
+      t.paidDate = pendingCash.till; 
+      t.nextPaymentDate = pendingCash.till;
+      cashOtpModal.hide();
+      showToast(`Cash payment of ${fmtINR(pendingCash.amount)} collected from ${t.name}.`, "success");
+      renderStats(); 
+      renderTabs(); 
+      renderTable();
+      LOADER.hide(btn);
+    }, 600);
   });
 
   /* -------- Create bill with QR attachment -------- */
@@ -319,10 +353,14 @@ Livinkey Team`;
     }
   });
 
-  document.getElementById("billGenerateQRBtn")?.addEventListener("click", () => {
+  document.getElementById("billGenerateQRBtn")?.addEventListener("click", function(){
+    const btn = this;
+    LOADER.show(btn, 'Generating QR...');
+    
     const tenantId = document.getElementById("billTenant").value;
     if(!tenantId){
       showToast("Please select a tenant first.", "warning");
+      LOADER.hide(btn);
       return;
     }
     const t = LK.tenants.find(x => x.id === tenantId);
@@ -334,20 +372,24 @@ Livinkey Team`;
     
     if(total === 0){
       showToast("Please enter an amount to generate QR.", "warning");
+      LOADER.hide(btn);
       return;
     }
     
-    billQRCode = {
-      tenant: t.name,
-      amount: total,
-      pg: getPgName(t.pgId),
-      room: t.roomNo,
-      date: new Date().toISOString().split('T')[0],
-      billId: `BILL-${t.id}-${Date.now().toString().slice(-6)}`
-    };
-    
-    document.getElementById("billQRStatus").innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> QR Generated (₹${total})`;
-    showToast(`✅ QR Code generated for ${t.name} — ₹${total}`, "success");
+    setTimeout(() => {
+      billQRCode = {
+        tenant: t.name,
+        amount: total,
+        pg: getPgName(t.pgId),
+        room: t.roomNo,
+        date: new Date().toISOString().split('T')[0],
+        billId: `BILL-${t.id}-${Date.now().toString().slice(-6)}`
+      };
+      
+      document.getElementById("billQRStatus").innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> QR Generated (₹${total})`;
+      showToast(`✅ QR Code generated for ${t.name} — ₹${total}`, "success");
+      LOADER.hide(btn);
+    }, 500);
   });
 
   function calculateTotal(){
@@ -359,8 +401,11 @@ Livinkey Team`;
     document.getElementById("billTotalDisplay").textContent = fmtINR(total);
   }
 
-  document.getElementById("createBillForm").addEventListener("submit", (e) => {
+  document.getElementById("createBillForm").addEventListener("submit", function(e){
     e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Sending bill...');
+    
     const t = LK.tenants.find(x => x.id === document.getElementById("billTenant").value);
     const rent = Number(document.getElementById("billRent").value || 0);
     const elec = Number(document.getElementById("billElectricity").value || 0);
@@ -368,36 +413,39 @@ Livinkey Team`;
     const other = Number(document.getElementById("billOther").value || 0);
     const total = rent + elec + maint + other;
     
-    const conv = LK.conversations[t.id] || (LK.conversations[t.id] = []);
-    let messageText = `📄 New bill generated — Rent: ${fmtINR(rent)}, Electricity: ${fmtINR(elec)}, Maintenance: ${fmtINR(maint)}, Other: ${fmtINR(other)}. Total due: ${fmtINR(total)}.`;
-    
-    if(billAttachment){
-      messageText += ` 📎 Attachment: ${billAttachment.name}`;
-    }
-    
-    if(billQRCode){
-      messageText += ` 📱 QR Code attached for payment (ID: ${billQRCode.billId})`;
-    }
-    
-    conv.push({ 
-      from: "admin", 
-      text: messageText, 
-      time: "Just now",
-      hasAttachment: !!billAttachment,
-      attachmentName: billAttachment ? billAttachment.name : null,
-      hasQR: !!billQRCode,
-      qrData: billQRCode
-    });
-    
-    bootstrap.Modal.getInstance(document.getElementById("createBillModal")).hide();
-    e.target.reset();
-    document.getElementById("billTotalDisplay").textContent = "₹0";
-    document.getElementById("billAttachmentStatus").textContent = "No file attached";
-    document.getElementById("billQRStatus").textContent = "No QR generated";
-    billAttachment = null;
-    billQRCode = null;
-    
-    showToast(`✅ Bill of ${fmtINR(total)} sent to ${t.name} with ${billAttachment ? 'attachment & ' : ''}${billQRCode ? 'QR code' : 'no QR'}.`, "success");
+    setTimeout(() => {
+      const conv = LK.conversations[t.id] || (LK.conversations[t.id] = []);
+      let messageText = `📄 New bill generated — Rent: ${fmtINR(rent)}, Electricity: ${fmtINR(elec)}, Maintenance: ${fmtINR(maint)}, Other: ${fmtINR(other)}. Total due: ${fmtINR(total)}.`;
+      
+      if(billAttachment){
+        messageText += ` 📎 Attachment: ${billAttachment.name}`;
+      }
+      
+      if(billQRCode){
+        messageText += ` 📱 QR Code attached for payment (ID: ${billQRCode.billId})`;
+      }
+      
+      conv.push({ 
+        from: "admin", 
+        text: messageText, 
+        time: "Just now",
+        hasAttachment: !!billAttachment,
+        attachmentName: billAttachment ? billAttachment.name : null,
+        hasQR: !!billQRCode,
+        qrData: billQRCode
+      });
+      
+      bootstrap.Modal.getInstance(document.getElementById("createBillModal")).hide();
+      this.reset();
+      document.getElementById("billTotalDisplay").textContent = "₹0";
+      document.getElementById("billAttachmentStatus").textContent = "No file attached";
+      document.getElementById("billQRStatus").textContent = "No QR generated";
+      billAttachment = null;
+      billQRCode = null;
+      
+      showToast(`✅ Bill of ${fmtINR(total)} sent to ${t.name}.`, "success");
+      LOADER.hide(btn);
+    }, 600);
   });
 
   renderStats(); 

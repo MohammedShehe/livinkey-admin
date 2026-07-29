@@ -68,10 +68,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("documentsEmpty").classList.toggle("d-none", docs.length > 0);
   }
 
-  // Add search input for documents
-  // We need to add a search bar in the HTML. Update the documents.html to include search.
-  // For now, we'll add it dynamically or use the existing search that we'll add to the HTML.
-
   /* -------- Preview Document -------- */
   const previewModal = new bootstrap.Modal(document.getElementById("docPreviewModal"));
   let currentDocId = null;
@@ -86,20 +82,35 @@ document.addEventListener("DOMContentLoaded", () => {
     previewModal.show();
   };
 
-  document.getElementById("docDownloadBtn").addEventListener("click", () => {
-    showToast("Document download started.", "info");
+  document.getElementById("docDownloadBtn").addEventListener("click", function(){
+    const btn = this;
+    LOADER.show(btn, 'Downloading...');
+    setTimeout(() => {
+      showToast("Document download started.", "info");
+      LOADER.hide(btn);
+    }, 500);
   });
 
-  document.getElementById("docDeleteBtn").addEventListener("click", () => {
+  document.getElementById("docDeleteBtn").addEventListener("click", function(){
     if(currentDocId){
-      deleteDocument(currentDocId);
-      previewModal.hide();
+      const btn = this;
+      LOADER.show(btn, 'Deleting...');
+      setTimeout(() => {
+        deleteDocument(currentDocId);
+        previewModal.hide();
+        LOADER.hide(btn);
+      }, 400);
     }
   });
 
   /* -------- Download Document -------- */
   window.downloadDocument = function(id){
-    showToast("Document download started.", "info");
+    const btn = event?.target?.closest?.('.btn-icon');
+    if(btn) LOADER.show(btn, 'Downloading...');
+    setTimeout(() => {
+      showToast("Document download started.", "info");
+      if(btn) LOADER.hide(btn);
+    }, 500);
   };
 
   /* -------- Delete Document -------- */
@@ -111,35 +122,45 @@ document.addEventListener("DOMContentLoaded", () => {
     
     document.getElementById("confirmTitle").textContent = `Delete ${doc.docType}?`;
     document.getElementById("confirmBody").textContent = `This will permanently remove ${doc.docType} for ${doc.tenantName}.`;
-    document.getElementById("confirmActionBtn").onclick = () => {
-      // Find tenant and remove document
-      const tenant = LK.tenants.find(t => t.id === doc.tenantId);
-      if(tenant && tenant.docs){
-        tenant.docs[doc.docKey] = false;
-      }
-      confirmModal.hide();
-      showToast(`${doc.docType} deleted.`, "danger");
-      const searchVal = document.getElementById("docSearch")?.value || "";
-      renderGrid(searchVal);
+    document.getElementById("confirmActionBtn").onclick = function(){
+      const btn = this;
+      LOADER.show(btn, 'Deleting...');
+      setTimeout(() => {
+        const tenant = LK.tenants.find(t => t.id === doc.tenantId);
+        if(tenant && tenant.docs){
+          tenant.docs[doc.docKey] = false;
+        }
+        confirmModal.hide();
+        showToast(`${doc.docType} deleted.`, "danger");
+        const searchVal = document.getElementById("docSearch")?.value || "";
+        renderGrid(searchVal);
+        LOADER.hide(btn);
+      }, 400);
     };
     confirmModal.show();
   };
 
   /* -------- Download All -------- */
-  document.getElementById("downloadAllBtn").addEventListener("click", () => {
+  document.getElementById("downloadAllBtn").addEventListener("click", function(){
+    const btn = this;
+    LOADER.show(btn, 'Downloading...');
     const docs = getAllDocuments();
     if(docs.length === 0){
       showToast("No documents to download.", "warning");
+      LOADER.hide(btn);
       return;
     }
-    showToast(`Downloading all ${docs.length} documents...`, "info");
     setTimeout(() => {
-      showToast("All documents downloaded successfully.", "success");
-    }, 1500);
+      showToast(`Downloading all ${docs.length} documents...`, "info");
+      setTimeout(() => {
+        showToast("All documents downloaded successfully.", "success");
+        LOADER.hide(btn);
+      }, 1000);
+    }, 300);
   });
 
   /* -------- Delete All -------- */
-  document.getElementById("deleteAllBtn").addEventListener("click", () => {
+  document.getElementById("deleteAllBtn").addEventListener("click", function(){
     const docs = getAllDocuments();
     if(docs.length === 0){
       showToast("No documents to delete.", "warning");
@@ -147,19 +168,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     document.getElementById("confirmTitle").textContent = "Delete all documents?";
     document.getElementById("confirmBody").textContent = `This will permanently remove all ${docs.length} documents. This action cannot be undone.`;
-    document.getElementById("confirmActionBtn").onclick = () => {
-      // Delete all documents from all tenants
-      LK.tenants.forEach(t => {
-        if(t.docs){
-          Object.keys(t.docs).forEach(key => {
-            t.docs[key] = false;
-          });
-        }
-      });
-      confirmModal.hide();
-      showToast("All documents deleted.", "danger");
-      const searchVal = document.getElementById("docSearch")?.value || "";
-      renderGrid(searchVal);
+    document.getElementById("confirmActionBtn").onclick = function(){
+      const btn = this;
+      LOADER.show(btn, 'Deleting...');
+      setTimeout(() => {
+        LK.tenants.forEach(t => {
+          if(t.docs){
+            Object.keys(t.docs).forEach(key => {
+              t.docs[key] = false;
+            });
+          }
+        });
+        confirmModal.hide();
+        showToast("All documents deleted.", "danger");
+        const searchVal = document.getElementById("docSearch")?.value || "";
+        renderGrid(searchVal);
+        LOADER.hide(btn);
+      }, 600);
     };
     confirmModal.show();
   });

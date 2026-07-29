@@ -227,18 +227,27 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // Apply floors button
-  document.getElementById("applyFloorsBtn").addEventListener("click", () => {
+  document.getElementById("applyFloorsBtn").addEventListener("click", function() {
+    const btn = this;
+    LOADER.show(btn, 'Applying...');
+    
     const floorCount = Number(document.getElementById("pFloors").value) || 1;
     if (floorCount < 1) {
       showToast("Please enter at least 1 floor.", "warning");
+      LOADER.hide(btn);
       return;
     }
     if (floorCount > 10) {
       showToast("Maximum 10 floors allowed.", "warning");
+      LOADER.hide(btn);
       return;
     }
-    renderFloors();
-    showToast(`${floorCount} floor(s) configured. Add rooms to each floor.`, "success");
+    
+    setTimeout(() => {
+      renderFloors();
+      showToast(`${floorCount} floor(s) configured. Add rooms to each floor.`, "success");
+      LOADER.hide(btn);
+    }, 300);
   });
 
   // Trigger initial floor render
@@ -285,8 +294,11 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // Submit form - Save PG
-  document.getElementById("pgForm").addEventListener("submit", (e) => {
+  document.getElementById("pgForm").addEventListener("submit", function(e){
     e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Saving PG...');
+    
     const id = document.getElementById("pgId").value;
     const name = document.getElementById("pName").value.trim();
     const location = document.getElementById("pLocation").value.trim();
@@ -294,6 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!name || !location) {
       showToast("Please enter PG name and location.", "warning");
+      LOADER.hide(btn);
       return;
     }
 
@@ -301,6 +314,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasRooms = floorData.some(floor => floor.rooms.length > 0);
     if (!hasRooms) {
       showToast("Please add at least one room to any floor.", "warning");
+      LOADER.hide(btn);
       return;
     }
 
@@ -319,32 +333,35 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    if (id) {
-      // Edit existing PG
-      const p = LK.pgs.find(x => x.id === id);
-      if (p) {
-        p.name = name;
-        p.location = location;
-        p.floors = floors;
-        p.rooms = rooms;
-        showToast(`PG "${name}" updated.`, "success");
+    setTimeout(() => {
+      if (id) {
+        // Edit existing PG
+        const p = LK.pgs.find(x => x.id === id);
+        if (p) {
+          p.name = name;
+          p.location = location;
+          p.floors = floors;
+          p.rooms = rooms;
+          showToast(`PG "${name}" updated.`, "success");
+        }
+      } else {
+        // Add new PG
+        LK.pgs.push({
+          id: "PG" + Math.random().toString(36).slice(2, 7).toUpperCase(),
+          name: name,
+          location: location,
+          floors: floors,
+          roomsPerFloor: 0,
+          capacity: 0,
+          rooms: rooms
+        });
+        showToast(`PG "${name}" added.`, "success");
       }
-    } else {
-      // Add new PG
-      LK.pgs.push({
-        id: "PG" + Math.random().toString(36).slice(2, 7).toUpperCase(),
-        name: name,
-        location: location,
-        floors: floors,
-        roomsPerFloor: 0, // Not used anymore, kept for compatibility
-        capacity: 0, // Not used anymore, kept for compatibility
-        rooms: rooms
-      });
-      showToast(`PG "${name}" added.`, "success");
-    }
-    pgModal.hide();
-    renderStats();
-    renderGrid(document.getElementById("pgSearch").value);
+      pgModal.hide();
+      renderStats();
+      renderGrid(document.getElementById("pgSearch").value);
+      LOADER.hide(btn);
+    }, 600);
   });
 
   /* -------- Delete PG -------- */
@@ -354,12 +371,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!p) return;
     document.getElementById("confirmTitle").textContent = `Delete "${p.name}"?`;
     document.getElementById("confirmBody").textContent = "This will remove the PG and all its rooms from your portfolio.";
-    document.getElementById("confirmActionBtn").onclick = () => {
-      LK.pgs = LK.pgs.filter(x => x.id !== id);
-      confirmModal.hide();
-      showToast(`PG "${p.name}" deleted.`, "danger");
-      renderStats();
-      renderGrid(document.getElementById("pgSearch").value);
+    document.getElementById("confirmActionBtn").onclick = function(){
+      const btn = this;
+      LOADER.show(btn, 'Deleting...');
+      setTimeout(() => {
+        LK.pgs = LK.pgs.filter(x => x.id !== id);
+        confirmModal.hide();
+        showToast(`PG "${p.name}" deleted.`, "danger");
+        renderStats();
+        renderGrid(document.getElementById("pgSearch").value);
+        LOADER.hide(btn);
+      }, 500);
     };
     confirmModal.show();
   };

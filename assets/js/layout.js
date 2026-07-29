@@ -103,7 +103,14 @@ function renderLayout(activeKey, pageTitle, pageSub){
     </header>
   `;
 
-  document.getElementById("logoutBtn").addEventListener("click", () => AUTH.logout());
+  document.getElementById("logoutBtn").addEventListener("click", function(){
+    const btn = this;
+    LOADER.show(btn, 'Logging out...');
+    setTimeout(() => {
+      AUTH.logout();
+    }, 400);
+  });
+  
   document.getElementById("sidebarToggleBtn")?.addEventListener("click", () => {
     document.getElementById("sidebarEl").classList.toggle("show");
     document.getElementById("sidebarBackdrop").classList.toggle("show");

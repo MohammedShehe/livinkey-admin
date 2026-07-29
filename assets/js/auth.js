@@ -4,6 +4,28 @@
    provider wired up in this frontend-only build.
    ========================================================================== */
 
+// Loading utility
+const LOADER = {
+  show(button, text = null) {
+    if (!button) return;
+    button.disabled = true;
+    button._originalText = button.innerHTML;
+    button._originalWidth = button.style.minWidth || button.offsetWidth + 'px';
+    button.style.minWidth = button._originalWidth;
+    button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${text || 'Loading...'}`;
+  },
+  hide(button) {
+    if (!button) return;
+    button.disabled = false;
+    if (button._originalText) {
+      button.innerHTML = button._originalText;
+      if (button._originalWidth) {
+        button.style.minWidth = '';
+      }
+    }
+  }
+};
+
 const AUTH = {
   DEMO_OTP: "123456",
 
@@ -46,17 +68,23 @@ function initLoginPage(){
   form.addEventListener("submit", function(e){
     e.preventDefault();
     errorBox.classList.add("d-none");
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Signing in...');
+    
     const email = document.getElementById("email").value.trim().toLowerCase();
     const password = document.getElementById("password").value;
     const cred = LK.credentials[email];
 
-    if(!cred || cred.password !== password){
-      errorBox.textContent = "Incorrect email or password. Please try again.";
-      errorBox.classList.remove("d-none");
-      return;
-    }
-    AUTH.setPending("lk_login_pending", { email, purpose: "login" });
-    window.location.href = "otp-verify.html";
+    setTimeout(() => {
+      if(!cred || cred.password !== password){
+        errorBox.textContent = "Incorrect email or password. Please try again.";
+        errorBox.classList.remove("d-none");
+        LOADER.hide(btn);
+        return;
+      }
+      AUTH.setPending("lk_login_pending", { email, purpose: "login" });
+      window.location.href = "otp-verify.html";
+    }, 800);
   });
 }
 
@@ -91,10 +119,14 @@ function initOtpPage(){
   const errorBox = document.getElementById("otpError");
   wrap.addEventListener("submit", function(e){
     e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Verifying...');
+    
     const code = inputs.map(i => i.value).join("");
     if(code.length < 6){
       errorBox.textContent = "Please enter the complete 6-digit code.";
       errorBox.classList.remove("d-none");
+      LOADER.hide(btn);
       return;
     }
     if(code !== AUTH.DEMO_OTP){
@@ -102,18 +134,21 @@ function initOtpPage(){
       errorBox.classList.remove("d-none");
       inputs.forEach(i => i.value = "");
       inputs[0].focus();
+      LOADER.hide(btn);
       return;
     }
     errorBox.classList.add("d-none");
 
-    if(purpose === "login"){
-      AUTH.clearPending("lk_login_pending");
-      AUTH.setSession(email);
-      window.location.href = "tenants.html";
-    } else {
-      AUTH.setPending("lk_reset_pending", { email, verified: true });
-      window.location.href = "forgot-password.html#reset";
-    }
+    setTimeout(() => {
+      if(purpose === "login"){
+        AUTH.clearPending("lk_login_pending");
+        AUTH.setSession(email);
+        window.location.href = "tenants.html";
+      } else {
+        AUTH.setPending("lk_reset_pending", { email, verified: true });
+        window.location.href = "forgot-password.html#reset";
+      }
+    }, 500);
   });
 
   document.getElementById("resendOtp")?.addEventListener("click", (e) => {
@@ -144,36 +179,52 @@ function initForgotPasswordPage(){
 
   document.getElementById("emailForm").addEventListener("submit", function(e){
     e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Sending OTP...');
+    
     const email = document.getElementById("fpEmail").value.trim().toLowerCase();
     const errorBox = document.getElementById("fpEmailError");
-    if(!LK.credentials[email]){
-      errorBox.textContent = "This email is not registered with Livinkey.";
-      errorBox.classList.remove("d-none");
-      return;
-    }
-    errorBox.classList.add("d-none");
-    AUTH.setPending("lk_reset_pending", { email, verified: false });
-    window.location.href = "otp-verify.html";
+    
+    setTimeout(() => {
+      if(!LK.credentials[email]){
+        errorBox.textContent = "This email is not registered with Livinkey.";
+        errorBox.classList.remove("d-none");
+        LOADER.hide(btn);
+        return;
+      }
+      errorBox.classList.add("d-none");
+      AUTH.setPending("lk_reset_pending", { email, verified: false });
+      window.location.href = "otp-verify.html";
+    }, 600);
   });
 
   document.getElementById("resetForm").addEventListener("submit", function(e){
     e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Setting password...');
+    
     const p1 = document.getElementById("newPwd").value;
     const p2 = document.getElementById("confirmPwd").value;
     const errorBox = document.getElementById("fpResetError");
-    if(p1.length < 6){
-      errorBox.textContent = "Password must be at least 6 characters.";
-      errorBox.classList.remove("d-none");
-      return;
-    }
-    if(p1 !== p2){
-      errorBox.textContent = "Passwords do not match.";
-      errorBox.classList.remove("d-none");
-      return;
-    }
-    errorBox.classList.add("d-none");
-    AUTH.clearPending("lk_reset_pending");
-    show(stepDone);
+    
+    setTimeout(() => {
+      if(p1.length < 6){
+        errorBox.textContent = "Password must be at least 6 characters.";
+        errorBox.classList.remove("d-none");
+        LOADER.hide(btn);
+        return;
+      }
+      if(p1 !== p2){
+        errorBox.textContent = "Passwords do not match.";
+        errorBox.classList.remove("d-none");
+        LOADER.hide(btn);
+        return;
+      }
+      errorBox.classList.add("d-none");
+      AUTH.clearPending("lk_reset_pending");
+      show(stepDone);
+      LOADER.hide(btn);
+    }, 600);
   });
 }
 

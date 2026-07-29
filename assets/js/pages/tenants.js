@@ -480,6 +480,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("tenantForm").addEventListener("submit", function(e){
     e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    LOADER.show(btn, 'Saving...');
+    
     const id = document.getElementById("tenantId").value;
     const role = roleSelect.value;
     const residency = residencySelect.value;
@@ -501,16 +504,19 @@ document.addEventListener("DOMContentLoaded", () => {
       
       if(!pgId){
         showToast("Please select a PG.", "warning");
+        LOADER.hide(btn);
         return;
       }
       if(!roomNo){
         showToast("Please select a room.", "warning");
+        LOADER.hide(btn);
         return;
       }
       
       const rent = Number(document.getElementById("tRent").value || 0);
       if(rent <= 0){
         showToast("Please enter a valid rent amount.", "warning");
+        LOADER.hide(btn);
         return;
       }
       
@@ -581,32 +587,35 @@ document.addEventListener("DOMContentLoaded", () => {
       payload.pgId = "";
     }
 
-    if(id){
-      const idx = LK.tenants.findIndex(t => t.id === id);
-      const existing = LK.tenants[idx];
-      if(existing.docs) {
-        payload.docs = { ...existing.docs, ...payload.docs };
-      }
-      LK.tenants[idx] = { ...existing, ...payload };
-      showToast(`${payload.name}'s details were updated.`, "success");
-    } else {
-      payload.id = "T" + String(LK.tenants.length + 1).padStart(3, '0');
-      LK.tenants.push(payload);
-      if(role === "Tenant" && payload.roomNo && payload.pgId){
-        const pg = LK.pgs.find(p => p.id === payload.pgId);
-        if(pg){
-          const room = pg.rooms.find(r => r.roomNo === payload.roomNo);
-          if(room && !room.occupants.includes(payload.name)){
-            room.occupants.push(payload.name);
+    setTimeout(() => {
+      if(id){
+        const idx = LK.tenants.findIndex(t => t.id === id);
+        const existing = LK.tenants[idx];
+        if(existing.docs) {
+          payload.docs = { ...existing.docs, ...payload.docs };
+        }
+        LK.tenants[idx] = { ...existing, ...payload };
+        showToast(`${payload.name}'s details were updated.`, "success");
+      } else {
+        payload.id = "T" + String(LK.tenants.length + 1).padStart(3, '0');
+        LK.tenants.push(payload);
+        if(role === "Tenant" && payload.roomNo && payload.pgId){
+          const pg = LK.pgs.find(p => p.id === payload.pgId);
+          if(pg){
+            const room = pg.rooms.find(r => r.roomNo === payload.roomNo);
+            if(room && !room.occupants.includes(payload.name)){
+              room.occupants.push(payload.name);
+            }
           }
         }
+        showToast(`${payload.name} was added successfully.`, "success");
       }
-      showToast(`${payload.name} was added successfully.`, "success");
-    }
-    isEditMode = false;
-    tenantModal.hide();
-    renderStats(); 
-    renderTable(document.getElementById("tenantSearch").value);
+      isEditMode = false;
+      LOADER.hide(btn);
+      tenantModal.hide();
+      renderStats(); 
+      renderTable(document.getElementById("tenantSearch").value);
+    }, 600);
   });
 
   window.editTenant = function(id){
@@ -677,20 +686,25 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("confirmTitle").textContent = `Delete ${t.name}?`;
     document.getElementById("confirmBody").textContent = "This will permanently remove this tenant and their documents. This action cannot be undone.";
     document.getElementById("confirmActionBtn").onclick = function(){
-      if(t.pgId && t.roomNo){
-        const pg = LK.pgs.find(p => p.id === t.pgId);
-        if(pg){
-          const room = pg.rooms.find(r => r.roomNo === t.roomNo);
-          if(room){
-            room.occupants = room.occupants.filter(name => name !== t.name);
+      const btn = this;
+      LOADER.show(btn, 'Deleting...');
+      setTimeout(() => {
+        if(t.pgId && t.roomNo){
+          const pg = LK.pgs.find(p => p.id === t.pgId);
+          if(pg){
+            const room = pg.rooms.find(r => r.roomNo === t.roomNo);
+            if(room){
+              room.occupants = room.occupants.filter(name => name !== t.name);
+            }
           }
         }
-      }
-      LK.tenants = LK.tenants.filter(x => x.id !== id);
-      confirmModal.hide();
-      showToast(`${t.name} was deleted.`, "danger");
-      renderStats(); 
-      renderTable(document.getElementById("tenantSearch").value);
+        LK.tenants = LK.tenants.filter(x => x.id !== id);
+        confirmModal.hide();
+        showToast(`${t.name} was deleted.`, "danger");
+        renderStats(); 
+        renderTable(document.getElementById("tenantSearch").value);
+        LOADER.hide(btn);
+      }, 500);
     };
     confirmModal.show();
   };
@@ -740,13 +754,18 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("confirmTitle").textContent = `Delete ${label}?`;
     document.getElementById("confirmBody").textContent = "This document will be permanently removed from the tenant's profile.";
     document.getElementById("confirmActionBtn").onclick = function(){
-      const t = LK.tenants.find(x => x.id === tenantId);
-      if(t && t.docs){
-        t.docs[key] = false;
-      }
-      confirmModal.hide();
-      showToast(`${label} deleted.`, "danger");
-      window.openDocs(tenantId);
+      const btn = this;
+      LOADER.show(btn, 'Deleting...');
+      setTimeout(() => {
+        const t = LK.tenants.find(x => x.id === tenantId);
+        if(t && t.docs){
+          t.docs[key] = false;
+        }
+        confirmModal.hide();
+        showToast(`${label} deleted.`, "danger");
+        window.openDocs(tenantId);
+        LOADER.hide(btn);
+      }, 400);
     };
     confirmModal.show();
   };

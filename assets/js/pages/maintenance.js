@@ -37,17 +37,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const m = LK.maintenance.find(x => x.id === id);
     if(!m || !m.picture) return;
     document.getElementById("previewImage").src = m.picture;
-    document.getElementById("downloadImageBtn").onclick = () => {
-      showToast("Image download started.", "info");
+    document.getElementById("downloadImageBtn").onclick = function(){
+      const btn = this;
+      LOADER.show(btn, 'Downloading...');
+      setTimeout(() => {
+        showToast("Image download started.", "info");
+        LOADER.hide(btn);
+      }, 500);
     };
     imageModal.show();
   };
 
   /* -------- Resolve Request -------- */
   window.resolveRequest = function(id){
-    showToast("Maintenance request marked as resolved.", "success");
-    LK.maintenance = LK.maintenance.filter(x => x.id !== id);
-    renderTable(document.getElementById("maintenanceSearch").value);
+    const btn = event?.target?.closest?.('.btn-icon');
+    if(btn) LOADER.show(btn);
+    
+    setTimeout(() => {
+      showToast("Maintenance request marked as resolved.", "success");
+      LK.maintenance = LK.maintenance.filter(x => x.id !== id);
+      renderTable(document.getElementById("maintenanceSearch").value);
+      if(btn) LOADER.hide(btn);
+    }, 500);
   };
 
   /* -------- Delete Request -------- */
@@ -58,10 +69,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("confirmTitle").textContent = `Delete request from ${m.tenantName}?`;
     document.getElementById("confirmBody").textContent = `This maintenance request (${m.type}) will be permanently removed.`;
     document.getElementById("confirmActionBtn").onclick = function(){
-      LK.maintenance = LK.maintenance.filter(x => x.id !== id);
-      confirmModal.hide();
-      showToast("Maintenance request deleted.", "danger");
-      renderTable(document.getElementById("maintenanceSearch").value);
+      const btn = this;
+      LOADER.show(btn, 'Deleting...');
+      setTimeout(() => {
+        LK.maintenance = LK.maintenance.filter(x => x.id !== id);
+        confirmModal.hide();
+        showToast("Maintenance request deleted.", "danger");
+        renderTable(document.getElementById("maintenanceSearch").value);
+        LOADER.hide(btn);
+      }, 500);
     };
     confirmModal.show();
   };
