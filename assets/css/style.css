@@ -253,6 +253,65 @@ a:hover{color:var(--lk-green-dark);}
 .filter-pill:hover:not(.active){border-color:var(--lk-green);}
 .toast-lk{position:fixed; top:1.2rem; right:1.2rem; z-index:2000;}
 
+/* ---------- Additional styles for bill attachments and QR ---------- */
+.attachment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--lk-green-100);
+  color: var(--lk-green-darker);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.qr-preview {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  text-align: center;
+  background: var(--bg);
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.qr-preview i {
+  font-size: 2rem;
+  color: var(--lk-green);
+}
+
+.qr-preview .qr-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.message-bubble .qr-attachment {
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.7rem;
+  margin-top: 0.4rem;
+  border-left: 3px solid var(--lk-green);
+  font-size: 0.78rem;
+}
+
+.message-bubble .file-attachment {
+  background: var(--lk-green-100);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.7rem;
+  margin-top: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--lk-green-darker);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px){
   .stat-card{flex-direction:column; text-align:center; padding:1rem;}
@@ -265,10 +324,21 @@ a:hover{color:var(--lk-green-dark);}
   .auth-visual{padding:2rem;}
   .auth-visual .tagline h2{font-size:1.5rem;}
 }
+
 @media (max-width: 576px){
   .chat-shell{flex-direction:column; height:auto;}
   .chat-list{width:100%; border-right:none; border-bottom:1px solid var(--border); max-height:200px;}
   .chat-main{height:400px;}
   .auth-form-side{padding:1rem;}
   .auth-card{padding:.5rem;}
+  .modal-dialog {
+    margin: 0.5rem;
+  }
+  #createBillModal .modal-dialog {
+    margin: 0.5rem;
+  }
+  .row.g-3 > [class*="col-"] {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
 }

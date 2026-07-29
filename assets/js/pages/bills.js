@@ -145,7 +145,8 @@ Livinkey Team`;
       document.getElementById("detailMessageWrap").classList.remove("d-none");
       document.getElementById("detailFooter").innerHTML = `
         <button class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
-        <button class="btn btn-brand" onclick="sendDetailMessage('${t.id}')"><i class="bi bi-send me-1"></i>Send message</button>`;
+        <button class="btn btn-brand" onclick="sendDetailMessage('${t.id}')"><i class="bi bi-send me-1"></i>Send message</button>
+        <button class="btn btn-dark-brand" onclick="generateAndSendQR('${t.id}')"><i class="bi bi-qr-code me-1"></i>Generate & Send QR</button>`;
     }
     else if(activeTab === "paid"){
       bodyHtml += `<div class="row g-2 small">
@@ -177,7 +178,8 @@ Livinkey Team`;
       document.getElementById("detailMessageWrap").classList.remove("d-none");
       document.getElementById("detailFooter").innerHTML = `
         <button class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
-        <button class="btn btn-brand" onclick="sendDetailMessage('${t.id}')"><i class="bi bi-send me-1"></i>Send message</button>`;
+        <button class="btn btn-brand" onclick="sendDetailMessage('${t.id}')"><i class="bi bi-send me-1"></i>Send message</button>
+        <button class="btn btn-dark-brand" onclick="generateAndSendQR('${t.id}')"><i class="bi bi-qr-code me-1"></i>Generate & Send QR</button>`;
     }
     document.getElementById("detailBody").innerHTML = bodyHtml;
     detailModal.show();
@@ -190,6 +192,36 @@ Livinkey Team`;
   
   window.generateReceipt = function(id){
     showToast("Receipt generated and sent to tenant's email.", "success");
+  };
+
+  window.generateAndSendQR = function(id){
+    const t = LK.tenants.find(x => x.id === id);
+    const amount = t.dueAmount || t.rent || 0;
+    const qrData = {
+      tenant: t.name,
+      amount: amount,
+      pg: getPgName(t.pgId),
+      room: t.roomNo,
+      date: new Date().toISOString().split('T')[0],
+      billId: `BILL-${t.id}-${Date.now().toString().slice(-6)}`
+    };
+    
+    showToast(`📱 QR Code generated for ${t.name} (₹${amount})`, "info");
+    
+    const conv = LK.conversations[t.id] || (LK.conversations[t.id] = []);
+    conv.push({ 
+      from: "admin", 
+      text: `🔷 Payment QR Code attached — Bill ID: ${qrData.billId}, Amount: ${fmtINR(amount)}. Please scan to pay.`, 
+      time: "Just now",
+      hasQR: true,
+      qrData: qrData
+    });
+    
+    setTimeout(() => {
+      showToast(`✅ QR Code sent to ${t.name} via messages.`, "success");
+    }, 500);
+    
+    detailModal.hide();
   };
 
   /* -------- Attach and QR Code -------- */
@@ -258,15 +290,65 @@ Livinkey Team`;
     renderTable();
   });
 
-  /* -------- Create bill -------- */
+  /* -------- Create bill with QR attachment -------- */
+  let billAttachment = null;
+  let billQRCode = null;
+
   document.getElementById("createBillModal").addEventListener("show.bs.modal", () => {
     document.getElementById("billTenant").innerHTML = tenantsBy("unpaid").map(t => `<option value="${t.id}">${t.name} — ${getPgName(t.pgId)} Room ${t.roomNo}</option>`).join("");
+    billAttachment = null;
+    billQRCode = null;
+    document.getElementById("billAttachmentStatus").textContent = "No file attached";
+    document.getElementById("billQRStatus").textContent = "No QR generated";
   });
   
   document.getElementById("billRent").addEventListener("input", calculateTotal);
   document.getElementById("billElectricity").addEventListener("input", calculateTotal);
   document.getElementById("billMaintenance").addEventListener("input", calculateTotal);
   document.getElementById("billOther").addEventListener("input", calculateTotal);
+
+  document.getElementById("billAttachBtn")?.addEventListener("click", () => {
+    document.getElementById("billAttachInput").click();
+  });
+  
+  document.getElementById("billAttachInput")?.addEventListener("change", function(){
+    if(this.files.length > 0){
+      billAttachment = this.files[0];
+      document.getElementById("billAttachmentStatus").innerHTML = `<i class="bi bi-paperclip me-1"></i> ${billAttachment.name}`;
+      showToast(`File "${billAttachment.name}" attached.`, "info");
+    }
+  });
+
+  document.getElementById("billGenerateQRBtn")?.addEventListener("click", () => {
+    const tenantId = document.getElementById("billTenant").value;
+    if(!tenantId){
+      showToast("Please select a tenant first.", "warning");
+      return;
+    }
+    const t = LK.tenants.find(x => x.id === tenantId);
+    const rent = Number(document.getElementById("billRent").value || 0);
+    const elec = Number(document.getElementById("billElectricity").value || 0);
+    const maint = Number(document.getElementById("billMaintenance").value || 0);
+    const other = Number(document.getElementById("billOther").value || 0);
+    const total = rent + elec + maint + other;
+    
+    if(total === 0){
+      showToast("Please enter an amount to generate QR.", "warning");
+      return;
+    }
+    
+    billQRCode = {
+      tenant: t.name,
+      amount: total,
+      pg: getPgName(t.pgId),
+      room: t.roomNo,
+      date: new Date().toISOString().split('T')[0],
+      billId: `BILL-${t.id}-${Date.now().toString().slice(-6)}`
+    };
+    
+    document.getElementById("billQRStatus").innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> QR Generated (₹${total})`;
+    showToast(`✅ QR Code generated for ${t.name} — ₹${total}`, "success");
+  });
 
   function calculateTotal(){
     const rent = Number(document.getElementById("billRent").value || 0);
@@ -285,12 +367,37 @@ Livinkey Team`;
     const maint = Number(document.getElementById("billMaintenance").value || 0);
     const other = Number(document.getElementById("billOther").value || 0);
     const total = rent + elec + maint + other;
+    
     const conv = LK.conversations[t.id] || (LK.conversations[t.id] = []);
-    conv.push({ from: "admin", text: `New bill generated — Rent: ${fmtINR(rent)}, Electricity: ${fmtINR(elec)}, Maintenance: ${fmtINR(maint)}, Other: ${fmtINR(other)}. Total due: ${fmtINR(total)}.`, time: "Just now" });
+    let messageText = `📄 New bill generated — Rent: ${fmtINR(rent)}, Electricity: ${fmtINR(elec)}, Maintenance: ${fmtINR(maint)}, Other: ${fmtINR(other)}. Total due: ${fmtINR(total)}.`;
+    
+    if(billAttachment){
+      messageText += ` 📎 Attachment: ${billAttachment.name}`;
+    }
+    
+    if(billQRCode){
+      messageText += ` 📱 QR Code attached for payment (ID: ${billQRCode.billId})`;
+    }
+    
+    conv.push({ 
+      from: "admin", 
+      text: messageText, 
+      time: "Just now",
+      hasAttachment: !!billAttachment,
+      attachmentName: billAttachment ? billAttachment.name : null,
+      hasQR: !!billQRCode,
+      qrData: billQRCode
+    });
+    
     bootstrap.Modal.getInstance(document.getElementById("createBillModal")).hide();
     e.target.reset();
     document.getElementById("billTotalDisplay").textContent = "₹0";
-    showToast(`Bill of ${fmtINR(total)} sent to ${t.name} via Messages.`, "success");
+    document.getElementById("billAttachmentStatus").textContent = "No file attached";
+    document.getElementById("billQRStatus").textContent = "No QR generated";
+    billAttachment = null;
+    billQRCode = null;
+    
+    showToast(`✅ Bill of ${fmtINR(total)} sent to ${t.name} with ${billAttachment ? 'attachment & ' : ''}${billQRCode ? 'QR code' : 'no QR'}.`, "success");
   });
 
   renderStats(); 
