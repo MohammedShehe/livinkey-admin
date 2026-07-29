@@ -233,6 +233,14 @@ document.addEventListener("DOMContentLoaded", () => {
       },
       refresh: function() {
         renderOptions(searchInput.value);
+      },
+      setDisabled: function(disabled) {
+        searchInput.disabled = disabled;
+        if (disabled) {
+          searchInput.classList.add('disabled');
+        } else {
+          searchInput.classList.remove('disabled');
+        }
       }
     };
   }
@@ -389,29 +397,33 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll(".international-only").forEach(el => el.classList.toggle("d-none", isNational));
     }
     
-    // Show/hide PG selection based on residency
+    // PG selection is ALWAYS shown for tenants (both National and International)
+    // Only hide for Guests
     const pgField = document.getElementById("tPg").parentElement;
     if(isGuest){
       pgField.classList.add("d-none");
     } else {
-      pgField.classList.toggle("d-none", !isNational);
+      pgField.classList.remove("d-none");
     }
     
-    // Show/hide room selection based on residency
+    // Room selection is ALWAYS shown for tenants (both National and International)
+    // Only hide for Guests
     const roomField = document.getElementById("tRoom").parentElement;
     if(isGuest){
       roomField.classList.add("d-none");
     } else {
-      roomField.classList.toggle("d-none", !isNational);
+      roomField.classList.remove("d-none");
     }
     
     // Set default nationality based on residency
-    if(isNational && !isGuest){
-      if (nationalityDropdownInstance) {
+    if (nationalityDropdownInstance) {
+      if (isNational || isGuest) {
+        // For National and Guest, set to Indian and disable
         nationalityDropdownInstance.setValue("Indian");
-      }
-    } else if (!isGuest) {
-      if (nationalityDropdownInstance) {
+        nationalityDropdownInstance.setDisabled(true);
+      } else {
+        // For International, enable and set default to empty or American
+        nationalityDropdownInstance.setDisabled(false);
         const currentVal = nationalityDropdownInstance.getValue();
         if (currentVal === "Indian" || !currentVal) {
           nationalityDropdownInstance.setValue("American");
@@ -452,8 +464,10 @@ document.addEventListener("DOMContentLoaded", () => {
       
       setTimeout(() => {
         initDropdowns();
+        // Set Indian as default and disable for National
         if (nationalityDropdownInstance) {
           nationalityDropdownInstance.setValue("Indian");
+          nationalityDropdownInstance.setDisabled(true);
         }
         if (codeDropdownInstance) {
           codeDropdownInstance.setValue("+91");
@@ -481,20 +495,17 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     if(role === "Tenant"){
-      // Only require PG and room for National tenants
+      // For tenants, PG and room are always required (both National and International)
       const pgId = document.getElementById("tPg").value;
       const roomNo = document.getElementById("tRoom").value;
       
-      // For National tenants, PG and room are required
-      if(residency === "National"){
-        if(!pgId){
-          showToast("Please select a PG.", "warning");
-          return;
-        }
-        if(!roomNo){
-          showToast("Please select a room.", "warning");
-          return;
-        }
+      if(!pgId){
+        showToast("Please select a PG.", "warning");
+        return;
+      }
+      if(!roomNo){
+        showToast("Please select a room.", "warning");
+        return;
       }
       
       const rent = Number(document.getElementById("tRent").value || 0);
@@ -527,9 +538,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       
       Object.assign(payload, {
-        pgId: residency === "National" ? pgId : "",
+        pgId: pgId,
         gender: document.getElementById("tGender").value,
-        roomNo: residency === "National" ? roomNo : "",
+        roomNo: roomNo,
         rent: rent,
         securityFee: Number(document.getElementById("tSecurityFee").value || 0),
         paymentDate: Number(document.getElementById("tPayDate").value || 1),
@@ -615,9 +626,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("tPhone").value = t.phone || "";
     document.getElementById("tGender").value = t.gender || "Male";
     
-    // Set PG and Room (only if National)
+    // Set PG and Room (for both National and International)
     populatePgDropdown();
-    if(t.residency === "National" && t.pgId){
+    if(t.pgId){
       document.getElementById("tPg").value = t.pgId;
       populateRoomDropdown(t.pgId, t.roomNo);
       document.getElementById("tRoom").value = t.roomNo || "";
@@ -640,7 +651,14 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
       initDropdowns();
       if (nationalityDropdownInstance) {
-        nationalityDropdownInstance.setValue(t.nationality || "Indian");
+        // If National, set to Indian and disable, else set to stored nationality and enable
+        if (t.residency === "National" || t.role === "Guest") {
+          nationalityDropdownInstance.setValue("Indian");
+          nationalityDropdownInstance.setDisabled(true);
+        } else {
+          nationalityDropdownInstance.setValue(t.nationality || "American");
+          nationalityDropdownInstance.setDisabled(false);
+        }
       }
       if (codeDropdownInstance) {
         codeDropdownInstance.setValue(t.countryCode || "+91");
