@@ -381,11 +381,11 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
           <div class="col-md-4">
             <label class="form-label">Rent (INR)</label>
-            <input type="number" class="form-control tenant-rent" placeholder="e.g. 11000" value="${existing ? existing.rent || '' : ''}">
+            <input type="number" class="form-control tenant-rent" placeholder="e.g. 11000" required value="${existing ? existing.rent || '' : ''}">
           </div>
           <div class="col-md-4">
-            <label class="form-label">Security Fee (INR) Optional</label>
-            <input type="number" class="form-control tenant-security-fee" placeholder="e.g. 5000" value="${existing ? existing.securityFee || '' : ''}">
+            <label class="form-label">Security Fee (INR)</label>
+            <input type="number" class="form-control tenant-security-fee" placeholder="e.g. 5000" required value="${existing ? existing.securityFee || '' : ''}">
           </div>
           <div class="col-md-6">
             <label class="form-label">Payment date (day of month)</label>
@@ -842,6 +842,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (rent <= 0) {
         valid = false;
         showToast(`Please enter a valid rent amount for Tenant #${index + 1}.`, "warning");
+        return;
+      }
+      if (securityFee <= 0) {
+        valid = false;
+        showToast(`Please enter a valid security fee for Tenant #${index + 1}.`, "warning");
         return;
       }
       

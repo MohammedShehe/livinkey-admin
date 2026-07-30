@@ -15,8 +15,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let currentFilter = "all";
+  let currentPgFilter = "all";
   let selectedDocs = new Set();
   let allDocs = [];
+  let filteredDocs = [];
 
   // Collect all documents from all tenants
   function getAllDocuments(){
@@ -34,6 +36,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     
     LK.tenants.forEach(t => {
+      // Find PG name for this tenant
+      const pg = LK.pgs.find(p => p.id === t.pgId);
+      const pgName = pg ? pg.name : "Unknown PG";
+      
       if(t.docs){
         Object.keys(t.docs).forEach(key => {
           if(t.docs[key]){
@@ -42,6 +48,8 @@ document.addEventListener("DOMContentLoaded", () => {
               tenantId: t.id,
               tenantName: t.name,
               roomNo: t.roomNo || "—",
+              pgId: t.pgId,
+              pgName: pgName,
               docType: docLabels[key] || key,
               docKey: key,
               image: `https://placehold.co/400x300/92C24A/FFFFFF?text=${encodeURIComponent(docLabels[key] || key)}`
@@ -52,6 +60,23 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     allDocs = docs;
     return docs;
+  }
+
+  // Populate PG filter dropdown
+  function populatePgFilter() {
+    const select = document.getElementById("pgFilter");
+    if (!select) return;
+    
+    // Keep the "All PGs" option
+    select.innerHTML = '<option value="all">All PGs</option>';
+    
+    // Add each PG
+    LK.pgs.forEach(pg => {
+      const option = document.createElement("option");
+      option.value = pg.id;
+      option.textContent = pg.name;
+      select.appendChild(option);
+    });
   }
 
   // Render document type stats
@@ -100,9 +125,21 @@ document.addEventListener("DOMContentLoaded", () => {
     renderGrid(document.getElementById("docSearch").value);
   };
 
+  function filterByPg(pgId) {
+    currentPgFilter = pgId;
+    selectedDocs.clear();
+    document.getElementById("selectAllDocs").checked = false;
+    renderGrid(document.getElementById("docSearch").value);
+  }
+
   function renderGrid(search = "") {
     const f = search.trim().toLowerCase();
     let docs = getAllDocuments();
+    
+    // Filter by PG
+    if (currentPgFilter !== "all") {
+      docs = docs.filter(d => d.pgId === currentPgFilter);
+    }
     
     // Filter by type
     if (currentFilter !== "all") {
@@ -114,9 +151,12 @@ document.addEventListener("DOMContentLoaded", () => {
       docs = docs.filter(d => 
         d.tenantName.toLowerCase().includes(f) || 
         d.roomNo.toLowerCase().includes(f) ||
-        d.docType.toLowerCase().includes(f)
+        d.docType.toLowerCase().includes(f) ||
+        d.pgName.toLowerCase().includes(f)
       );
     }
+    
+    filteredDocs = docs;
     
     // Update total count
     document.getElementById("totalDocsCount").textContent = `${docs.length} documents`;
@@ -144,6 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="doc-label">
             <div class="fw-bold">${d.docType}</div>
             <div class="small text-muted-soft">${d.tenantName} · Room ${d.roomNo}</div>
+            <div class="small text-muted-soft"><i class="bi bi-building me-1"></i>${d.pgName}</div>
           </div>
         </div>
       </div>
@@ -315,7 +356,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const doc = docs.find(d => d.id === id);
     if(!doc) return;
     currentDocId = id;
-    document.getElementById("docPreviewTitle").textContent = `${doc.docType} - ${doc.tenantName}`;
+    document.getElementById("docPreviewTitle").textContent = `${doc.docType} - ${doc.tenantName} (${doc.pgName})`;
     document.getElementById("docPreviewImg").src = doc.image;
     previewModal.show();
   };
@@ -359,7 +400,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if(!doc) return;
     
     document.getElementById("confirmTitle").textContent = `Delete ${doc.docType}?`;
-    document.getElementById("confirmBody").textContent = `This will permanently remove ${doc.docType} for ${doc.tenantName}.`;
+    document.getElementById("confirmBody").textContent = `This will permanently remove ${doc.docType} for ${doc.tenantName} (${doc.pgName}).`;
     document.getElementById("confirmActionBtn").onclick = function(){
       const btn = this;
       LOADER.show(btn, 'Deleting...');
@@ -387,6 +428,15 @@ document.addEventListener("DOMContentLoaded", () => {
       selectedDocs.clear();
       document.getElementById("selectAllDocs").checked = false;
       renderGrid(e.target.value);
+    });
+  }
+
+  // Initialize PG filter
+  const pgFilter = document.getElementById("pgFilter");
+  if(pgFilter){
+    populatePgFilter();
+    pgFilter.addEventListener("change", (e) => {
+      filterByPg(e.target.value);
     });
   }
 
