@@ -108,7 +108,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Name</th><th>PG</th><th>Room No</th><th>Rent</th><th>Security Fee</th><th>Nationality</th><th>Gender</th><th>Payment Date</th><th>Bill Status</th><th class="text-end">Actions</th>
+                <th>Name</th><th>PG</th><th>Room No</th><th>Rent</th><th>Security Fee</th><th>Nationality</th><th>Gender</th><th>Payment Date</th><th>Arrival Date</th><th>Bill Status</th><th class="text-end">Actions</th>
               </tr>
             </thead>
             <tbody id="tenantsTbody"></tbody>
@@ -238,6 +238,11 @@
             <div class="col-md-3 tenant-only">
               <label class="form-label">Paid till</label>
               <input type="date" class="form-control" id="tPaidTill">
+            </div>
+            <div class="col-md-12 tenant-only">
+              <label class="form-label">Date of Arrival in PG</label>
+              <input type="date" class="form-control" id="tArrivalDate" required>
+              <div class="form-text">The date when the tenant moved into the PG.</div>
             </div>
           </div>
           

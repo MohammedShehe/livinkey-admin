@@ -80,7 +80,7 @@ LK.pgs = [
   }
 ];
 
-// Tenants (Members)
+// Tenants (Members) - Added arrivalDate field
 LK.tenants = [
   {
     id: "T001", 
@@ -106,6 +106,7 @@ LK.tenants = [
     aadhar: "1234-5678-9012",
     parentAadhar: "",
     cForm: "",
+    arrivalDate: "2026-01-15",
     docs: { 
       photo: true, 
       aadhar: true, 
@@ -142,6 +143,7 @@ LK.tenants = [
     aadhar: "",
     parentAadhar: "",
     cForm: "CF-2026-001",
+    arrivalDate: "2026-02-01",
     docs: { 
       photo: true, 
       passport: true, 
@@ -181,6 +183,7 @@ LK.tenants = [
     aadhar: "9876-5432-1098",
     parentAadhar: "4567-8901-2345",
     cForm: "",
+    arrivalDate: "2026-03-10",
     docs: { 
       photo: true, 
       aadhar: true, 
@@ -217,6 +220,7 @@ LK.tenants = [
     aadhar: "",
     parentAadhar: "",
     cForm: "CF-2026-004",
+    arrivalDate: "2026-04-05",
     docs: { 
       photo: true, 
       passport: true, 
@@ -256,6 +260,7 @@ LK.tenants = [
     aadhar: "5678-9012-3456",
     parentAadhar: "",
     cForm: "",
+    arrivalDate: "2026-05-20",
     docs: { 
       photo: true, 
       aadhar: true, 
@@ -292,6 +297,7 @@ LK.tenants = [
     aadhar: "3456-7890-1234",
     parentAadhar: "2345-6789-0123",
     cForm: "",
+    arrivalDate: "2026-06-01",
     docs: { 
       photo: true, 
       aadhar: true, 
@@ -331,6 +337,7 @@ LK.tenants = [
     aadhar: "7890-1234-5678",
     parentAadhar: "",
     cForm: "",
+    arrivalDate: "2026-06-15",
     docs: { 
       photo: true, 
       aadhar: true, 
@@ -370,6 +377,7 @@ LK.tenants = [
     aadhar: "9012-3456-7890",
     parentAadhar: "",
     cForm: "",
+    arrivalDate: "2026-07-01",
     docs: { 
       photo: true, 
       aadhar: true, 

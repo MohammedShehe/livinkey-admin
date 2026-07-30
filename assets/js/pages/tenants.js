@@ -328,6 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     document.getElementById("tenantsTbody").innerHTML = rows.map(t => {
       const st = statusMeta[t.billStatus] || statusMeta.paid;
+      const arrivalDate = t.arrivalDate ? new Date(t.arrivalDate).toLocaleDateString('en-IN') : "—";
       return `
       <tr>
         <td><span class="name-link" onclick="openDocs('${t.id}')">${t.name}</span><div class="small text-muted-soft">${t.email}</div></td>
@@ -338,6 +339,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${t.nationality}</td>
         <td>${t.gender}</td>
         <td>${t.paymentDate ? "Day " + t.paymentDate : "—"}</td>
+        <td>${arrivalDate}</td>
         <td><span class="chip ${st.chip}">${st.label}</span></td>
         <td class="text-end">
           <button class="btn-icon me-1" title="Edit" onclick="editTenant('${t.id}')"><i class="bi bi-pencil"></i></button>
@@ -415,6 +417,14 @@ document.addEventListener("DOMContentLoaded", () => {
       roomField.classList.remove("d-none");
     }
     
+    // Arrival Date - only shown for tenants
+    const arrivalField = document.getElementById("tArrivalDate").parentElement;
+    if(isGuest){
+      arrivalField.classList.add("d-none");
+    } else {
+      arrivalField.classList.remove("d-none");
+    }
+    
     // Set default nationality based on residency
     if (nationalityDropdownInstance) {
       if (isNational || isGuest) {
@@ -461,6 +471,10 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("tGender").value = "Male";
       document.getElementById("tResidency").value = "National";
       document.getElementById("tRole").value = "Tenant";
+      
+      // Set default arrival date to today
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById("tArrivalDate").value = today;
       
       setTimeout(() => {
         initDropdowns();
@@ -520,6 +534,13 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
+      const arrivalDate = document.getElementById("tArrivalDate").value;
+      if(!arrivalDate){
+        showToast("Please enter the date of arrival.", "warning");
+        LOADER.hide(btn);
+        return;
+      }
+      
       const docs = {};
       if(residency === "National"){
         docs.photo = false;
@@ -562,7 +583,8 @@ document.addEventListener("DOMContentLoaded", () => {
         docs: docs,
         aadhar: document.getElementById("tAadhar").value || "",
         parentAadhar: document.getElementById("tParentAadhar").value || "",
-        cForm: document.getElementById("tCForm").value || ""
+        cForm: document.getElementById("tCForm").value || "",
+        arrivalDate: arrivalDate
       });
     } else {
       payload.docs = {};
@@ -585,6 +607,7 @@ document.addEventListener("DOMContentLoaded", () => {
       payload.parentAadhar = "";
       payload.cForm = "";
       payload.pgId = "";
+      payload.arrivalDate = "";
     }
 
     setTimeout(() => {
@@ -655,6 +678,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("tAadhar").value = t.aadhar || "";
     document.getElementById("tParentAadhar").value = t.parentAadhar || "";
     document.getElementById("tCForm").value = t.cForm || "";
+    document.getElementById("tArrivalDate").value = t.arrivalDate || "";
     
     // Initialize dropdowns and set values
     setTimeout(() => {
