@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let currentFilter = "";
   let isEditMode = false;
+  let editingTenantId = null;
 
   // All nationalities list
   const NATIONALITIES = [
@@ -98,6 +99,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const isExcluded = excludeRoom && r.roomNo === excludeRoom;
       return isAvailable || isExcluded;
     }).map(r => r.roomNo);
+  }
+
+  // Get room capacity
+  function getRoomCapacity(pgId, roomNo){
+    const pg = LK.pgs.find(p => p.id === pgId);
+    if(!pg) return 0;
+    const room = pg.rooms.find(r => r.roomNo === roomNo);
+    return room ? room.capacity : 0;
   }
 
   // ============================================
@@ -247,6 +256,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let nationalityDropdownInstance = null;
   let codeDropdownInstance = null;
+  let guestNationalityDropdownInstance = null;
+  let guestCodeDropdownInstance = null;
 
   function initDropdowns() {
     nationalityDropdownInstance = initSearchableDropdown(
@@ -269,10 +280,309 @@ document.addEventListener("DOMContentLoaded", () => {
       codeItems,
       'display'
     );
+
+    // Guest dropdowns
+    guestNationalityDropdownInstance = initSearchableDropdown(
+      'guestNationalitySearch', 
+      'guestNationalityOptions', 
+      'tGuestNationality', 
+      NATIONALITIES,
+      null
+    );
+
+    guestCodeDropdownInstance = initSearchableDropdown(
+      'guestCodeSearch', 
+      'guestCodeOptions', 
+      'tGuestCode', 
+      codeItems,
+      'display'
+    );
   }
 
   // ============================================
-  // END SEARCHABLE DROPDOWN FUNCTIONS
+  // TENANT FIELDS GENERATION
+  // ============================================
+
+  function generateTenantFields(numTenants, existingData = null) {
+    const container = document.getElementById('tenantEntriesContainer');
+    container.innerHTML = '';
+    
+    const pgId = document.getElementById('tPg').value;
+    const roomNo = document.getElementById('tRoom').value;
+    const isNational = document.getElementById('tResidency')?.value === 'National' || false;
+    
+    for (let i = 0; i < numTenants; i++) {
+      const entryDiv = document.createElement('div');
+      entryDiv.className = 'tenant-entry';
+      entryDiv.dataset.index = i;
+      
+      const existing = existingData && existingData[i] ? existingData[i] : null;
+      
+      entryDiv.innerHTML = `
+        <div class="tenant-entry-number">Tenant #${i + 1}</div>
+        <div class="row g-3">
+          <input type="hidden" class="tenant-id" value="${existing ? existing.id || '' : ''}">
+          <div class="col-md-6">
+            <label class="form-label">Full name</label>
+            <input type="text" class="form-control tenant-name" required value="${existing ? existing.name || '' : ''}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email address</label>
+            <input type="email" class="form-control tenant-email" required value="${existing ? existing.email || '' : ''}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Residency</label>
+            <select class="form-select tenant-residency" required>
+              <option value="National" ${existing && existing.residency === 'National' ? 'selected' : ''}>National</option>
+              <option value="International" ${existing && existing.residency === 'International' ? 'selected' : ''}>International</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Nationality</label>
+            <div class="searchable-dropdown tenant-nationality-dropdown">
+              <input type="text" class="dropdown-search tenant-nationality-search" placeholder="Search or select nationality..." autocomplete="off" value="${existing ? existing.nationality || 'Indian' : 'Indian'}">
+              <input type="hidden" class="tenant-nationality" value="${existing ? existing.nationality || 'Indian' : 'Indian'}">
+              <div class="dropdown-options tenant-nationality-options"></div>
+            </div>
+          </div>
+          <!-- International fields -->
+          <div class="col-md-6 tenant-international-only ${existing && existing.residency === 'International' ? '' : 'd-none'}">
+            <label class="form-label">C-Form Number (Optional)</label>
+            <input type="text" class="form-control tenant-cform" placeholder="C-Form number" value="${existing ? existing.cForm || '' : ''}">
+          </div>
+          <!-- National fields -->
+          <div class="col-md-6 tenant-national-only ${existing && existing.residency === 'National' ? '' : 'd-none'}">
+            <label class="form-label">Aadhar Card ID</label>
+            <input type="text" class="form-control tenant-aadhar" placeholder="Aadhar number" value="${existing ? existing.aadhar || '' : ''}">
+          </div>
+          <div class="col-md-6 tenant-national-only ${existing && existing.residency === 'National' ? '' : 'd-none'}">
+            <label class="form-label">Parent Aadhar</label>
+            <input type="text" class="form-control tenant-parent-aadhar" placeholder="Parent Aadhar number" value="${existing ? existing.parentAadhar || '' : ''}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Country code</label>
+            <div class="searchable-dropdown tenant-code-dropdown">
+              <input type="text" class="dropdown-search tenant-code-search" placeholder="Search or select code..." autocomplete="off" value="${existing ? existing.countryCode || '+91' : '+91'}">
+              <input type="hidden" class="tenant-code" value="${existing ? existing.countryCode || '+91' : '+91'}">
+              <div class="dropdown-options tenant-code-options"></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Phone</label>
+            <input type="text" class="form-control tenant-phone" placeholder="9876543210" required value="${existing ? existing.phone || '' : ''}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Gender</label>
+            <select class="form-select tenant-gender">
+              <option value="Male" ${existing && existing.gender === 'Male' ? 'selected' : ''}>Male</option>
+              <option value="Female" ${existing && existing.gender === 'Female' ? 'selected' : ''}>Female</option>
+              <option value="Other" ${existing && existing.gender === 'Other' ? 'selected' : ''}>Other</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Rent (INR)</label>
+            <input type="number" class="form-control tenant-rent" placeholder="e.g. 11000" value="${existing ? existing.rent || '' : ''}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Security Fee (INR) Optional</label>
+            <input type="number" class="form-control tenant-security-fee" placeholder="e.g. 5000" value="${existing ? existing.securityFee || '' : ''}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Payment date (day of month)</label>
+            <input type="number" min="1" max="28" class="form-control tenant-payment-date" placeholder="e.g. 5" value="${existing ? existing.paymentDate || '' : ''}">
+            <div class="form-text">Fines of ₹100/day apply after 7 days past this date each month.</div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Paid from</label>
+            <input type="date" class="form-control tenant-paid-from" value="${existing && existing.paidPeriods ? existing.paidPeriods[0]?.from || '' : ''}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Paid till</label>
+            <input type="date" class="form-control tenant-paid-till" value="${existing && existing.paidPeriods ? existing.paidPeriods[0]?.to || '' : ''}">
+          </div>
+          <div class="col-md-12">
+            <label class="form-label">Date of Arrival in PG</label>
+            <input type="date" class="form-control tenant-arrival-date" required value="${existing ? existing.arrivalDate || '' : ''}">
+            <div class="form-text">The date when the tenant moved into the PG.</div>
+          </div>
+          ${numTenants > 1 ? `<div class="col-12 text-end"><button type="button" class="btn-remove-tenant" onclick="removeTenantEntry(this)">Remove this tenant</button></div>` : ''}
+        </div>
+      `;
+      
+      container.appendChild(entryDiv);
+    }
+    
+    // Initialize dropdowns for each tenant entry
+    initTenantDropdowns();
+    
+    // Add event listeners for residency changes
+    container.querySelectorAll('.tenant-residency').forEach(select => {
+      select.addEventListener('change', function() {
+        const entry = this.closest('.tenant-entry');
+        toggleTenantResidencyFields(entry);
+      });
+    });
+  }
+
+  function toggleTenantResidencyFields(entry) {
+    const residency = entry.querySelector('.tenant-residency').value;
+    const isNational = residency === 'National';
+    
+    entry.querySelectorAll('.tenant-national-only').forEach(el => {
+      el.classList.toggle('d-none', !isNational);
+    });
+    entry.querySelectorAll('.tenant-international-only').forEach(el => {
+      el.classList.toggle('d-none', isNational);
+    });
+  }
+
+  function initTenantDropdowns() {
+    document.querySelectorAll('.tenant-entry').forEach(entry => {
+      const searchInput = entry.querySelector('.tenant-nationality-search');
+      const optionsContainer = entry.querySelector('.tenant-nationality-options');
+      const hiddenInput = entry.querySelector('.tenant-nationality');
+      
+      if (searchInput && optionsContainer && hiddenInput) {
+        // Simple dropdown for each tenant
+        const items = NATIONALITIES;
+        
+        function renderOptions(filterText) {
+          const term = filterText ? filterText.toLowerCase().trim() : '';
+          let filteredItems = items;
+          if (term) {
+            filteredItems = items.filter(item => item.toLowerCase().includes(term));
+          }
+          
+          if (filteredItems.length === 0) {
+            optionsContainer.innerHTML = `<div class="no-results">No results found</div>`;
+            return;
+          }
+          
+          optionsContainer.innerHTML = filteredItems.map(item => {
+            const isSelected = hiddenInput.value === item;
+            return `<div class="option-item ${isSelected ? 'selected' : ''}" data-value="${item}">${item}</div>`;
+          }).join('');
+          
+          optionsContainer.querySelectorAll('.option-item').forEach(el => {
+            el.addEventListener('click', function(e) {
+              e.stopPropagation();
+              const value = this.dataset.value;
+              hiddenInput.value = value;
+              searchInput.value = value;
+              optionsContainer.classList.remove('show');
+            });
+          });
+        }
+        
+        searchInput.addEventListener('focus', function(e) {
+          e.stopPropagation();
+          document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
+          optionsContainer.classList.add('show');
+          renderOptions(this.value);
+        });
+        
+        searchInput.addEventListener('input', function(e) {
+          e.stopPropagation();
+          renderOptions(this.value);
+          optionsContainer.classList.add('show');
+        });
+        
+        searchInput.addEventListener('click', function(e) {
+          e.stopPropagation();
+          optionsContainer.classList.add('show');
+          renderOptions(this.value);
+        });
+        
+        document.addEventListener('click', function(e) {
+          const dropdown = searchInput.closest('.searchable-dropdown');
+          if (dropdown && !dropdown.contains(e.target)) {
+            optionsContainer.classList.remove('show');
+          }
+        });
+        
+        renderOptions('');
+      }
+      
+      // Code dropdown
+      const codeSearch = entry.querySelector('.tenant-code-search');
+      const codeOptions = entry.querySelector('.tenant-code-options');
+      const codeHidden = entry.querySelector('.tenant-code');
+      
+      if (codeSearch && codeOptions && codeHidden) {
+        const codeItems = Object.entries(COUNTRY_CODES_WITH_NAMES).map(([code, name]) => ({
+          code: code,
+          name: name,
+          display: `${code} (${name})`
+        }));
+        
+        function renderCodeOptions(filterText) {
+          const term = filterText ? filterText.toLowerCase().trim() : '';
+          let filteredItems = codeItems;
+          if (term) {
+            filteredItems = codeItems.filter(item => 
+              item.display.toLowerCase().includes(term) || 
+              item.code.includes(term)
+            );
+          }
+          
+          if (filteredItems.length === 0) {
+            codeOptions.innerHTML = `<div class="no-results">No results found</div>`;
+            return;
+          }
+          
+          codeOptions.innerHTML = filteredItems.map(item => {
+            const isSelected = codeHidden.value === item.code;
+            return `<div class="option-item ${isSelected ? 'selected' : ''}" data-value="${item.code}">${item.display}</div>`;
+          }).join('');
+          
+          codeOptions.querySelectorAll('.option-item').forEach(el => {
+            el.addEventListener('click', function(e) {
+              e.stopPropagation();
+              const value = this.dataset.value;
+              codeHidden.value = value;
+              codeSearch.value = value;
+              codeOptions.classList.remove('show');
+            });
+          });
+        }
+        
+        codeSearch.addEventListener('focus', function(e) {
+          e.stopPropagation();
+          document.querySelectorAll('.dropdown-options').forEach(d => d.classList.remove('show'));
+          codeOptions.classList.add('show');
+          renderCodeOptions(this.value);
+        });
+        
+        codeSearch.addEventListener('input', function(e) {
+          e.stopPropagation();
+          renderCodeOptions(this.value);
+          codeOptions.classList.add('show');
+        });
+        
+        codeSearch.addEventListener('click', function(e) {
+          e.stopPropagation();
+          codeOptions.classList.add('show');
+          renderCodeOptions(this.value);
+        });
+        
+        renderCodeOptions('');
+      }
+    });
+  }
+
+  window.removeTenantEntry = function(btn) {
+    const entry = btn.closest('.tenant-entry');
+    if (entry) {
+      entry.remove();
+      // Renumber remaining entries
+      document.querySelectorAll('.tenant-entry').forEach((el, idx) => {
+        el.querySelector('.tenant-entry-number').textContent = `Tenant #${idx + 1}`;
+      });
+    }
+  };
+
+  // ============================================
+  // END TENANT FIELDS GENERATION
   // ============================================
 
   function renderStats(){
@@ -371,82 +681,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const tenantModalEl = document.getElementById("addTenantModal");
   const tenantModal = new bootstrap.Modal(tenantModalEl);
   const roleSelect = document.getElementById("tRole");
-  const residencySelect = document.getElementById("tResidency");
 
-  function toggleTenantOnly(){
+  function toggleRoleFields(){
     const isGuest = roleSelect.value === "Guest";
-    document.querySelectorAll(".tenant-only").forEach(el => el.classList.toggle("d-none", isGuest));
-    if(isGuest){
-      document.getElementById("tRoom").parentElement.classList.add("d-none");
-      document.querySelector(".international-only").classList.add("d-none");
-    } else {
-      document.getElementById("tRoom").parentElement.classList.remove("d-none");
-      const isNational = residencySelect.value === "National";
-      document.querySelectorAll(".international-only").forEach(el => el.classList.toggle("d-none", isNational));
-    }
-  }
-  
-  function toggleFields(){
-    const isNational = residencySelect.value === "National";
-    const isGuest = roleSelect.value === "Guest";
+    document.getElementById("guestFields").classList.toggle("d-none", !isGuest);
+    document.getElementById("tenantFields").classList.toggle("d-none", isGuest);
     
-    // Show/hide nationality-specific fields
-    if(isGuest){
-      document.querySelectorAll(".national-only").forEach(el => el.classList.add("d-none"));
-      document.querySelectorAll(".international-only").forEach(el => el.classList.add("d-none"));
-    } else {
-      document.querySelectorAll(".national-only").forEach(el => el.classList.toggle("d-none", !isNational));
-      document.querySelectorAll(".international-only").forEach(el => el.classList.toggle("d-none", isNational));
-    }
-    
-    // PG selection is ALWAYS shown for tenants (both National and International)
-    // Only hide for Guests
-    const pgField = document.getElementById("tPg").parentElement;
-    if(isGuest){
-      pgField.classList.add("d-none");
-    } else {
-      pgField.classList.remove("d-none");
-    }
-    
-    // Room selection is ALWAYS shown for tenants (both National and International)
-    // Only hide for Guests
-    const roomField = document.getElementById("tRoom").parentElement;
-    if(isGuest){
-      roomField.classList.add("d-none");
-    } else {
-      roomField.classList.remove("d-none");
-    }
-    
-    // Arrival Date - only shown for tenants
-    const arrivalField = document.getElementById("tArrivalDate").parentElement;
-    if(isGuest){
-      arrivalField.classList.add("d-none");
-    } else {
-      arrivalField.classList.remove("d-none");
-    }
-    
-    // Set default nationality based on residency
-    if (nationalityDropdownInstance) {
-      if (isNational || isGuest) {
-        // For National and Guest, set to Indian and disable
-        nationalityDropdownInstance.setValue("Indian");
-        nationalityDropdownInstance.setDisabled(true);
-      } else {
-        // For International, enable and set default to empty or American
-        nationalityDropdownInstance.setDisabled(false);
-        const currentVal = nationalityDropdownInstance.getValue();
-        if (currentVal === "Indian" || !currentVal) {
-          nationalityDropdownInstance.setValue("American");
-        }
-      }
+    // Clear tenant entries when switching to guest
+    if (isGuest) {
+      document.getElementById('tenantEntriesContainer').innerHTML = '';
     }
   }
 
   roleSelect.addEventListener("change", function(){
-    toggleTenantOnly();
-    toggleFields();
+    toggleRoleFields();
   });
-  residencySelect.addEventListener("change", toggleFields);
 
   document.getElementById("tPg").addEventListener("change", function(){
     const pgId = this.value;
@@ -457,6 +706,31 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Generate tenant fields based on number of tenants
+  document.getElementById("generateTenantFields").addEventListener("click", function() {
+    const numTenants = parseInt(document.getElementById("numTenants").value) || 1;
+    const roomNo = document.getElementById("tRoom").value;
+    const pgId = document.getElementById("tPg").value;
+    
+    if (!pgId) {
+      showToast("Please select a PG first.", "warning");
+      return;
+    }
+    if (!roomNo) {
+      showToast("Please select a room first.", "warning");
+      return;
+    }
+    
+    // Check room capacity
+    const capacity = getRoomCapacity(pgId, roomNo);
+    if (numTenants > capacity) {
+      showToast(`Room capacity is ${capacity}. You can add up to ${capacity} tenants.`, "warning");
+      return;
+    }
+    
+    generateTenantFields(numTenants);
+  });
+
   // Reset form when modal is opened for ADD
   tenantModalEl.addEventListener('show.bs.modal', function (event) {
     const button = event.relatedTarget;
@@ -465,29 +739,18 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("tenantModalTitle").textContent = "Add New Tenant";
       document.getElementById("tenantForm").reset();
       document.getElementById("tenantId").value = "";
+      document.getElementById("editMode").value = "false";
       populatePgDropdown();
       document.getElementById("tRoom").innerHTML = `<option value="">Select room...</option>`;
-      
-      document.getElementById("tGender").value = "Male";
-      document.getElementById("tResidency").value = "National";
       document.getElementById("tRole").value = "Tenant";
+      document.getElementById('tenantEntriesContainer').innerHTML = '';
       
-      // Set default arrival date to today
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById("tArrivalDate").value = today;
+      // Reset number of tenants
+      document.getElementById("numTenants").value = 1;
       
       setTimeout(() => {
         initDropdowns();
-        // Set Indian as default and disable for National
-        if (nationalityDropdownInstance) {
-          nationalityDropdownInstance.setValue("Indian");
-          nationalityDropdownInstance.setDisabled(true);
-        }
-        if (codeDropdownInstance) {
-          codeDropdownInstance.setValue("+91");
-        }
-        toggleTenantOnly();
-        toggleFields();
+        toggleRoleFields();
       }, 100);
     }
   });
@@ -497,81 +760,124 @@ document.addEventListener("DOMContentLoaded", () => {
     const btn = this.querySelector('button[type="submit"]');
     LOADER.show(btn, 'Saving...');
     
-    const id = document.getElementById("tenantId").value;
     const role = roleSelect.value;
-    const residency = residencySelect.value;
+    const isGuest = role === "Guest";
     
-    const payload = {
-      name: document.getElementById("tName").value.trim(),
-      email: document.getElementById("tEmail").value.trim(),
-      role: role,
-      residency: residency,
-      nationality: document.getElementById("tNationality").value,
-      countryCode: document.getElementById("tCode").value,
-      phone: document.getElementById("tPhone").value.trim(),
-    };
-
-    if(role === "Tenant"){
-      // For tenants, PG and room are always required (both National and International)
-      const pgId = document.getElementById("tPg").value;
-      const roomNo = document.getElementById("tRoom").value;
+    if (isGuest) {
+      // Handle Guest
+      const payload = {
+        id: "G" + String(LK.tenants.filter(t => t.role === "Guest").length + 1).padStart(3, '0'),
+        name: document.getElementById("tGuestName").value.trim(),
+        email: document.getElementById("tGuestEmail").value.trim(),
+        role: "Guest",
+        residency: "International",
+        nationality: document.getElementById("tGuestNationality").value,
+        countryCode: document.getElementById("tGuestCode").value,
+        phone: document.getElementById("tGuestPhone").value.trim(),
+        joinedOn: new Date().toISOString().split('T')[0]
+      };
       
-      if(!pgId){
-        showToast("Please select a PG.", "warning");
-        LOADER.hide(btn);
-        return;
-      }
-      if(!roomNo){
-        showToast("Please select a room.", "warning");
+      if (!payload.name || !payload.email) {
+        showToast("Please fill in all guest details.", "warning");
         LOADER.hide(btn);
         return;
       }
       
-      const rent = Number(document.getElementById("tRent").value || 0);
-      if(rent <= 0){
-        showToast("Please enter a valid rent amount.", "warning");
-        LOADER.hide(btn);
+      LK.tenants.push(payload);
+      showToast(`${payload.name} was added as a guest.`, "success");
+      LOADER.hide(btn);
+      tenantModal.hide();
+      renderStats(); 
+      renderTable(document.getElementById("tenantSearch").value);
+      return;
+    }
+    
+    // Handle Tenants
+    const pgId = document.getElementById("tPg").value;
+    const roomNo = document.getElementById("tRoom").value;
+    const tenantEntries = document.querySelectorAll('.tenant-entry');
+    
+    if (!pgId) {
+      showToast("Please select a PG.", "warning");
+      LOADER.hide(btn);
+      return;
+    }
+    if (!roomNo) {
+      showToast("Please select a room.", "warning");
+      LOADER.hide(btn);
+      return;
+    }
+    if (tenantEntries.length === 0) {
+      showToast("Please generate tenant fields first.", "warning");
+      LOADER.hide(btn);
+      return;
+    }
+    
+    const tenantsData = [];
+    let valid = true;
+    
+    tenantEntries.forEach((entry, index) => {
+      const name = entry.querySelector('.tenant-name').value.trim();
+      const email = entry.querySelector('.tenant-email').value.trim();
+      const residency = entry.querySelector('.tenant-residency').value;
+      const nationality = entry.querySelector('.tenant-nationality').value;
+      const countryCode = entry.querySelector('.tenant-code').value;
+      const phone = entry.querySelector('.tenant-phone').value.trim();
+      const gender = entry.querySelector('.tenant-gender').value;
+      const rent = Number(entry.querySelector('.tenant-rent').value || 0);
+      const securityFee = Number(entry.querySelector('.tenant-security-fee').value || 0);
+      const paymentDate = Number(entry.querySelector('.tenant-payment-date').value || 1);
+      const arrivalDate = entry.querySelector('.tenant-arrival-date').value;
+      const aadhar = entry.querySelector('.tenant-aadhar')?.value || '';
+      const parentAadhar = entry.querySelector('.tenant-parent-aadhar')?.value || '';
+      const cForm = entry.querySelector('.tenant-cform')?.value || '';
+      const paidFrom = entry.querySelector('.tenant-paid-from').value;
+      const paidTill = entry.querySelector('.tenant-paid-till').value;
+      
+      if (!name || !email || !arrivalDate) {
+        valid = false;
+        showToast(`Please fill all required fields for Tenant #${index + 1}.`, "warning");
         return;
       }
-      
-      const arrivalDate = document.getElementById("tArrivalDate").value;
-      if(!arrivalDate){
-        showToast("Please enter the date of arrival.", "warning");
-        LOADER.hide(btn);
+      if (rent <= 0) {
+        valid = false;
+        showToast(`Please enter a valid rent amount for Tenant #${index + 1}.`, "warning");
         return;
       }
       
       const docs = {};
-      if(residency === "National"){
-        docs.photo = false;
-        docs.aadhar = false;
-        docs.parentAadhar = false;
-        docs.universityId = false;
-        docs.passport = false;
-        docs.visa = false;
-        docs.frro = false;
-        docs.cForm = false;
-        docs.arrivalStamp = false;
+      if (residency === "National") {
+        Object.assign(docs, {
+          photo: false, aadhar: false, parentAadhar: false,
+          universityId: false, passport: false, visa: false,
+          frro: false, cForm: false, arrivalStamp: false
+        });
       } else {
-        docs.photo = false;
-        docs.passport = false;
-        docs.visa = false;
-        docs.arrivalStamp = false;
-        docs.cForm = false;
-        docs.universityId = false;
-        docs.aadhar = false;
-        docs.parentAadhar = false;
-        docs.frro = false;
+        Object.assign(docs, {
+          photo: false, passport: false, visa: false,
+          arrivalStamp: false, cForm: false, universityId: false,
+          aadhar: false, parentAadhar: false, frro: false
+        });
       }
       
-      Object.assign(payload, {
+      const existingId = entry.querySelector('.tenant-id').value;
+      
+      tenantsData.push({
+        id: existingId || "T" + String(LK.tenants.length + 1).padStart(3, '0'),
+        name: name,
+        email: email,
+        role: "Tenant",
+        residency: residency,
+        nationality: nationality,
+        countryCode: countryCode,
+        phone: phone,
+        gender: gender,
         pgId: pgId,
-        gender: document.getElementById("tGender").value,
         roomNo: roomNo,
         rent: rent,
-        securityFee: Number(document.getElementById("tSecurityFee").value || 0),
-        paymentDate: Number(document.getElementById("tPayDate").value || 1),
-        paidPeriods: [{ from: document.getElementById("tPaidFrom").value, to: document.getElementById("tPaidTill").value }],
+        securityFee: securityFee,
+        paymentDate: paymentDate,
+        paidPeriods: [{ from: paidFrom, to: paidTill }],
         billStatus: "unpaid",
         dueMonths: [new Date().toLocaleString('default', { month: 'long' })],
         dueAmount: rent,
@@ -581,59 +887,61 @@ document.addEventListener("DOMContentLoaded", () => {
         paidDate: null,
         nextPaymentDate: null,
         docs: docs,
-        aadhar: document.getElementById("tAadhar").value || "",
-        parentAadhar: document.getElementById("tParentAadhar").value || "",
-        cForm: document.getElementById("tCForm").value || "",
+        aadhar: aadhar,
+        parentAadhar: parentAadhar,
+        cForm: cForm,
         arrivalDate: arrivalDate
       });
-    } else {
-      payload.docs = {};
-      payload.joinedOn = new Date().toISOString().split('T')[0];
-      payload.gender = "";
-      payload.roomNo = "";
-      payload.rent = 0;
-      payload.securityFee = 0;
-      payload.paymentDate = 0;
-      payload.paidPeriods = [];
-      payload.billStatus = "";
-      payload.dueMonths = [];
-      payload.dueAmount = 0;
-      payload.delayedDays = 0;
-      payload.fine = 0;
-      payload.paidAmount = 0;
-      payload.paidDate = null;
-      payload.nextPaymentDate = null;
-      payload.aadhar = "";
-      payload.parentAadhar = "";
-      payload.cForm = "";
-      payload.pgId = "";
-      payload.arrivalDate = "";
+    });
+    
+    if (!valid) {
+      LOADER.hide(btn);
+      return;
     }
-
+    
+    // Check if we're in edit mode
+    const editMode = document.getElementById('editMode').value === 'true';
+    
     setTimeout(() => {
-      if(id){
-        const idx = LK.tenants.findIndex(t => t.id === id);
-        const existing = LK.tenants[idx];
-        if(existing.docs) {
-          payload.docs = { ...existing.docs, ...payload.docs };
-        }
-        LK.tenants[idx] = { ...existing, ...payload };
-        showToast(`${payload.name}'s details were updated.`, "success");
-      } else {
-        payload.id = "T" + String(LK.tenants.length + 1).padStart(3, '0');
-        LK.tenants.push(payload);
-        if(role === "Tenant" && payload.roomNo && payload.pgId){
-          const pg = LK.pgs.find(p => p.id === payload.pgId);
-          if(pg){
-            const room = pg.rooms.find(r => r.roomNo === payload.roomNo);
-            if(room && !room.occupants.includes(payload.name)){
-              room.occupants.push(payload.name);
-            }
+      if (editMode) {
+        // Remove old tenant(s) with same room
+        const oldTenants = LK.tenants.filter(t => t.pgId === pgId && t.roomNo === roomNo && t.role === "Tenant");
+        oldTenants.forEach(t => {
+          const idx = LK.tenants.indexOf(t);
+          if (idx > -1) LK.tenants.splice(idx, 1);
+        });
+        
+        // Add new tenants
+        tenantsData.forEach(t => {
+          // Check if tenant already exists (by ID)
+          const existingIdx = LK.tenants.findIndex(ten => ten.id === t.id);
+          if (existingIdx > -1) {
+            LK.tenants[existingIdx] = { ...LK.tenants[existingIdx], ...t };
+          } else {
+            LK.tenants.push(t);
           }
-        }
-        showToast(`${payload.name} was added successfully.`, "success");
+        });
+        
+        showToast(`Updated ${tenantsData.length} tenant(s) in room ${roomNo}.`, "success");
+      } else {
+        // Add new tenants
+        tenantsData.forEach(t => {
+          LK.tenants.push(t);
+        });
+        showToast(`Added ${tenantsData.length} tenant(s) in room ${roomNo}.`, "success");
       }
+      
+      // Update room occupants
+      const pg = LK.pgs.find(p => p.id === pgId);
+      if (pg) {
+        const room = pg.rooms.find(r => r.roomNo === roomNo);
+        if (room) {
+          room.occupants = tenantsData.map(t => t.name);
+        }
+      }
+      
       isEditMode = false;
+      document.getElementById('editMode').value = 'false';
       LOADER.hide(btn);
       tenantModal.hide();
       renderStats(); 
@@ -646,59 +954,73 @@ document.addEventListener("DOMContentLoaded", () => {
     if(!t) return;
     
     isEditMode = true;
+    document.getElementById('editMode').value = 'true';
+    editingTenantId = id;
     
     document.getElementById("tenantModalTitle").textContent = "Edit Tenant";
     document.getElementById("tenantId").value = t.id;
     
-    // Set basic fields
-    document.getElementById("tName").value = t.name || "";
-    document.getElementById("tEmail").value = t.email || "";
+    // Set role
     roleSelect.value = t.role || "Tenant";
-    residencySelect.value = t.residency || "National";
-    document.getElementById("tPhone").value = t.phone || "";
-    document.getElementById("tGender").value = t.gender || "Male";
+    toggleRoleFields();
     
-    // Set PG and Room (for both National and International)
+    // For guest, populate guest fields
+    if (t.role === "Guest") {
+      document.getElementById("tGuestName").value = t.name || "";
+      document.getElementById("tGuestEmail").value = t.email || "";
+      document.getElementById("tGuestPhone").value = t.phone || "";
+      
+      setTimeout(() => {
+        if (guestNationalityDropdownInstance) {
+          guestNationalityDropdownInstance.setValue(t.nationality || "Indian");
+        }
+        if (guestCodeDropdownInstance) {
+          guestCodeDropdownInstance.setValue(t.countryCode || "+91");
+        }
+      }, 100);
+      
+      tenantModal.show();
+      return;
+    }
+    
+    // For tenants
+    // Find all tenants in the same room
+    const roomTenants = LK.tenants.filter(x => x.pgId === t.pgId && x.roomNo === t.roomNo && x.role === "Tenant");
+    
+    // Set PG and Room
     populatePgDropdown();
     if(t.pgId){
       document.getElementById("tPg").value = t.pgId;
       populateRoomDropdown(t.pgId, t.roomNo);
       document.getElementById("tRoom").value = t.roomNo || "";
-    } else {
-      document.getElementById("tPg").value = "";
-      document.getElementById("tRoom").innerHTML = `<option value="">Select room...</option>`;
     }
     
-    // Set tenant-specific fields
-    document.getElementById("tRent").value = t.rent || "";
-    document.getElementById("tSecurityFee").value = t.securityFee || "";
-    document.getElementById("tPayDate").value = t.paymentDate || "";
-    document.getElementById("tPaidFrom").value = t.paidPeriods?.[0]?.from || "";
-    document.getElementById("tPaidTill").value = t.paidPeriods?.[0]?.to || "";
-    document.getElementById("tAadhar").value = t.aadhar || "";
-    document.getElementById("tParentAadhar").value = t.parentAadhar || "";
-    document.getElementById("tCForm").value = t.cForm || "";
-    document.getElementById("tArrivalDate").value = t.arrivalDate || "";
+    // Set number of tenants
+    document.getElementById("numTenants").value = roomTenants.length;
     
-    // Initialize dropdowns and set values
+    // Generate tenant fields with existing data
     setTimeout(() => {
-      initDropdowns();
-      if (nationalityDropdownInstance) {
-        // If National, set to Indian and disable, else set to stored nationality and enable
-        if (t.residency === "National" || t.role === "Guest") {
-          nationalityDropdownInstance.setValue("Indian");
-          nationalityDropdownInstance.setDisabled(true);
-        } else {
-          nationalityDropdownInstance.setValue(t.nationality || "American");
-          nationalityDropdownInstance.setDisabled(false);
-        }
-      }
-      if (codeDropdownInstance) {
-        codeDropdownInstance.setValue(t.countryCode || "+91");
-      }
-      toggleTenantOnly();
-      toggleFields();
-    }, 100);
+      const existingData = roomTenants.map(tenant => ({
+        id: tenant.id,
+        name: tenant.name,
+        email: tenant.email,
+        residency: tenant.residency,
+        nationality: tenant.nationality,
+        countryCode: tenant.countryCode,
+        phone: tenant.phone,
+        gender: tenant.gender,
+        rent: tenant.rent,
+        securityFee: tenant.securityFee,
+        paymentDate: tenant.paymentDate,
+        paidPeriods: tenant.paidPeriods,
+        arrivalDate: tenant.arrivalDate,
+        aadhar: tenant.aadhar,
+        parentAadhar: tenant.parentAadhar,
+        cForm: tenant.cForm
+      }));
+      
+      generateTenantFields(roomTenants.length, existingData);
+    }, 200);
     
     tenantModal.show();
   };

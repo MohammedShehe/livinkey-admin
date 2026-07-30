@@ -75,6 +75,40 @@
     cursor: not-allowed;
     opacity: 0.7;
   }
+
+  /* Tenant fields container */
+  .tenant-fields-container {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 15px;
+    margin-top: 10px;
+    background: var(--bg-light);
+  }
+  .tenant-fields-container .tenant-entry {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+  }
+  .tenant-fields-container .tenant-entry:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+  .tenant-entry-number {
+    font-weight: 600;
+    color: var(--lk-green);
+    margin-bottom: 10px;
+  }
+  .btn-remove-tenant {
+    color: var(--danger);
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.9rem;
+  }
+  .btn-remove-tenant:hover {
+    text-decoration: underline;
+  }
 </style>
 </head>
 <body>
@@ -135,117 +169,83 @@
       <form id="tenantForm">
         <div class="modal-body">
           <input type="hidden" id="tenantId">
+          <input type="hidden" id="editMode" value="false">
           
-          <!-- PG Selection -->
+          <!-- Role Selection - Moved to beginning -->
           <div class="mb-3">
-            <label class="form-label">Select PG</label>
-            <select class="form-select" id="tPg" required>
-              <option value="">Choose PG...</option>
+            <label class="form-label">Role</label>
+            <select class="form-select" id="tRole" required>
+              <option value="Tenant">Tenant</option>
+              <option value="Guest">Guest</option>
             </select>
           </div>
-          
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Full name</label>
-              <input type="text" class="form-control" id="tName" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Email address</label>
-              <input type="email" class="form-control" id="tEmail" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Role</label>
-              <select class="form-select" id="tRole" required>
-                <option value="Tenant">Tenant</option>
-                <option value="Guest">Guest</option>
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Residency</label>
-              <select class="form-select" id="tResidency" required>
-                <option value="National">National</option>
-                <option value="International">International</option>
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Nationality</label>
-              <div class="searchable-dropdown" id="nationalityDropdown">
-                <input type="text" class="dropdown-search" id="nationalitySearch" placeholder="Search or select nationality..." autocomplete="off">
-                <input type="hidden" id="tNationality" value="Indian">
-                <div class="dropdown-options" id="nationalityOptions"></div>
+
+          <!-- Guest-only fields -->
+          <div id="guestFields" class="d-none">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Full name</label>
+                <input type="text" class="form-control" id="tGuestName" placeholder="Guest name">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Email address</label>
+                <input type="email" class="form-control" id="tGuestEmail" placeholder="guest@example.com">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Nationality</label>
+                <div class="searchable-dropdown" id="guestNationalityDropdown">
+                  <input type="text" class="dropdown-search" id="guestNationalitySearch" placeholder="Search or select nationality..." autocomplete="off">
+                  <input type="hidden" id="tGuestNationality" value="Indian">
+                  <div class="dropdown-options" id="guestNationalityOptions"></div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Country code</label>
+                <div class="searchable-dropdown" id="guestCodeDropdown">
+                  <input type="text" class="dropdown-search" id="guestCodeSearch" placeholder="Search or select code..." autocomplete="off">
+                  <input type="hidden" id="tGuestCode" value="+91">
+                  <div class="dropdown-options" id="guestCodeOptions"></div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Phone</label>
+                <input type="text" class="form-control" id="tGuestPhone" placeholder="9876543210">
               </div>
             </div>
-            <!-- International fields -->
-            <div class="col-md-6 international-only d-none">
-              <label class="form-label">C-Form Number (Optional)</label>
-              <input type="text" class="form-control" id="tCForm" placeholder="C-Form number">
-            </div>
-            <!-- National fields -->
-            <div class="col-md-6 national-only d-none">
-              <label class="form-label">Aadhar Card ID</label>
-              <input type="text" class="form-control" id="tAadhar" placeholder="Aadhar number">
-            </div>
-            <div class="col-md-6 national-only d-none">
-              <label class="form-label">Parent Aadhar</label>
-              <input type="text" class="form-control" id="tParentAadhar" placeholder="Parent Aadhar number">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Country code</label>
-              <div class="searchable-dropdown" id="codeDropdown">
-                <input type="text" class="dropdown-search" id="codeSearch" placeholder="Search or select code..." autocomplete="off">
-                <input type="hidden" id="tCode" value="+91">
-                <div class="dropdown-options" id="codeOptions"></div>
-              </div>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Phone</label>
-              <input type="text" class="form-control" id="tPhone" placeholder="9876543210" required>
-            </div>
+          </div>
 
-            <div class="col-12"><hr class="my-1"></div>
-
-            <div class="col-md-4 tenant-only">
-              <label class="form-label">Gender</label>
-              <select class="form-select" id="tGender">
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
+          <!-- Tenant fields -->
+          <div id="tenantFields">
+            <!-- PG Selection -->
+            <div class="mb-3">
+              <label class="form-label">Select PG</label>
+              <select class="form-select" id="tPg" required>
+                <option value="">Choose PG...</option>
               </select>
             </div>
-            <div class="col-md-4 tenant-only">
+            
+            <!-- Room Selection -->
+            <div class="mb-3">
               <label class="form-label">Room no.</label>
               <select class="form-select" id="tRoom">
                 <option value="">Select room...</option>
               </select>
             </div>
-            <div class="col-md-4 tenant-only">
-              <label class="form-label">Rent (INR)</label>
-              <input type="number" class="form-control" id="tRent" placeholder="e.g. 11000">
+
+            <!-- Number of Tenants -->
+            <div class="mb-3" id="numTenantsContainer">
+              <label class="form-label">Number of tenants in this room</label>
+              <div class="d-flex align-items-center gap-3">
+                <input type="number" class="form-control" style="width:100px;" id="numTenants" min="1" max="4" value="1">
+                <button type="button" class="btn btn-brand" id="generateTenantFields">Generate Fields</button>
+              </div>
+              <div class="form-text">Select how many tenants will share this room, then click "Generate Fields".</div>
             </div>
-            <div class="col-md-4 tenant-only">
-              <label class="form-label">Security Fee (INR) Optional</label>
-              <input type="number" class="form-control" id="tSecurityFee" placeholder="e.g. 5000">
-            </div>
-            <div class="col-md-6 tenant-only">
-              <label class="form-label">Payment date (day of month)</label>
-              <input type="number" min="1" max="28" class="form-control" id="tPayDate" placeholder="e.g. 5">
-              <div class="form-text">Fines of ₹100/day apply after 7 days past this date each month.</div>
-            </div>
-            <div class="col-md-3 tenant-only">
-              <label class="form-label">Paid from</label>
-              <input type="date" class="form-control" id="tPaidFrom">
-            </div>
-            <div class="col-md-3 tenant-only">
-              <label class="form-label">Paid till</label>
-              <input type="date" class="form-control" id="tPaidTill">
-            </div>
-            <div class="col-md-12 tenant-only">
-              <label class="form-label">Date of Arrival in PG</label>
-              <input type="date" class="form-control" id="tArrivalDate" required>
-              <div class="form-text">The date when the tenant moved into the PG.</div>
-            </div>
+
+            <!-- Tenant Entries Container -->
+            <div id="tenantEntriesContainer" class="tenant-fields-container"></div>
           </div>
-          
+
           <div class="mt-3">
             <label class="form-label">Upload Documents (Optional)</label>
             <input type="file" class="form-control" id="tDocs" multiple accept="image/*">
@@ -254,7 +254,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-brand">Save Tenant</button>
+          <button type="submit" class="btn btn-brand">Save Tenant(s)</button>
         </div>
       </form>
     </div>
