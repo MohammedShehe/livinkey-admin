@@ -13,7 +13,7 @@ LK.credentials = {
 
 LK.notificationsCount = 3;
 
-// PGs Data - Added images array and qrCode field
+// PGs Data - Added images array, qrCode field, and amenities
 LK.pgs = [
   {
     id: "PG001",
@@ -23,6 +23,7 @@ LK.pgs = [
     roomsPerFloor: 4,
     capacity: 2,
     qrCode: null,
+    amenities: ["Free WiFi", "24×7 Assistance", "24×7 Power Backup", "CCTV", "AC"],
     images: [
       "https://images.unsplash.com/photo-1554995207-c18c203602cb?w=400&h=300&fit=crop",
       "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop",
@@ -51,6 +52,7 @@ LK.pgs = [
     roomsPerFloor: 3,
     capacity: 2,
     qrCode: null,
+    amenities: ["Free WiFi", "Ventilated Rooms", "Free Housekeeping", "43 Inch LED"],
     images: [
       "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop",
       "https://images.unsplash.com/photo-1560185127-6ed189bf02f4?w=400&h=300&fit=crop"
@@ -72,6 +74,7 @@ LK.pgs = [
     roomsPerFloor: 3,
     capacity: 2,
     qrCode: null,
+    amenities: ["Free WiFi", "24×7 Assistance", "CCTV", "Free Housekeeping", "Ventilated Rooms"],
     images: [
       "https://images.unsplash.com/photo-1554995207-c18c203602cb?w=400&h=300&fit=crop"
     ],

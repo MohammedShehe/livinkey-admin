@@ -55,6 +55,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const totalRooms = p.rooms.length;
       const occupiedRooms = p.rooms.filter(r => r.occupants && r.occupants.length > 0).length;
       const imageCount = (p.images || []).length;
+      const amenities = p.amenities || [];
+      const displayAmenities = amenities.slice(0, 3);
+      const remainingAmenities = amenities.length - 3;
       
       return `
       <div class="col-md-6 col-lg-4">
@@ -70,6 +73,12 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="pg-card-images">
               ${p.images.slice(0, 3).map(img => `<img src="${img}" alt="PG image">`).join('')}
               ${imageCount > 3 ? `<div class="image-count-badge">+${imageCount - 3}</div>` : ''}
+            </div>
+          ` : ''}
+          ${amenities.length > 0 ? `
+            <div class="pg-amenities-display">
+              ${displayAmenities.map(a => `<span class="amenity-badge">${a}</span>`).join('')}
+              ${remainingAmenities > 0 ? `<span class="amenity-badge">+${remainingAmenities}</span>` : ''}
             </div>
           ` : ''}
           <div class="row g-2 small mt-2">
@@ -100,6 +109,16 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pgDetailName").textContent = p.name;
     
     let html = `<p class="text-muted-soft small mb-3">${p.location}</p>`;
+    
+    // Display Amenities
+    const amenities = p.amenities || [];
+    if (amenities.length > 0) {
+      html += `<div class="mb-3"><strong>Amenities:</strong> <div class="pg-amenities-display">`;
+      amenities.forEach(a => {
+        html += `<span class="amenity-badge">${a}</span>`;
+      });
+      html += `</div></div>`;
+    }
     
     // Display PG Images
     const images = p.images || [];
@@ -259,6 +278,87 @@ document.addEventListener("DOMContentLoaded", () => {
     tempPgImagesDataUrls = images ? [...images] : [];
     tempPgImages = [];
     renderImagePreviews();
+  }
+
+  /* -------- Amenities Handling -------- */
+  let customAmenities = [];
+
+  function getSelectedAmenities() {
+    const checkboxes = document.querySelectorAll('.amenity-checkbox:checked');
+    const builtIn = Array.from(checkboxes).map(cb => cb.value);
+    return [...builtIn, ...customAmenities];
+  }
+
+  function renderCustomAmenityTags() {
+    const container = document.getElementById('customAmenityTags');
+    container.innerHTML = customAmenities.map((a, i) => `
+      <span class="custom-amenity-tag">
+        ${a}
+        <button type="button" class="btn-remove-tag" onclick="removeCustomAmenity(${i})">&times;</button>
+      </span>
+    `).join('');
+  }
+
+  window.removeCustomAmenity = function(index) {
+    customAmenities.splice(index, 1);
+    renderCustomAmenityTags();
+  };
+
+  document.getElementById('addCustomAmenityBtn').addEventListener('click', function() {
+    const input = document.getElementById('customAmenityInput');
+    const value = input.value.trim();
+    if (!value) {
+      showToast("Please enter an amenity name.", "warning");
+      return;
+    }
+    if (customAmenities.includes(value)) {
+      showToast("This amenity is already added.", "warning");
+      return;
+    }
+    // Check if it's already in built-in checkboxes
+    const builtInValues = Array.from(document.querySelectorAll('.amenity-checkbox')).map(cb => cb.value);
+    if (builtInValues.includes(value)) {
+      showToast("This amenity is already in the list. Please check the box above.", "warning");
+      return;
+    }
+    customAmenities.push(value);
+    input.value = '';
+    renderCustomAmenityTags();
+    showToast(`Added "${value}" to amenities.`, "success");
+  });
+
+  // Allow Enter key for custom amenity input
+  document.getElementById('customAmenityInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('addCustomAmenityBtn').click();
+    }
+  });
+
+  function setAmenities(amenities) {
+    // Reset all checkboxes
+    document.querySelectorAll('.amenity-checkbox').forEach(cb => cb.checked = false);
+    customAmenities = [];
+    
+    if (amenities && amenities.length > 0) {
+      const builtInValues = Array.from(document.querySelectorAll('.amenity-checkbox')).map(cb => cb.value);
+      amenities.forEach(a => {
+        if (builtInValues.includes(a)) {
+          const cb = document.querySelector(`.amenity-checkbox[value="${a}"]`);
+          if (cb) cb.checked = true;
+        } else {
+          customAmenities.push(a);
+        }
+      });
+      renderCustomAmenityTags();
+    }
+  }
+
+  function resetAmenities() {
+    document.querySelectorAll('.amenity-checkbox').forEach(cb => cb.checked = false);
+    customAmenities = [];
+    document.getElementById('customAmenityInput').value = '';
+    renderCustomAmenityTags();
   }
 
   /* -------- QR Upload handling -------- */
@@ -433,7 +533,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /* -------- Add/Edit PG Modal -------- */
   const pgModal = new bootstrap.Modal(document.getElementById("addPgModal"));
   
-  document.querySelector('[data-bs-target="#addPgModal"]').addEventListener("click", () => {
+  document.querySelector('[data-bs-toggle="modal"][data-bs-target="#addPgModal"]').addEventListener("click", () => {
     document.getElementById("pgModalTitle").textContent = "Add PG";
     document.getElementById("pgForm").reset();
     document.getElementById("pgId").value = "";
@@ -441,6 +541,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pFloors").value = 1;
     setQrPreview(null);
     resetImageUpload();
+    resetAmenities();
     renderFloors();
   });
 
@@ -457,6 +558,9 @@ document.addEventListener("DOMContentLoaded", () => {
     
     setQrPreview(p.qrCode || null);
     setPgImages(p.images || []);
+    
+    // Set amenities
+    setAmenities(p.amenities || []);
     
     floorData = [];
     for (let f = 0; f < p.floors; f++) {
@@ -499,6 +603,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // Get selected amenities
+    const selectedAmenities = getSelectedAmenities();
+
     const rooms = [];
     floorData.forEach((floor, index) => {
       const floorName = getFloorName(index);
@@ -538,6 +645,7 @@ document.addEventListener("DOMContentLoaded", () => {
           p.rooms = rooms;
           p.qrCode = qrToSave || null;
           p.images = imagesToSave && imagesToSave.length > 0 ? imagesToSave : [];
+          p.amenities = selectedAmenities.length > 0 ? selectedAmenities : [];
           showToast(`PG "${name}" updated.`, "success");
         }
       } else {
@@ -550,7 +658,8 @@ document.addEventListener("DOMContentLoaded", () => {
           capacity: 0,
           rooms: rooms,
           qrCode: qrToSave || null,
-          images: imagesToSave && imagesToSave.length > 0 ? imagesToSave : []
+          images: imagesToSave && imagesToSave.length > 0 ? imagesToSave : [],
+          amenities: selectedAmenities.length > 0 ? selectedAmenities : []
         });
         showToast(`PG "${name}" added.`, "success");
       }
@@ -560,6 +669,7 @@ document.addEventListener("DOMContentLoaded", () => {
       LOADER.hide(btn);
       setQrPreview(null);
       resetImageUpload();
+      resetAmenities();
     }, 600);
   });
 
