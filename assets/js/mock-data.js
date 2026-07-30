@@ -13,7 +13,7 @@ LK.credentials = {
 
 LK.notificationsCount = 3;
 
-// PGs Data
+// PGs Data - Added qrCode field to each PG
 LK.pgs = [
   {
     id: "PG001",
@@ -22,6 +22,7 @@ LK.pgs = [
     floors: 3,
     roomsPerFloor: 4,
     capacity: 2,
+    qrCode: null, // Will be set when admin uploads
     rooms: [
       { roomNo: "101", floor: "1st Floor", occupants: ["Amit Sharma"], rent: 11000, capacity: 2 },
       { roomNo: "102", floor: "1st Floor", occupants: ["Diego Alvarez", "Louis Meyer"], rent: 11000, capacity: 2 },
@@ -44,6 +45,7 @@ LK.pgs = [
     floors: 2,
     roomsPerFloor: 3,
     capacity: 2,
+    qrCode: null,
     rooms: [
       { roomNo: "101", floor: "1st Floor", occupants: ["Priya Patel"], rent: 13000, capacity: 2 },
       { roomNo: "102", floor: "1st Floor", occupants: ["John Smith", "Maria Garcia"], rent: 12000, capacity: 2 },
@@ -60,6 +62,7 @@ LK.pgs = [
     floors: 4,
     roomsPerFloor: 3,
     capacity: 2,
+    qrCode: null,
     rooms: [
       { roomNo: "101", floor: "1st Floor", occupants: ["Neha Gupta"], rent: 10500, capacity: 2 },
       { roomNo: "102", floor: "1st Floor", occupants: ["Vikram Kumar"], rent: 10000, capacity: 2 },
@@ -77,7 +80,8 @@ LK.pgs = [
   }
 ];
 
-// Tenants (Members) - Updated with nationality instead of country
+// Rest of your data remains the same...
+// Tenants (Members)
 LK.tenants = [
   {
     id: "T001", 
@@ -381,7 +385,7 @@ LK.tenants = [
   }
 ];
 
-// Guests - Updated with nationality instead of country
+// Guests
 LK.guests = [
   {
     id: "G001", 

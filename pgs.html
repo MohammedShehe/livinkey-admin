@@ -101,6 +101,21 @@
     font-size: 0.75rem;
   }
 
+  /* QR code preview */
+  .qr-preview {
+    max-width: 120px;
+    max-height: 120px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    background: white;
+  }
+  .qr-preview img {
+    width: 100%;
+    height: auto;
+    border-radius: 4px;
+  }
+
   /* Modal scroll fixes */
   .modal-dialog-scrollable .modal-content {
     max-height: calc(100vh - 60px);
@@ -223,6 +238,24 @@
             <div class="col-md-6">
               <label class="form-label">Location *</label>
               <input class="form-control" id="pLocation" required placeholder="Full address">
+            </div>
+          </div>
+
+          <!-- QR Code Upload - NEW FIELD -->
+          <div class="row g-3 mb-4 align-items-end">
+            <div class="col-md-8">
+              <label class="form-label">Payment QR Code (optional)</label>
+              <input class="form-control" type="file" id="qrUpload" accept="image/*">
+              <div class="text-muted-soft small mt-1">Upload a QR code image for rent payments. Visible on PG detail.</div>
+            </div>
+            <div class="col-md-4">
+              <div id="qrPreviewContainer" class="d-none">
+                <label class="form-label">Current QR</label>
+                <div class="qr-preview" id="qrPreview">
+                  <img src="" alt="QR Code" id="qrPreviewImg">
+                </div>
+                <button type="button" class="btn btn-outline-danger btn-sm mt-1" id="removeQrBtn">Remove</button>
+              </div>
             </div>
           </div>
 

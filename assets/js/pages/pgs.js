@@ -70,6 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="col-6"><i class="bi bi-people me-1 text-muted-soft"></i>${occupiedRooms}/${totalRooms} Occupied</div>
             <div class="col-6"><i class="bi bi-currency-rupee me-1 text-muted-soft"></i>${fmtINR(p.rooms.reduce((s,r) => s + (r.rent || 10000), 0) / totalRooms)} Avg Rent</div>
           </div>
+          ${p.qrCode ? `<div class="mt-2"><img src="${p.qrCode}" style="height:36px;width:36px;object-fit:contain;border-radius:4px;border:1px solid var(--border);" alt="QR"></div>` : ''}
           <div class="mt-3 d-flex gap-2" onclick="event.stopPropagation();">
             <button class="btn btn-outline-brand btn-sm flex-grow-1" onclick="editPg('${p.id}')"><i class="bi bi-pencil me-1"></i>Edit</button>
             <button class="btn-icon" onclick="deletePg('${p.id}')"><i class="bi bi-trash3"></i></button>
@@ -89,6 +90,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pgDetailName").textContent = p.name;
     
     let html = `<p class="text-muted-soft small mb-3">${p.location}</p>`;
+    
+    // Display QR code in detail view
+    if (p.qrCode) {
+      html += `<div class="mb-3"><img src="${p.qrCode}" style="max-width:120px;max-height:120px;border:1px solid var(--border);border-radius:8px;padding:4px;" alt="Payment QR"></div>`;
+    }
+    
     const floors = [...new Set(p.rooms.map(r => r.floor))].sort();
     
     floors.forEach(floor => {
@@ -118,6 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* -------- Floor/Room Management -------- */
   let floorData = [];
+  let tempQrDataUrl = null; // for storing uploaded QR as dataURL during edit/add
 
   function renderFloors() {
     const container = document.getElementById("floorsContainer");
@@ -253,6 +261,46 @@ document.addEventListener("DOMContentLoaded", () => {
   // Trigger initial floor render
   setTimeout(renderFloors, 100);
 
+  /* -------- QR Upload handling -------- */
+  const qrUpload = document.getElementById('qrUpload');
+  const qrPreviewContainer = document.getElementById('qrPreviewContainer');
+  const qrPreviewImg = document.getElementById('qrPreviewImg');
+  const removeQrBtn = document.getElementById('removeQrBtn');
+
+  qrUpload.addEventListener('change', function(e) {
+    const file = this.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        tempQrDataUrl = ev.target.result;
+        qrPreviewImg.src = tempQrDataUrl;
+        qrPreviewContainer.classList.remove('d-none');
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  removeQrBtn.addEventListener('click', function() {
+    tempQrDataUrl = null;
+    qrPreviewImg.src = '';
+    qrPreviewContainer.classList.add('d-none');
+    qrUpload.value = '';
+  });
+
+  // Show QR preview when editing (set by editPg)
+  function setQrPreview(dataUrl) {
+    if (dataUrl) {
+      tempQrDataUrl = dataUrl;
+      qrPreviewImg.src = dataUrl;
+      qrPreviewContainer.classList.remove('d-none');
+    } else {
+      tempQrDataUrl = null;
+      qrPreviewImg.src = '';
+      qrPreviewContainer.classList.add('d-none');
+      qrUpload.value = '';
+    }
+  }
+
   /* -------- Add/Edit PG Modal -------- */
   const pgModal = new bootstrap.Modal(document.getElementById("addPgModal"));
   document.querySelector('[data-bs-target="#addPgModal"]').addEventListener("click", () => {
@@ -261,6 +309,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pgId").value = "";
     floorData = [];
     document.getElementById("pFloors").value = 1;
+    setQrPreview(null);
     renderFloors();
   });
 
@@ -274,6 +323,13 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pName").value = p.name;
     document.getElementById("pLocation").value = p.location;
     document.getElementById("pFloors").value = p.floors;
+    
+    // Set QR preview if exists
+    if (p.qrCode) {
+      setQrPreview(p.qrCode);
+    } else {
+      setQrPreview(null);
+    }
     
     // Rebuild floorData from existing rooms
     floorData = [];
@@ -333,6 +389,13 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
+    // Determine QR code to save: use tempQrDataUrl if available, else keep existing (for edit)
+    let qrToSave = tempQrDataUrl;
+    if (!qrToSave && id) {
+      const existing = LK.pgs.find(x => x.id === id);
+      if (existing) qrToSave = existing.qrCode || null;
+    }
+
     setTimeout(() => {
       if (id) {
         // Edit existing PG
@@ -342,6 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
           p.location = location;
           p.floors = floors;
           p.rooms = rooms;
+          p.qrCode = qrToSave || null;
           showToast(`PG "${name}" updated.`, "success");
         }
       } else {
@@ -353,7 +417,8 @@ document.addEventListener("DOMContentLoaded", () => {
           floors: floors,
           roomsPerFloor: 0,
           capacity: 0,
-          rooms: rooms
+          rooms: rooms,
+          qrCode: qrToSave || null
         });
         showToast(`PG "${name}" added.`, "success");
       }
@@ -361,6 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderStats();
       renderGrid(document.getElementById("pgSearch").value);
       LOADER.hide(btn);
+      setQrPreview(null); // reset for next add
     }, 600);
   });
 
