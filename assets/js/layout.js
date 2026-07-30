@@ -9,7 +9,8 @@ const MENU = [
   { key: "bills",   label: "Bills", icon: "bi-receipt-cutoff", href: "bills.html" },
   { key: "pgs",     label: "PGs Management", icon: "bi-building", href: "pgs.html" },
   { key: "maintenance", label: "Maintenance", icon: "bi-tools", href: "maintenance.html" },
-  { key: "documents", label: "Documents", icon: "bi-files", href: "documents.html" }
+  { key: "documents", label: "Documents", icon: "bi-files", href: "documents.html" },
+  { key: "feedbacks", label: "Feedbacks", icon: "bi-chat-dots-fill", href: "feedbacks.html" }  // NEW
 ];
 
 function currentAdminRecord(){

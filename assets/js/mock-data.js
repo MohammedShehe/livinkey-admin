@@ -534,4 +534,94 @@ LK.maintenance = [
   }
 ];
 
+// ============================================
+// FEEDBACK DATA
+// ============================================
+
+// Generate feedbacks for tenants
+LK.feedbacks = (function() {
+  const feedbacks = [];
+  const tenants = LK.tenants.filter(t => t.role === "Tenant");
+  
+  // Only create feedbacks for some tenants
+  const feedbackTenants = tenants.filter((_, i) => i % 2 === 0 || i === 0 || i === 3 || i === 5);
+  
+  const comments = [
+    "Great place to stay! The facilities are well maintained and the staff is very helpful.",
+    "Overall good experience. The room is spacious and the location is convenient.",
+    "Decent PG, but maintenance response could be faster. The amenities are good though.",
+    "Excellent living experience! The management is very responsive and the place is clean.",
+    "Good value for money. The room is comfortable and the food is decent.",
+    "The PG is well managed. The Wi-Fi is fast and the common areas are clean.",
+    "Average experience. The room is okay but the kitchen could be better maintained.",
+    "Wonderful stay! The staff is friendly and the facilities are top-notch.",
+    "The PG is good but the rent is a bit high for the amenities provided.",
+    "Excellent location and great facilities. Highly recommended for students.",
+    "The maintenance team is very responsive. Any issues are fixed quickly.",
+    "Good place but the noise from the nearby construction is bothersome.",
+    "Amazing experience! The community here is great and the PG is well-run.",
+    "The PG is clean and well-maintained. The food is also good.",
+    "Decent place but the room could use better ventilation.",
+    "Perfect for students! Great location, good food, and friendly staff."
+  ];
+  
+  let feedbackId = 1;
+  
+  feedbackTenants.forEach((tenant) => {
+    // Generate random ratings (out of 10)
+    const livingExperience = Math.floor(Math.random() * 5) + 6;
+    const maintenanceHandling = Math.floor(Math.random() * 5) + 4;
+    const communication = Math.floor(Math.random() * 5) + 5;
+    const amenities = Math.floor(Math.random() * 5) + 4;
+    const technologyHandling = Math.floor(Math.random() * 5) + 4;
+    
+    const overall = (livingExperience + maintenanceHandling + communication + amenities + technologyHandling) / 5;
+    
+    let sentiment = 'neutral';
+    if (overall >= 7) sentiment = 'positive';
+    else if (overall <= 5) sentiment = 'negative';
+    
+    let commentIndex;
+    if (sentiment === 'positive') {
+      commentIndex = Math.floor(Math.random() * 5) + 8;
+    } else if (sentiment === 'negative') {
+      commentIndex = Math.floor(Math.random() * 5) + 2;
+    } else {
+      commentIndex = Math.floor(Math.random() * 3) + 6;
+    }
+    
+    const submittedDate = new Date();
+    submittedDate.setDate(submittedDate.getDate() - Math.floor(Math.random() * 60));
+    
+    const pg = LK.pgs.find(p => p.id === tenant.pgId);
+    
+    feedbacks.push({
+      id: "F" + String(feedbackId++).padStart(3, '0'),
+      tenantId: tenant.id,
+      name: tenant.name,
+      email: tenant.email,
+      phone: tenant.phone || "9876543210",
+      pgId: tenant.pgId,
+      pgName: pg ? pg.name : "Unknown PG",
+      roomNo: tenant.roomNo,
+      nationality: tenant.nationality,
+      gender: tenant.gender,
+      residency: tenant.residency,
+      ratings: {
+        livingExperience: livingExperience,
+        maintenanceHandling: maintenanceHandling,
+        communication: communication,
+        amenities: amenities,
+        technologyHandling: technologyHandling
+      },
+      overall: parseFloat(overall.toFixed(1)),
+      sentiment: sentiment,
+      comment: comments[commentIndex] || "No comment provided.",
+      submittedDate: submittedDate.toISOString().split('T')[0]
+    });
+  });
+  
+  return feedbacks;
+})();
+
 window.LK = LK;
