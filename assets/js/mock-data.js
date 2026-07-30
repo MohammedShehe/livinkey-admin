@@ -13,7 +13,7 @@ LK.credentials = {
 
 LK.notificationsCount = 3;
 
-// PGs Data - Added qrCode field to each PG
+// PGs Data - Added images array and qrCode field
 LK.pgs = [
   {
     id: "PG001",
@@ -23,6 +23,11 @@ LK.pgs = [
     roomsPerFloor: 4,
     capacity: 2,
     qrCode: null,
+    images: [
+      "https://images.unsplash.com/photo-1554995207-c18c203602cb?w=400&h=300&fit=crop",
+      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop",
+      "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&h=300&fit=crop"
+    ],
     rooms: [
       { roomNo: "101", floor: "1st Floor", occupants: ["Amit Sharma"], rent: 11000, capacity: 2 },
       { roomNo: "102", floor: "1st Floor", occupants: ["Diego Alvarez", "Louis Meyer"], rent: 11000, capacity: 2 },
@@ -46,6 +51,10 @@ LK.pgs = [
     roomsPerFloor: 3,
     capacity: 2,
     qrCode: null,
+    images: [
+      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop",
+      "https://images.unsplash.com/photo-1560185127-6ed189bf02f4?w=400&h=300&fit=crop"
+    ],
     rooms: [
       { roomNo: "101", floor: "1st Floor", occupants: ["Priya Patel"], rent: 13000, capacity: 2 },
       { roomNo: "102", floor: "1st Floor", occupants: ["John Smith", "Maria Garcia"], rent: 12000, capacity: 2 },
@@ -63,6 +72,9 @@ LK.pgs = [
     roomsPerFloor: 3,
     capacity: 2,
     qrCode: null,
+    images: [
+      "https://images.unsplash.com/photo-1554995207-c18c203602cb?w=400&h=300&fit=crop"
+    ],
     rooms: [
       { roomNo: "101", floor: "1st Floor", occupants: ["Neha Gupta"], rent: 10500, capacity: 2 },
       { roomNo: "102", floor: "1st Floor", occupants: ["Vikram Kumar"], rent: 10000, capacity: 2 },
@@ -543,7 +555,6 @@ LK.feedbacks = (function() {
   const feedbacks = [];
   const tenants = LK.tenants.filter(t => t.role === "Tenant");
   
-  // Only create feedbacks for some tenants
   const feedbackTenants = tenants.filter((_, i) => i % 2 === 0 || i === 0 || i === 3 || i === 5);
   
   const comments = [
@@ -568,7 +579,6 @@ LK.feedbacks = (function() {
   let feedbackId = 1;
   
   feedbackTenants.forEach((tenant) => {
-    // Generate random ratings (out of 10)
     const livingExperience = Math.floor(Math.random() * 5) + 6;
     const maintenanceHandling = Math.floor(Math.random() * 5) + 4;
     const communication = Math.floor(Math.random() * 5) + 5;

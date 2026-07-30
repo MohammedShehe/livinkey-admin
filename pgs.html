@@ -116,6 +116,149 @@
     border-radius: 4px;
   }
 
+  /* Image upload previews */
+  .pg-image-previews {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+  .pg-image-preview-item {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .pg-image-preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .pg-image-preview-item .remove-image-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.2s;
+  }
+  .pg-image-preview-item .remove-image-btn:hover {
+    background: var(--danger);
+    transform: scale(1.1);
+  }
+  .pg-image-upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: 0.2s;
+    background: var(--bg);
+  }
+  .pg-image-upload-area:hover {
+    border-color: var(--lk-green);
+    background: var(--lk-green-50);
+  }
+  .pg-image-upload-area.dragover {
+    border-color: var(--lk-green);
+    background: var(--lk-green-100);
+  }
+  .pg-image-upload-area i {
+    font-size: 2rem;
+    color: var(--muted);
+  }
+  .pg-image-upload-area p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .pg-image-upload-area .small-text {
+    font-size: 0.75rem;
+  }
+  .image-upload-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .image-upload-wrapper .upload-progress {
+    height: 4px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    width: 100%;
+  }
+  .image-upload-wrapper .upload-progress .progress-bar {
+    height: 100%;
+    background: var(--lk-green);
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  /* PG Detail Images */
+  .pg-detail-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .pg-detail-images img {
+    width: 200px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .pg-detail-images img:hover {
+    transform: scale(1.02);
+    box-shadow: var(--shadow);
+  }
+  .pg-detail-images .no-images {
+    color: var(--muted);
+    font-style: italic;
+    padding: 1rem 0;
+  }
+
+  /* PG Card Images */
+  .pg-card-images {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .pg-card-images img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  .pg-card-images .image-count-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    background: var(--lk-green);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
   /* Modal scroll fixes */
   .modal-dialog-scrollable .modal-content {
     max-height: calc(100vh - 60px);
@@ -179,12 +322,27 @@
     .modal-dialog-scrollable .modal-body {
       max-height: calc(100vh - 180px);
     }
+    
+    .pg-detail-images img {
+      width: 150px;
+      height: 120px;
+    }
   }
   
   @media (max-width: 576px) {
     .modal-dialog-scrollable .modal-body {
       max-height: calc(100vh - 160px);
       padding: 1rem;
+    }
+    
+    .pg-image-preview-item {
+      width: 80px;
+      height: 80px;
+    }
+    
+    .pg-detail-images img {
+      width: 120px;
+      height: 100px;
     }
   }
 </style>
@@ -241,7 +399,24 @@
             </div>
           </div>
 
-          <!-- QR Code Upload - NEW FIELD -->
+          <!-- PG Images Upload - NEW SECTION -->
+          <div class="mb-4">
+            <label class="form-label">PG Images <span class="text-muted-soft small">(up to 5 images)</span></label>
+            <div class="image-upload-wrapper">
+              <div class="pg-image-upload-area" id="pgImageDropZone">
+                <i class="bi bi-image"></i>
+                <p>Click or drag &amp; drop images here</p>
+                <span class="small-text text-muted-soft">JPG, PNG, WebP · Max 5 images</span>
+                <input type="file" id="pgImageInput" accept="image/*" multiple style="display:none;">
+              </div>
+              <div id="pgImagePreviews" class="pg-image-previews"></div>
+              <div class="upload-progress">
+                <div class="progress-bar" id="pgImageProgress"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- QR Code Upload -->
           <div class="row g-3 mb-4 align-items-end">
             <div class="col-md-8">
               <label class="form-label">Payment QR Code (optional)</label>
@@ -310,6 +485,18 @@
           <button class="btn btn-outline-brand px-4" data-bs-dismiss="modal">Cancel</button>
           <button class="btn btn-soft-danger px-4" id="confirmActionBtn">Yes, delete</button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Image Viewer Modal -->
+<div class="modal fade" id="imageViewerModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-transparent border-0">
+      <div class="modal-body text-center">
+        <button class="btn btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"></button>
+        <img src="" alt="PG Image" id="imageViewerImg" style="max-width:100%;max-height:80vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
       </div>
     </div>
   </div>

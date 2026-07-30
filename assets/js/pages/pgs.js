@@ -54,6 +54,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const st = getPgStatus(p);
       const totalRooms = p.rooms.length;
       const occupiedRooms = p.rooms.filter(r => r.occupants && r.occupants.length > 0).length;
+      const imageCount = (p.images || []).length;
+      
       return `
       <div class="col-md-6 col-lg-4">
         <div class="border rounded-4 p-3 h-100 hover-lift pg-card" onclick="viewPgDetail('${p.id}')">
@@ -64,6 +66,12 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
             <span class="chip ${st.chip}">${st.label}</span>
           </div>
+          ${imageCount > 0 ? `
+            <div class="pg-card-images">
+              ${p.images.slice(0, 3).map(img => `<img src="${img}" alt="PG image">`).join('')}
+              ${imageCount > 3 ? `<div class="image-count-badge">+${imageCount - 3}</div>` : ''}
+            </div>
+          ` : ''}
           <div class="row g-2 small mt-2">
             <div class="col-6"><i class="bi bi-layers me-1 text-muted-soft"></i>${p.floors} Floors</div>
             <div class="col-6"><i class="bi bi-door-open me-1 text-muted-soft"></i>${totalRooms} Rooms</div>
@@ -84,12 +92,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* -------- PG Detail Modal -------- */
   const pgDetailModal = new bootstrap.Modal(document.getElementById("pgDetailModal"));
+  const imageViewerModal = new bootstrap.Modal(document.getElementById("imageViewerModal"));
+  
   window.viewPgDetail = function(id) {
     const p = LK.pgs.find(x => x.id === id);
     if (!p) return;
     document.getElementById("pgDetailName").textContent = p.name;
     
     let html = `<p class="text-muted-soft small mb-3">${p.location}</p>`;
+    
+    // Display PG Images
+    const images = p.images || [];
+    html += `<div class="pg-detail-images">`;
+    if (images.length > 0) {
+      images.forEach((img, idx) => {
+        html += `<img src="${img}" alt="PG Image ${idx + 1}" onclick="viewImage('${img}')" loading="lazy">`;
+      });
+    } else {
+      html += `<div class="no-images">No images uploaded for this PG.</div>`;
+    }
+    html += `</div>`;
     
     // Display QR code in detail view
     if (p.qrCode) {
@@ -123,15 +145,170 @@ document.addEventListener("DOMContentLoaded", () => {
     pgDetailModal.show();
   };
 
+  // Image viewer
+  window.viewImage = function(src) {
+    document.getElementById("imageViewerImg").src = src;
+    imageViewerModal.show();
+  };
+
+  /* -------- PG Image Upload Handling -------- */
+  let tempPgImages = [];
+  let tempPgImagesDataUrls = [];
+
+  function renderImagePreviews() {
+    const container = document.getElementById('pgImagePreviews');
+    container.innerHTML = tempPgImagesDataUrls.map((dataUrl, index) => `
+      <div class="pg-image-preview-item">
+        <img src="${dataUrl}" alt="PG Image ${index + 1}">
+        <button type="button" class="remove-image-btn" onclick="removePgImage(${index})" title="Remove image">
+          <i class="bi bi-x"></i>
+        </button>
+      </div>
+    `).join('');
+    
+    // Update upload area visibility
+    const dropZone = document.getElementById('pgImageDropZone');
+    if (tempPgImagesDataUrls.length >= 5) {
+      dropZone.style.display = 'none';
+    } else {
+      dropZone.style.display = 'block';
+    }
+  }
+
+  window.removePgImage = function(index) {
+    tempPgImagesDataUrls.splice(index, 1);
+    tempPgImages.splice(index, 1);
+    renderImagePreviews();
+  };
+
+  // Handle image upload via file input
+  document.getElementById('pgImageInput').addEventListener('change', function(e) {
+    const files = Array.from(e.target.files);
+    handleImageFiles(files);
+    this.value = '';
+  });
+
+  // Handle drag and drop
+  const dropZone = document.getElementById('pgImageDropZone');
+  
+  dropZone.addEventListener('click', () => {
+    document.getElementById('pgImageInput').click();
+  });
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+  dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    handleImageFiles(files);
+  });
+
+  function handleImageFiles(files) {
+    const remaining = 5 - tempPgImagesDataUrls.length;
+    const toProcess = files.slice(0, remaining);
+    
+    if (toProcess.length === 0) {
+      showToast("Maximum 5 images allowed.", "warning");
+      return;
+    }
+
+    const progressBar = document.getElementById('pgImageProgress');
+    let loaded = 0;
+    const total = toProcess.length;
+
+    toProcess.forEach((file, index) => {
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        tempPgImagesDataUrls.push(ev.target.result);
+        tempPgImages.push(file);
+        loaded++;
+        progressBar.style.width = `${(loaded / total) * 100}%`;
+        if (loaded === total) {
+          setTimeout(() => {
+            progressBar.style.width = '0%';
+            renderImagePreviews();
+            showToast(`${total} image(s) uploaded successfully.`, "success");
+          }, 300);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Reset image upload state
+  function resetImageUpload() {
+    tempPgImages = [];
+    tempPgImagesDataUrls = [];
+    renderImagePreviews();
+    document.getElementById('pgImageInput').value = '';
+    document.getElementById('pgImageProgress').style.width = '0%';
+    document.getElementById('pgImageDropZone').style.display = 'block';
+  }
+
+  // Set images for edit
+  function setPgImages(images) {
+    tempPgImagesDataUrls = images ? [...images] : [];
+    tempPgImages = [];
+    renderImagePreviews();
+  }
+
+  /* -------- QR Upload handling -------- */
+  const qrUpload = document.getElementById('qrUpload');
+  const qrPreviewContainer = document.getElementById('qrPreviewContainer');
+  const qrPreviewImg = document.getElementById('qrPreviewImg');
+  const removeQrBtn = document.getElementById('removeQrBtn');
+
+  let tempQrDataUrl = null;
+
+  qrUpload.addEventListener('change', function(e) {
+    const file = this.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        tempQrDataUrl = ev.target.result;
+        qrPreviewImg.src = tempQrDataUrl;
+        qrPreviewContainer.classList.remove('d-none');
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  removeQrBtn.addEventListener('click', function() {
+    tempQrDataUrl = null;
+    qrPreviewImg.src = '';
+    qrPreviewContainer.classList.add('d-none');
+    qrUpload.value = '';
+  });
+
+  function setQrPreview(dataUrl) {
+    if (dataUrl) {
+      tempQrDataUrl = dataUrl;
+      qrPreviewImg.src = dataUrl;
+      qrPreviewContainer.classList.remove('d-none');
+    } else {
+      tempQrDataUrl = null;
+      qrPreviewImg.src = '';
+      qrPreviewContainer.classList.add('d-none');
+      qrUpload.value = '';
+    }
+  }
+
   /* -------- Floor/Room Management -------- */
   let floorData = [];
-  let tempQrDataUrl = null; // for storing uploaded QR as dataURL during edit/add
 
   function renderFloors() {
     const container = document.getElementById("floorsContainer");
     const floorCount = Number(document.getElementById("pFloors").value) || 1;
     
-    // Ensure floorData matches floorCount
     while (floorData.length < floorCount) {
       floorData.push({ rooms: [] });
     }
@@ -182,12 +359,10 @@ document.addEventListener("DOMContentLoaded", () => {
     `).join('');
   }
 
-  // Add room to floor
   window.addRoomToFloor = function(floorIndex) {
     const floor = floorData[floorIndex];
     if (!floor) return;
     
-    // Generate next room number (simple logic: find highest and add 1)
     const existingNumbers = floor.rooms.map(r => parseInt(r.roomNo) || 0);
     const maxNum = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 100 + floorIndex * 100;
     const nextNum = maxNum + 1;
@@ -201,7 +376,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderFloors();
   };
 
-  // Remove room
   window.removeRoom = function(floorIndex, roomIndex) {
     if (confirm("Remove this room?")) {
       floorData[floorIndex].rooms.splice(roomIndex, 1);
@@ -209,7 +383,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Clear all rooms from floor
   window.clearFloor = function(floorIndex) {
     if (confirm(`Clear all rooms from ${getFloorName(floorIndex)}?`)) {
       floorData[floorIndex].rooms = [];
@@ -217,7 +390,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Update room number
   window.updateRoomNumber = function(floorIndex, roomIndex, value) {
     const room = floorData[floorIndex].rooms[roomIndex];
     if (room) {
@@ -226,7 +398,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Update room capacity
   window.updateRoomCapacity = function(floorIndex, roomIndex, value) {
     const room = floorData[floorIndex].rooms[roomIndex];
     if (room) {
@@ -234,7 +405,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Apply floors button
   document.getElementById("applyFloorsBtn").addEventListener("click", function() {
     const btn = this;
     LOADER.show(btn, 'Applying...');
@@ -258,51 +428,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 300);
   });
 
-  // Trigger initial floor render
   setTimeout(renderFloors, 100);
-
-  /* -------- QR Upload handling -------- */
-  const qrUpload = document.getElementById('qrUpload');
-  const qrPreviewContainer = document.getElementById('qrPreviewContainer');
-  const qrPreviewImg = document.getElementById('qrPreviewImg');
-  const removeQrBtn = document.getElementById('removeQrBtn');
-
-  qrUpload.addEventListener('change', function(e) {
-    const file = this.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = function(ev) {
-        tempQrDataUrl = ev.target.result;
-        qrPreviewImg.src = tempQrDataUrl;
-        qrPreviewContainer.classList.remove('d-none');
-      };
-      reader.readAsDataURL(file);
-    }
-  });
-
-  removeQrBtn.addEventListener('click', function() {
-    tempQrDataUrl = null;
-    qrPreviewImg.src = '';
-    qrPreviewContainer.classList.add('d-none');
-    qrUpload.value = '';
-  });
-
-  // Show QR preview when editing (set by editPg)
-  function setQrPreview(dataUrl) {
-    if (dataUrl) {
-      tempQrDataUrl = dataUrl;
-      qrPreviewImg.src = dataUrl;
-      qrPreviewContainer.classList.remove('d-none');
-    } else {
-      tempQrDataUrl = null;
-      qrPreviewImg.src = '';
-      qrPreviewContainer.classList.add('d-none');
-      qrUpload.value = '';
-    }
-  }
 
   /* -------- Add/Edit PG Modal -------- */
   const pgModal = new bootstrap.Modal(document.getElementById("addPgModal"));
+  
   document.querySelector('[data-bs-target="#addPgModal"]').addEventListener("click", () => {
     document.getElementById("pgModalTitle").textContent = "Add PG";
     document.getElementById("pgForm").reset();
@@ -310,6 +440,7 @@ document.addEventListener("DOMContentLoaded", () => {
     floorData = [];
     document.getElementById("pFloors").value = 1;
     setQrPreview(null);
+    resetImageUpload();
     renderFloors();
   });
 
@@ -324,14 +455,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pLocation").value = p.location;
     document.getElementById("pFloors").value = p.floors;
     
-    // Set QR preview if exists
-    if (p.qrCode) {
-      setQrPreview(p.qrCode);
-    } else {
-      setQrPreview(null);
-    }
+    setQrPreview(p.qrCode || null);
+    setPgImages(p.images || []);
     
-    // Rebuild floorData from existing rooms
     floorData = [];
     for (let f = 0; f < p.floors; f++) {
       const floorName = getFloorName(f);
@@ -366,7 +492,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Validate floors have rooms
     const hasRooms = floorData.some(floor => floor.rooms.length > 0);
     if (!hasRooms) {
       showToast("Please add at least one room to any floor.", "warning");
@@ -374,7 +499,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Build rooms array
     const rooms = [];
     floorData.forEach((floor, index) => {
       const floorName = getFloorName(index);
@@ -389,16 +513,23 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // Determine QR code to save: use tempQrDataUrl if available, else keep existing (for edit)
     let qrToSave = tempQrDataUrl;
     if (!qrToSave && id) {
       const existing = LK.pgs.find(x => x.id === id);
       if (existing) qrToSave = existing.qrCode || null;
     }
 
+    // Use uploaded images or keep existing
+    let imagesToSave = tempPgImagesDataUrls.length > 0 ? [...tempPgImagesDataUrls] : null;
+    if (!imagesToSave && id) {
+      const existing = LK.pgs.find(x => x.id === id);
+      if (existing && existing.images && existing.images.length > 0) {
+        imagesToSave = [...existing.images];
+      }
+    }
+
     setTimeout(() => {
       if (id) {
-        // Edit existing PG
         const p = LK.pgs.find(x => x.id === id);
         if (p) {
           p.name = name;
@@ -406,10 +537,10 @@ document.addEventListener("DOMContentLoaded", () => {
           p.floors = floors;
           p.rooms = rooms;
           p.qrCode = qrToSave || null;
+          p.images = imagesToSave && imagesToSave.length > 0 ? imagesToSave : [];
           showToast(`PG "${name}" updated.`, "success");
         }
       } else {
-        // Add new PG
         LK.pgs.push({
           id: "PG" + Math.random().toString(36).slice(2, 7).toUpperCase(),
           name: name,
@@ -418,7 +549,8 @@ document.addEventListener("DOMContentLoaded", () => {
           roomsPerFloor: 0,
           capacity: 0,
           rooms: rooms,
-          qrCode: qrToSave || null
+          qrCode: qrToSave || null,
+          images: imagesToSave && imagesToSave.length > 0 ? imagesToSave : []
         });
         showToast(`PG "${name}" added.`, "success");
       }
@@ -426,7 +558,8 @@ document.addEventListener("DOMContentLoaded", () => {
       renderStats();
       renderGrid(document.getElementById("pgSearch").value);
       LOADER.hide(btn);
-      setQrPreview(null); // reset for next add
+      setQrPreview(null);
+      resetImageUpload();
     }, 600);
   });
 
