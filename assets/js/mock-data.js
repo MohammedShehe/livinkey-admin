@@ -22,7 +22,7 @@ LK.pgs = [
     floors: 3,
     roomsPerFloor: 4,
     capacity: 2,
-    qrCode: null, // Will be set when admin uploads
+    qrCode: null,
     rooms: [
       { roomNo: "101", floor: "1st Floor", occupants: ["Amit Sharma"], rent: 11000, capacity: 2 },
       { roomNo: "102", floor: "1st Floor", occupants: ["Diego Alvarez", "Louis Meyer"], rent: 11000, capacity: 2 },
@@ -80,7 +80,6 @@ LK.pgs = [
   }
 ];
 
-// Rest of your data remains the same...
 // Tenants (Members)
 LK.tenants = [
   {
@@ -463,7 +462,7 @@ LK.conversations = {
   ]
 };
 
-// Maintenance Requests
+// Maintenance Requests - Added status field
 LK.maintenance = [
   {
     id: "M001",
@@ -474,7 +473,8 @@ LK.maintenance = [
     serviceDate: "2026-07-25",
     freeTime: "2:00 PM - 4:00 PM",
     description: "Water leakage in bathroom sink. Please fix urgently.",
-    picture: "https://placehold.co/400x300/FF6B6B/FFFFFF?text=Plumbing+Issue"
+    picture: "https://placehold.co/400x300/FF6B6B/FFFFFF?text=Plumbing+Issue",
+    status: "Pending"
   },
   {
     id: "M002",
@@ -485,7 +485,8 @@ LK.maintenance = [
     serviceDate: "2026-07-28",
     freeTime: "10:00 AM - 12:00 PM",
     description: "AC not cooling properly. Making weird noise.",
-    picture: "https://placehold.co/400x300/4ECDC4/FFFFFF?text=AC+Issue"
+    picture: "https://placehold.co/400x300/4ECDC4/FFFFFF?text=AC+Issue",
+    status: "In Progress"
   },
   {
     id: "M003",
@@ -496,7 +497,8 @@ LK.maintenance = [
     serviceDate: "2026-07-26",
     freeTime: "6:00 PM - 8:00 PM",
     description: "Refrigerator not cooling, food is spoiling.",
-    picture: null
+    picture: null,
+    status: "Pending"
   },
   {
     id: "M004",
@@ -507,7 +509,8 @@ LK.maintenance = [
     serviceDate: "2026-07-27",
     freeTime: "4:00 PM - 6:00 PM",
     description: "Geyser not working, no hot water.",
-    picture: "https://placehold.co/400x300/FFA07A/FFFFFF?text=Heater+Issue"
+    picture: "https://placehold.co/400x300/FFA07A/FFFFFF?text=Heater+Issue",
+    status: "Completed"
   },
   {
     id: "M005",
@@ -518,7 +521,8 @@ LK.maintenance = [
     serviceDate: "2026-07-29",
     freeTime: "12:00 PM - 2:00 PM",
     description: "Kitchen sink blocked. Water not draining.",
-    picture: null
+    picture: null,
+    status: "Pending"
   }
 ];
 
