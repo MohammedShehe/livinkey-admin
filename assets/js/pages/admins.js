@@ -5,11 +5,11 @@ document.addEventListener("DOMContentLoaded", () => {
     { key: "tenants",    label: "Tenants Management" },
     { key: "guests",     label: "Guests" },
     { key: "admins",     label: "Admins Management" },
-    { key: "messages",   label: "Messages" },
     { key: "bills",      label: "Bills" },
     { key: "pgs",        label: "PGs Management" },
     { key: "maintenance", label: "Maintenance" },
-    { key: "documents",  label: "Documents" }
+    { key: "documents",  label: "Documents" },
+    { key: "feedbacks",  label: "Feedbacks" }
   ];
 
   function renderTable(filter = ""){
@@ -73,11 +73,11 @@ document.addEventListener("DOMContentLoaded", () => {
           tenants: { v: false, a: false, e: false, d: false },
           guests:  { v: false, a: false, e: false, d: false },
           admins:  { v: false, a: false, e: false, d: false },
-          messages:{ v: false, a: false, e: false, d: false },
           bills:   { v: false, a: false, e: false, d: false },
           pgs:     { v: false, a: false, e: false, d: false },
           maintenance: { v: false, a: false, e: false, d: false },
-          documents: { v: false, a: false, e: false, d: false }
+          documents: { v: false, a: false, e: false, d: false },
+          feedbacks: { v: false, a: false, e: false, d: false }
         }
       });
 

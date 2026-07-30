@@ -442,11 +442,11 @@ LK.admins = [
       tenants: { v: true, a: true, e: true, d: false },
       guests:  { v: true, a: true, e: false, d: false },
       admins:  { v: false, a: false, e: false, d: false },
-      messages:{ v: true, a: true, e: true, d: false },
       bills:   { v: true, a: false, e: false, d: false },
       pgs:     { v: true, a: false, e: false, d: false },
       maintenance: { v: true, a: false, e: false, d: false },
-      documents: { v: true, a: false, e: false, d: false }
+      documents: { v: true, a: false, e: false, d: false },
+      feedbacks: { v: true, a: false, e: false, d: false }
     }
   }
 ];
