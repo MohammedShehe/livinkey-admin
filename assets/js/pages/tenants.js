@@ -309,7 +309,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const pgId = document.getElementById('tPg').value;
     const roomNo = document.getElementById('tRoom').value;
-    const isNational = document.getElementById('tResidency')?.value === 'National' || false;
     
     for (let i = 0; i < numTenants; i++) {
       const entryDiv = document.createElement('div');
@@ -317,6 +316,9 @@ document.addEventListener("DOMContentLoaded", () => {
       entryDiv.dataset.index = i;
       
       const existing = existingData && existingData[i] ? existingData[i] : null;
+      
+      // Determine default residency - use existing or default to "National"
+      const defaultResidency = existing ? existing.residency : "National";
       
       entryDiv.innerHTML = `
         <div class="tenant-entry-number">Tenant #${i + 1}</div>
@@ -333,8 +335,8 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="col-md-6">
             <label class="form-label">Residency</label>
             <select class="form-select tenant-residency" required>
-              <option value="National" ${existing && existing.residency === 'National' ? 'selected' : ''}>National</option>
-              <option value="International" ${existing && existing.residency === 'International' ? 'selected' : ''}>International</option>
+              <option value="National" ${defaultResidency === 'National' ? 'selected' : ''}>National</option>
+              <option value="International" ${defaultResidency === 'International' ? 'selected' : ''}>International</option>
             </select>
           </div>
           <div class="col-md-6">
@@ -346,16 +348,16 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
           <!-- International fields -->
-          <div class="col-md-6 tenant-international-only ${existing && existing.residency === 'International' ? '' : 'd-none'}">
+          <div class="col-md-6 tenant-international-only ${defaultResidency === 'International' ? '' : 'd-none'}">
             <label class="form-label">C-Form Number (Optional)</label>
             <input type="text" class="form-control tenant-cform" placeholder="C-Form number" value="${existing ? existing.cForm || '' : ''}">
           </div>
           <!-- National fields -->
-          <div class="col-md-6 tenant-national-only ${existing && existing.residency === 'National' ? '' : 'd-none'}">
+          <div class="col-md-6 tenant-national-only ${defaultResidency === 'National' ? '' : 'd-none'}">
             <label class="form-label">Aadhar Card ID</label>
             <input type="text" class="form-control tenant-aadhar" placeholder="Aadhar number" value="${existing ? existing.aadhar || '' : ''}">
           </div>
-          <div class="col-md-6 tenant-national-only ${existing && existing.residency === 'National' ? '' : 'd-none'}">
+          <div class="col-md-6 tenant-national-only ${defaultResidency === 'National' ? '' : 'd-none'}">
             <label class="form-label">Parent Aadhar</label>
             <input type="text" class="form-control tenant-parent-aadhar" placeholder="Parent Aadhar number" value="${existing ? existing.parentAadhar || '' : ''}">
           </div>
@@ -415,12 +417,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initialize dropdowns for each tenant entry
     initTenantDropdowns();
     
-    // Add event listeners for residency changes
+    // Add event listeners for residency changes and toggle visibility
     container.querySelectorAll('.tenant-residency').forEach(select => {
       select.addEventListener('change', function() {
         const entry = this.closest('.tenant-entry');
         toggleTenantResidencyFields(entry);
       });
+      // Trigger the change event to show/hide fields based on default value
+      const entry = select.closest('.tenant-entry');
+      toggleTenantResidencyFields(entry);
     });
   }
 
