@@ -58,6 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const amenities = p.amenities || [];
       const displayAmenities = amenities.slice(0, 3);
       const remainingAmenities = amenities.length - 3;
+      const baseRent = p.rent || 0;
       
       return `
       <div class="col-md-6 col-lg-4">
@@ -85,7 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="col-6"><i class="bi bi-layers me-1 text-muted-soft"></i>${p.floors} Floors</div>
             <div class="col-6"><i class="bi bi-door-open me-1 text-muted-soft"></i>${totalRooms} Rooms</div>
             <div class="col-6"><i class="bi bi-people me-1 text-muted-soft"></i>${occupiedRooms}/${totalRooms} Occupied</div>
-            <div class="col-6"><i class="bi bi-currency-rupee me-1 text-muted-soft"></i>${fmtINR(p.rooms.reduce((s,r) => s + (r.rent || 10000), 0) / totalRooms)} Avg Rent</div>
+            <div class="col-6"><i class="bi bi-currency-rupee me-1 text-muted-soft"></i>${baseRent > 0 ? fmtINR(baseRent) : '—'}</div>
           </div>
           ${p.qrCode ? `<div class="mt-2"><img src="${p.qrCode}" style="height:36px;width:36px;object-fit:contain;border-radius:4px;border:1px solid var(--border);" alt="QR"></div>` : ''}
           <div class="mt-3 d-flex gap-2" onclick="event.stopPropagation();">
@@ -109,6 +110,18 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pgDetailName").textContent = p.name;
     
     let html = `<p class="text-muted-soft small mb-3">${p.location}</p>`;
+    
+    // Display Base Rent and Security Fee
+    if (p.rent || p.securityFee) {
+      html += `<div class="row g-2 small mb-3">`;
+      if (p.rent) {
+        html += `<div class="col-6"><span class="text-muted-soft">Base Rent:</span> <strong>${fmtINR(p.rent)}/month</strong></div>`;
+      }
+      if (p.securityFee) {
+        html += `<div class="col-6"><span class="text-muted-soft">Security Fee:</span> <strong>${fmtINR(p.securityFee)}</strong></div>`;
+      }
+      html += `</div>`;
+    }
     
     // Display Amenities
     const amenities = p.amenities || [];
@@ -442,6 +455,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 <input type="number" class="form-control form-control-sm room-capacity" style="width:70px;" 
                        value="${room.capacity}" min="1" max="10"
                        onchange="updateRoomCapacity(${index}, ${roomIndex}, this.value)">
+                <span class="text-muted-soft">Rent:</span>
+                <input type="number" class="form-control form-control-sm room-rent" style="width:80px;" 
+                       value="${room.rent || 10000}" min="0" step="100"
+                       onchange="updateRoomRent(${index}, ${roomIndex}, this.value)">
                 <button type="button" class="btn-remove-room" onclick="removeRoom(${index}, ${roomIndex})" title="Remove room">
                   <i class="bi bi-x-lg"></i>
                 </button>
@@ -505,6 +522,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  window.updateRoomRent = function(floorIndex, roomIndex, value) {
+    const room = floorData[floorIndex].rooms[roomIndex];
+    if (room) {
+      room.rent = Math.max(0, parseInt(value) || 0);
+    }
+  };
+
   document.getElementById("applyFloorsBtn").addEventListener("click", function() {
     const btn = this;
     LOADER.show(btn, 'Applying...');
@@ -539,6 +563,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pgId").value = "";
     floorData = [];
     document.getElementById("pFloors").value = 1;
+    document.getElementById("pRent").value = "";
+    document.getElementById("pSecurityFee").value = "";
     setQrPreview(null);
     resetImageUpload();
     resetAmenities();
@@ -555,6 +581,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pName").value = p.name;
     document.getElementById("pLocation").value = p.location;
     document.getElementById("pFloors").value = p.floors;
+    document.getElementById("pRent").value = p.rent || "";
+    document.getElementById("pSecurityFee").value = p.securityFee || "";
     
     setQrPreview(p.qrCode || null);
     setPgImages(p.images || []);
@@ -589,9 +617,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const name = document.getElementById("pName").value.trim();
     const location = document.getElementById("pLocation").value.trim();
     const floors = Number(document.getElementById("pFloors").value);
+    const rent = Number(document.getElementById("pRent").value) || 0;
+    const securityFee = Number(document.getElementById("pSecurityFee").value) || 0;
 
     if (!name || !location) {
       showToast("Please enter PG name and location.", "warning");
+      LOADER.hide(btn);
+      return;
+    }
+
+    if (rent <= 0) {
+      showToast("Please enter a valid base rent amount.", "warning");
       LOADER.hide(btn);
       return;
     }
@@ -615,7 +651,7 @@ document.addEventListener("DOMContentLoaded", () => {
           floor: floorName,
           occupants: room.occupants || [],
           capacity: room.capacity || 2,
-          rent: room.rent || 10000
+          rent: room.rent || rent || 10000
         });
       });
     });
@@ -642,6 +678,8 @@ document.addEventListener("DOMContentLoaded", () => {
           p.name = name;
           p.location = location;
           p.floors = floors;
+          p.rent = rent;
+          p.securityFee = securityFee;
           p.rooms = rooms;
           p.qrCode = qrToSave || null;
           p.images = imagesToSave && imagesToSave.length > 0 ? imagesToSave : [];
@@ -654,6 +692,8 @@ document.addEventListener("DOMContentLoaded", () => {
           name: name,
           location: location,
           floors: floors,
+          rent: rent,
+          securityFee: securityFee,
           roomsPerFloor: 0,
           capacity: 0,
           rooms: rooms,

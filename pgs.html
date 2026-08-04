@@ -386,6 +386,17 @@
     max-height: none;
   }
 
+  /* Rent field style */
+  .rent-field-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .rent-field-wrapper .form-text {
+    font-size: 0.75rem;
+  }
+
   /* Responsive adjustments for floor builder */
   @media (max-width: 768px) {
     .room-item {
@@ -504,6 +515,23 @@
             <div class="col-md-6">
               <label class="form-label">Location *</label>
               <input class="form-control" id="pLocation" required placeholder="Full address">
+            </div>
+          </div>
+
+          <!-- PG Rent Field - NEW -->
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label">Base Rent (INR) *</label>
+              <div class="rent-field-wrapper">
+                <input type="number" class="form-control" id="pRent" required min="0" step="100" placeholder="e.g. 10000">
+                <span class="text-muted-soft small">per month</span>
+              </div>
+              <div class="text-muted-soft small mt-1">This is the standard rent for this PG. Individual room rents can be different.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Security Fee (INR)</label>
+              <input type="number" class="form-control" id="pSecurityFee" min="0" step="100" placeholder="e.g. 5000">
+              <div class="text-muted-soft small mt-1">Optional security deposit amount for this PG.</div>
             </div>
           </div>
 

@@ -13,13 +13,15 @@ LK.credentials = {
 
 LK.notificationsCount = 3;
 
-// PGs Data - Added images array, qrCode field, and amenities
+// PGs Data - Added images array, qrCode field, amenities, rent, and securityFee
 LK.pgs = [
   {
     id: "PG001",
     name: "Alishan PG",
     location: "Plot No. 45, Sector 12, Kharghar, Navi Mumbai",
     floors: 3,
+    rent: 11000,
+    securityFee: 5000,
     roomsPerFloor: 4,
     capacity: 2,
     qrCode: null,
@@ -49,6 +51,8 @@ LK.pgs = [
     name: "DS Apartment",
     location: "Plot No. 78, Near City Centre, Vashi, Navi Mumbai",
     floors: 2,
+    rent: 12500,
+    securityFee: 4500,
     roomsPerFloor: 3,
     capacity: 2,
     qrCode: null,
@@ -71,6 +75,8 @@ LK.pgs = [
     name: "Happy Living PG",
     location: "Plot No. 12, Sector 15, Belapur, Navi Mumbai",
     floors: 4,
+    rent: 10000,
+    securityFee: 3000,
     roomsPerFloor: 3,
     capacity: 2,
     qrCode: null,
