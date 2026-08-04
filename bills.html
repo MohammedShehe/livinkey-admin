@@ -105,7 +105,7 @@
   </div>
 </div>
 
-<!-- Create bill modal - UPDATED with attachment and QR -->
+<!-- Create bill modal - UPDATED with meter upload field -->
 <div class="modal fade" id="createBillModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -122,6 +122,22 @@
           <div class="row g-3">
             <div class="col-6"><label class="form-label">Rent (INR)</label><input type="number" class="form-control" id="billRent" required></div>
             <div class="col-6"><label class="form-label">Electricity bill (INR)</label><input type="number" class="form-control" id="billElectricity" value="0"></div>
+            <!-- METER UPLOAD FIELD - Added right after Electricity bill -->
+            <div class="col-12">
+              <label class="form-label">Meter Image (optional)</label>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-brand btn-sm" id="meterUploadBtn">
+                  <i class="bi bi-camera me-1"></i>Upload Meter Image
+                </button>
+                <span class="text-muted-soft small d-flex align-items-center" id="meterUploadStatus">No image uploaded</span>
+              </div>
+              <input type="file" id="meterUploadInput" class="d-none" accept="image/*">
+              <div id="meterPreview" class="mt-2 d-none">
+                <img id="meterPreviewImage" src="#" alt="Meter image preview" style="max-width:200px;max-height:150px;border-radius:8px;border:1px solid var(--border);">
+                <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="removeMeterImage"><i class="bi bi-x"></i></button>
+              </div>
+              <small class="text-muted-soft d-block mt-1">Upload a photo of the electricity meter reading</small>
+            </div>
             <div class="col-6"><label class="form-label">Maintenance fee (INR)</label><input type="number" class="form-control" id="billMaintenance" value="0"></div>
             <div class="col-6"><label class="form-label">Other charges (INR)</label><input type="number" class="form-control" id="billOther" value="0"></div>
             <div class="col-12"><hr></div>

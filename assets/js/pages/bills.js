@@ -324,16 +324,21 @@ Livinkey Team`;
     }, 600);
   });
 
-  /* -------- Create bill with QR attachment -------- */
+  /* -------- Create bill with meter upload, attachment and QR -------- */
   let billAttachment = null;
   let billQRCode = null;
+  let meterImageFile = null;
 
   document.getElementById("createBillModal").addEventListener("show.bs.modal", () => {
     document.getElementById("billTenant").innerHTML = tenantsBy("unpaid").map(t => `<option value="${t.id}">${t.name} — ${getPgName(t.pgId)} Room ${t.roomNo}</option>`).join("");
     billAttachment = null;
     billQRCode = null;
+    meterImageFile = null;
     document.getElementById("billAttachmentStatus").textContent = "No file attached";
     document.getElementById("billQRStatus").textContent = "No QR generated";
+    document.getElementById("meterUploadStatus").textContent = "No image uploaded";
+    document.getElementById("meterPreview").classList.add("d-none");
+    document.getElementById("meterUploadInput").value = "";
   });
   
   document.getElementById("billRent").addEventListener("input", calculateTotal);
@@ -351,6 +356,33 @@ Livinkey Team`;
       document.getElementById("billAttachmentStatus").innerHTML = `<i class="bi bi-paperclip me-1"></i> ${billAttachment.name}`;
       showToast(`File "${billAttachment.name}" attached.`, "info");
     }
+  });
+
+  // Meter upload functionality
+  document.getElementById("meterUploadBtn")?.addEventListener("click", () => {
+    document.getElementById("meterUploadInput").click();
+  });
+
+  document.getElementById("meterUploadInput")?.addEventListener("change", function(){
+    if(this.files.length > 0){
+      meterImageFile = this.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById("meterPreviewImage").src = e.target.result;
+        document.getElementById("meterPreview").classList.remove("d-none");
+        document.getElementById("meterUploadStatus").innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> ${meterImageFile.name}`;
+        showToast(`Meter image "${meterImageFile.name}" uploaded.`, "info");
+      };
+      reader.readAsDataURL(this.files[0]);
+    }
+  });
+
+  document.getElementById("removeMeterImage")?.addEventListener("click", function(){
+    meterImageFile = null;
+    document.getElementById("meterUploadInput").value = "";
+    document.getElementById("meterPreview").classList.add("d-none");
+    document.getElementById("meterUploadStatus").textContent = "No image uploaded";
+    showToast("Meter image removed.", "info");
   });
 
   document.getElementById("billGenerateQRBtn")?.addEventListener("click", function(){
@@ -417,6 +449,10 @@ Livinkey Team`;
       const conv = LK.conversations[t.id] || (LK.conversations[t.id] = []);
       let messageText = `📄 New bill generated — Rent: ${fmtINR(rent)}, Electricity: ${fmtINR(elec)}, Maintenance: ${fmtINR(maint)}, Other: ${fmtINR(other)}. Total due: ${fmtINR(total)}.`;
       
+      if(meterImageFile){
+        messageText += ` 📸 Meter reading image attached.`;
+      }
+      
       if(billAttachment){
         messageText += ` 📎 Attachment: ${billAttachment.name}`;
       }
@@ -429,6 +465,8 @@ Livinkey Team`;
         from: "admin", 
         text: messageText, 
         time: "Just now",
+        hasMeterImage: !!meterImageFile,
+        meterImageName: meterImageFile ? meterImageFile.name : null,
         hasAttachment: !!billAttachment,
         attachmentName: billAttachment ? billAttachment.name : null,
         hasQR: !!billQRCode,
@@ -440,8 +478,11 @@ Livinkey Team`;
       document.getElementById("billTotalDisplay").textContent = "₹0";
       document.getElementById("billAttachmentStatus").textContent = "No file attached";
       document.getElementById("billQRStatus").textContent = "No QR generated";
+      document.getElementById("meterUploadStatus").textContent = "No image uploaded";
+      document.getElementById("meterPreview").classList.add("d-none");
       billAttachment = null;
       billQRCode = null;
+      meterImageFile = null;
       
       showToast(`✅ Bill of ${fmtINR(total)} sent to ${t.name}.`, "success");
       LOADER.hide(btn);
