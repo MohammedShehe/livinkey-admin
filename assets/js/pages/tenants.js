@@ -352,6 +352,14 @@ document.addEventListener("DOMContentLoaded", () => {
             <label class="form-label">C-Form Number (Optional)</label>
             <input type="text" class="form-control tenant-cform" placeholder="C-Form number" value="${existing ? existing.cForm || '' : ''}">
           </div>
+          <div class="col-md-6 tenant-international-only ${defaultResidency === 'International' ? '' : 'd-none'}">
+            <label class="form-label">e-FRRO Valid From</label>
+            <input type="date" class="form-control tenant-efrro-from" value="${existing ? existing.efrroFrom || '' : ''}">
+          </div>
+          <div class="col-md-6 tenant-international-only ${defaultResidency === 'International' ? '' : 'd-none'}">
+            <label class="form-label">e-FRRO Valid Till</label>
+            <input type="date" class="form-control tenant-efrro-till" value="${existing ? existing.efrroTill || '' : ''}">
+          </div>
           <!-- National fields -->
           <div class="col-md-6 tenant-national-only ${defaultResidency === 'National' ? '' : 'd-none'}">
             <label class="form-label">Aadhar Card ID</label>
@@ -836,6 +844,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const aadhar = entry.querySelector('.tenant-aadhar')?.value || '';
       const parentAadhar = entry.querySelector('.tenant-parent-aadhar')?.value || '';
       const cForm = entry.querySelector('.tenant-cform')?.value || '';
+      const efrroFrom = entry.querySelector('.tenant-efrro-from')?.value || '';
+      const efrroTill = entry.querySelector('.tenant-efrro-till')?.value || '';
       const paidFrom = entry.querySelector('.tenant-paid-from').value;
       const paidTill = entry.querySelector('.tenant-paid-till').value;
       
@@ -900,6 +910,8 @@ document.addEventListener("DOMContentLoaded", () => {
         aadhar: aadhar,
         parentAadhar: parentAadhar,
         cForm: cForm,
+        efrroFrom: efrroFrom,
+        efrroTill: efrroTill,
         arrivalDate: arrivalDate
       });
     });
@@ -1026,7 +1038,9 @@ document.addEventListener("DOMContentLoaded", () => {
         arrivalDate: tenant.arrivalDate,
         aadhar: tenant.aadhar,
         parentAadhar: tenant.parentAadhar,
-        cForm: tenant.cForm
+        cForm: tenant.cForm,
+        efrroFrom: tenant.efrroFrom || '',
+        efrroTill: tenant.efrroTill || ''
       }));
       
       generateTenantFields(roomTenants.length, existingData);
