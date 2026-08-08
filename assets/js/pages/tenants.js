@@ -598,14 +598,50 @@ document.addEventListener("DOMContentLoaded", () => {
   // END TENANT FIELDS GENERATION
   // ============================================
 
+  // Helper function to get e-FRRO status chip
+  function getEFRROStatus(tenant) {
+    if (tenant.residency !== "International") {
+      return `<span class="chip chip-gray">N/A</span>`;
+    }
+    
+    if (!tenant.efrroTill) {
+      return `<span class="chip chip-efrro-none">Not Set</span>`;
+    }
+    
+    const today = new Date();
+    const expiryDate = new Date(tenant.efrroTill);
+    const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return `<span class="chip chip-efrro-expired">Expired</span>`;
+    } else if (diffDays <= 7) {
+      return `<span class="chip chip-efrro-urgent">⚠️ ${diffDays} days</span>`;
+    } else if (diffDays <= 14) {
+      return `<span class="chip chip-efrro-soon">${diffDays} days</span>`;
+    } else if (diffDays <= 30) {
+      return `<span class="chip chip-efrro-upcoming">${diffDays} days</span>`;
+    } else {
+      return `<span class="chip chip-efrro-valid">${diffDays} days</span>`;
+    }
+  }
+
   function renderStats(){
     const tenants = LK.tenants.filter(t => t.role === "Tenant");
+    const expiringEFRRO = LK.tenants.filter(t => {
+      if (t.role !== "Tenant" || t.residency !== "International" || !t.efrroTill) return false;
+      const today = new Date();
+      const expiryDate = new Date(t.efrroTill);
+      const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 30;
+    });
+
     const stats = [
       { label: "Total Tenants", value: tenants.length, icon: "bi-people-fill", color: "var(--lk-green)", filter: "all" },
       { label: "National", value: tenants.filter(x => x.residency === "National").length, icon: "bi-flag-fill", color: "var(--info)", filter: "national" },
       { label: "International", value: tenants.filter(x => x.residency === "International").length, icon: "bi-globe2", color: "var(--warning)", filter: "international" },
       { label: "Male", value: tenants.filter(x => x.gender === "Male").length, icon: "bi-gender-male", color: "var(--lk-black)", filter: "male" },
-      { label: "Female", value: tenants.filter(x => x.gender === "Female").length, icon: "bi-gender-female", color: "var(--danger)", filter: "female" }
+      { label: "Female", value: tenants.filter(x => x.gender === "Female").length, icon: "bi-gender-female", color: "var(--danger)", filter: "female" },
+      { label: "Expiring e-FRRO", value: expiringEFRRO.length, icon: "bi-clock-history", color: "#e74c3c", filter: "efrro-expiring" }
     ];
     document.getElementById("tenantStats").innerHTML = stats.map(s => `
       <div class="col-6 col-md-4 col-lg">
@@ -621,9 +657,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if(filter === "all"){
       searchInput.value = "";
       currentFilter = "";
+    } else if (filter === "efrro-expiring") {
+      searchInput.value = "__EFRRO_EXPIRING__";
+      currentFilter = "__EFRRO_EXPIRING__";
     } else {
       const filterMap = {
-        "national": "Indian",
+        "national": "National",
         "international": "International",
         "male": "Male",
         "female": "Female"
@@ -638,7 +677,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const f = (filter || currentFilter || "").trim().toLowerCase();
     let rows = LK.tenants.filter(t => t.role === "Tenant");
     
-    if(f){
+    if(f === "__efrro_expiring__"){
+      rows = rows.filter(t => {
+        if (t.residency !== "International" || !t.efrroTill) return false;
+        const today = new Date();
+        const expiryDate = new Date(t.efrroTill);
+        const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 && diffDays <= 30;
+      });
+    } else if(f){
       rows = rows.filter(t =>
         t.name.toLowerCase().includes(f) || 
         t.roomNo.toLowerCase().includes(f) ||
@@ -652,6 +699,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("tenantsTbody").innerHTML = rows.map(t => {
       const st = statusMeta[t.billStatus] || statusMeta.paid;
       const arrivalDate = t.arrivalDate ? new Date(t.arrivalDate).toLocaleDateString('en-IN') : "—";
+      const efrroStatus = getEFRROStatus(t);
       return `
       <tr>
         <td><span class="name-link" onclick="openDocs('${t.id}')">${t.name}</span><div class="small text-muted-soft">${t.email}</div></td>
@@ -663,6 +711,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${t.gender}</td>
         <td>${t.paymentDate ? "Day " + t.paymentDate : "—"}</td>
         <td>${arrivalDate}</td>
+        <td>${efrroStatus}</td>
         <td><span class="chip ${st.chip}">${st.label}</span></td>
         <td class="text-end">
           <button class="btn-icon me-1" title="Edit" onclick="editTenant('${t.id}')"><i class="bi bi-pencil"></i></button>
@@ -1092,6 +1141,7 @@ document.addEventListener("DOMContentLoaded", () => {
     { key: "visa", label: "Visa" },
     { key: "arrivalStamp", label: "Arrival Stamp" },
     { key: "cForm", label: "C-Form" },
+    { key: "efrro", label: "e-FRRO" },
     { key: "universityId", label: "University ID" }
   ];
 
@@ -1104,7 +1154,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const docTypes = t.residency === "National" ? DOC_TYPES_NATIONAL : DOC_TYPES_INTERNATIONAL;
     
     document.getElementById("docsGrid").innerHTML = docTypes.map(d => {
-      const has = t.docs?.[d.key];
+      // For e-FRRO, check if the tenant has efrroTill set
+      let has = t.docs?.[d.key];
+      if (d.key === "efrro") {
+        has = t.efrroTill && t.efrroTill !== '';
+      }
       return `
       <div class="col-md-4 col-6">
         <div class="doc-thumb">

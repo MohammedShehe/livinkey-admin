@@ -139,7 +139,8 @@ LK.tenants = [
       visa: false, 
       frro: false, 
       cForm: false, 
-      arrivalStamp: false
+      arrivalStamp: false,
+      efrro: false
     }
   },
   {
@@ -178,7 +179,8 @@ LK.tenants = [
       universityId: true,
       aadhar: false, 
       parentAadhar: false,
-      frro: false
+      frro: false,
+      efrro: true
     }
   },
   {
@@ -220,7 +222,8 @@ LK.tenants = [
       visa: false, 
       frro: false, 
       cForm: false, 
-      arrivalStamp: false
+      arrivalStamp: false,
+      efrro: false
     }
   },
   {
@@ -248,7 +251,7 @@ LK.tenants = [
     parentAadhar: "",
     cForm: "CF-2026-004",
     efrroFrom: "2026-03-15",
-    efrroTill: "2026-09-15",
+    efrroTill: "2026-08-15",
     arrivalDate: "2026-04-05",
     docs: { 
       photo: true, 
@@ -259,7 +262,8 @@ LK.tenants = [
       universityId: true,
       aadhar: false, 
       parentAadhar: false,
-      frro: false
+      frro: false,
+      efrro: true
     }
   },
   {
@@ -301,7 +305,8 @@ LK.tenants = [
       visa: false, 
       frro: false, 
       cForm: false, 
-      arrivalStamp: false
+      arrivalStamp: false,
+      efrro: false
     }
   },
   {
@@ -340,7 +345,8 @@ LK.tenants = [
       visa: false, 
       frro: false, 
       cForm: false, 
-      arrivalStamp: false
+      arrivalStamp: false,
+      efrro: false
     }
   },
   {
@@ -382,7 +388,8 @@ LK.tenants = [
       visa: false, 
       frro: false, 
       cForm: false, 
-      arrivalStamp: false
+      arrivalStamp: false,
+      efrro: false
     }
   },
   {
@@ -424,7 +431,8 @@ LK.tenants = [
       visa: false, 
       frro: false, 
       cForm: false, 
-      arrivalStamp: false
+      arrivalStamp: false,
+      efrro: false
     }
   }
 ];
