@@ -69,6 +69,9 @@
     background: #f8d7da;
     color: #721c24;
   }
+  .confirmation-modal-icon {
+    font-size: 3rem;
+  }
 </style>
 </head>
 <body>
@@ -115,6 +118,25 @@
         </div>
       </div>
       <div class="modal-footer" id="detailFooter"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation Modal for Verification Actions -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center">
+      <div class="modal-body py-4">
+        <div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:64px;height:64px;border-radius:50%;" id="confirmationIconWrapper">
+          <i class="bi confirmation-modal-icon" id="confirmationIcon"></i>
+        </div>
+        <h5 id="confirmationTitle">Confirm Action</h5>
+        <p class="text-muted-soft" id="confirmationMessage">Are you sure you want to proceed?</p>
+        <div class="d-flex justify-content-center gap-2 mt-3">
+          <button class="btn btn-outline-brand px-4" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn px-4" id="confirmationActionBtn">Confirm</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

@@ -54,6 +54,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   ];
 
+  let pendingVerificationId = null;
+  let pendingVerificationAction = null;
+
   function tenantsBy(status){ 
     if (status === "verification") {
       return verificationTransactions.filter(v => v.status === "pending");
@@ -142,10 +145,10 @@ document.addEventListener("DOMContentLoaded", () => {
               <img src="${v.image}" alt="Payment proof" class="verification-preview-img" style="width:100%;height:120px;object-fit:cover;border-radius:6px;">
             </div>
             <div class="d-flex gap-2 mt-3">
-              <button class="btn btn-sm btn-verify-accept w-50" onclick="event.stopPropagation(); verifyTransaction('${v.id}', 'accepted')">
+              <button class="btn btn-sm btn-verify-accept w-50" onclick="event.stopPropagation(); confirmVerification('${v.id}', 'accepted')">
                 <i class="bi bi-check-lg me-1"></i>Received
               </button>
-              <button class="btn btn-sm btn-verify-reject w-50" onclick="event.stopPropagation(); verifyTransaction('${v.id}', 'rejected')">
+              <button class="btn btn-sm btn-verify-reject w-50" onclick="event.stopPropagation(); confirmVerification('${v.id}', 'rejected')">
                 <i class="bi bi-x-lg me-1"></i>Unreceived
               </button>
             </div>
@@ -225,8 +228,54 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // -------- Verification functions --------
-  window.verifyTransaction = function(id, action){
+  // -------- Confirmation Modal --------
+  window.confirmVerification = function(id, action) {
+    const v = verificationTransactions.find(x => x.id === id);
+    if (!v) return;
+    
+    pendingVerificationId = id;
+    pendingVerificationAction = action;
+    
+    const confirmationModal = new bootstrap.Modal(document.getElementById("confirmationModal"));
+    const iconWrapper = document.getElementById("confirmationIconWrapper");
+    const icon = document.getElementById("confirmationIcon");
+    const title = document.getElementById("confirmationTitle");
+    const message = document.getElementById("confirmationMessage");
+    const actionBtn = document.getElementById("confirmationActionBtn");
+    
+    if (action === 'accepted') {
+      iconWrapper.style.background = 'var(--lk-green-100)';
+      icon.className = 'bi bi-check-circle-fill confirmation-modal-icon';
+      icon.style.color = 'var(--lk-green)';
+      title.textContent = 'Confirm Payment Received';
+      message.textContent = `Are you sure you want to mark this payment of ${fmtINR(v.amount)} from ${v.tenantName} as RECEIVED? This will update the tenant's bill status to "Paid".`;
+      actionBtn.className = 'btn btn-verify-accept px-4';
+      actionBtn.textContent = 'Yes, Received';
+    } else {
+      iconWrapper.style.background = 'var(--danger-bg)';
+      icon.className = 'bi bi-x-circle-fill confirmation-modal-icon';
+      icon.style.color = 'var(--danger)';
+      title.textContent = 'Confirm Payment Unreceived';
+      message.textContent = `Are you sure you want to mark this payment of ${fmtINR(v.amount)} from ${v.tenantName} as UNRECEIVED? This will reject the payment proof.`;
+      actionBtn.className = 'btn btn-verify-reject px-4';
+      actionBtn.textContent = 'Yes, Unreceived';
+    }
+    
+    // Remove old listener and add new one
+    const newActionBtn = actionBtn.cloneNode(true);
+    actionBtn.parentNode.replaceChild(newActionBtn, actionBtn);
+    
+    newActionBtn.addEventListener('click', function() {
+      confirmationModal.hide();
+      setTimeout(() => {
+        executeVerification(pendingVerificationId, pendingVerificationAction);
+      }, 300);
+    });
+    
+    confirmationModal.show();
+  };
+
+  function executeVerification(id, action) {
     const v = verificationTransactions.find(x => x.id === id);
     if (!v) return;
     
@@ -253,6 +302,12 @@ document.addEventListener("DOMContentLoaded", () => {
     renderStats();
     renderTabs();
     renderTable();
+  }
+
+  // -------- Verification functions --------
+  window.verifyTransaction = function(id, action){
+    // This is kept for backward compatibility but now uses the confirmation flow
+    confirmVerification(id, action);
   };
 
   window.openVerificationDetail = function(id){
@@ -310,7 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const vid = this.dataset.verificationId;
       bootstrap.Modal.getInstance(document.getElementById("verificationDetailModal")).hide();
       setTimeout(() => {
-        verifyTransaction(vid, 'accepted');
+        confirmVerification(vid, 'accepted');
       }, 300);
     });
     
@@ -318,7 +373,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const vid = this.dataset.verificationId;
       bootstrap.Modal.getInstance(document.getElementById("verificationDetailModal")).hide();
       setTimeout(() => {
-        verifyTransaction(vid, 'rejected');
+        confirmVerification(vid, 'rejected');
       }, 300);
     });
     
