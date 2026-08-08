@@ -6,21 +6,79 @@ document.addEventListener("DOMContentLoaded", () => {
     { key: "unfinished", label: "Unfinished Payments",         icon: "bi-hourglass-split",    color: "var(--warning)" },
     { key: "paid",       label: "Paid Tenants",                icon: "bi-check-circle",       color: "var(--success)" },
     { key: "delayed",    label: "Delayed Payments",             icon: "bi-alarm",              color: "var(--danger)" },
+    { key: "verification", label: "Pending Verification",      icon: "bi-clock-history",      color: "var(--warning)" },
     { key: "cash",       label: "Cash Payments",                icon: "bi-cash-coin",          color: "var(--info)" }
   ];
   let activeTab = "unpaid";
 
-  function tenantsBy(status){ return LK.tenants.filter(t => t.role === "Tenant" && t.billStatus === status); }
+  // Mock verification data
+  let verificationTransactions = [
+    {
+      id: "VT001",
+      tenantId: "T001",
+      tenantName: "Amit Sharma",
+      pgName: "Alishan PG",
+      roomNo: "101",
+      transactionId: "TXN-2026-08-01-001",
+      amount: 8500,
+      date: "2026-08-01",
+      status: "pending", // pending, verified, rejected
+      image: "https://placehold.co/400x600/92C24A/FFFFFF?text=Payment+Screenshot",
+      submittedBy: "Amit Sharma"
+    },
+    {
+      id: "VT002",
+      tenantId: "T003",
+      tenantName: "Riya Kapoor",
+      pgName: "Alishan PG",
+      roomNo: "103",
+      transactionId: "TXN-2026-08-02-002",
+      amount: 13500,
+      date: "2026-08-02",
+      status: "pending",
+      image: "https://placehold.co/400x600/FF6B6B/FFFFFF?text=Payment+Screenshot",
+      submittedBy: "Riya Kapoor"
+    },
+    {
+      id: "VT003",
+      tenantId: "T005",
+      tenantName: "Karan Mehta",
+      pgName: "Alishan PG",
+      roomNo: "203",
+      transactionId: "TXN-2026-08-03-003",
+      amount: 10000,
+      date: "2026-08-03",
+      status: "pending",
+      image: "https://placehold.co/400x600/4ECDC4/FFFFFF?text=Payment+Screenshot",
+      submittedBy: "Karan Mehta"
+    }
+  ];
+
+  function tenantsBy(status){ 
+    if (status === "verification") {
+      return verificationTransactions.filter(v => v.status === "pending");
+    }
+    return LK.tenants.filter(t => t.role === "Tenant" && t.billStatus === status); 
+  }
   function allTenants(){ return LK.tenants.filter(t => t.role === "Tenant"); }
 
   function renderStats(){
-    document.getElementById("billStats").innerHTML = TABS.map(t => `
+    const verificationCount = verificationTransactions.filter(v => v.status === "pending").length;
+    document.getElementById("billStats").innerHTML = TABS.map(t => {
+      let count = 0;
+      if (t.key === "verification") {
+        count = verificationCount;
+      } else {
+        count = tenantsBy(t.key).length;
+      }
+      return `
       <div class="col-6 col-md-4 col-lg">
         <div class="stat-card hover-lift" onclick="switchTab('${t.key}')">
           <div class="stat-icon" style="background:${t.color}22;color:${t.color};"><i class="bi ${t.icon}"></i></div>
-          <div><div class="stat-value">${tenantsBy(t.key).length}</div><div class="stat-label">${t.label}</div></div>
+          <div><div class="stat-value">${count}</div><div class="stat-label">${t.label}</div></div>
         </div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
   }
 
   function switchTab(tab){
@@ -31,9 +89,17 @@ document.addEventListener("DOMContentLoaded", () => {
   window.switchTab = switchTab;
 
   function renderTabs(){
-    document.getElementById("billTabs").innerHTML = TABS.map(t => `
-      <button class="filter-pill ${activeTab === t.key ? "active" : ""}" onclick="switchTab('${t.key}')">${t.label} <span class="ms-1">(${tenantsBy(t.key).length})</span></button>
-    `).join("");
+    const verificationCount = verificationTransactions.filter(v => v.status === "pending").length;
+    document.getElementById("billTabs").innerHTML = TABS.map(t => {
+      let count = 0;
+      if (t.key === "verification") {
+        count = verificationCount;
+      } else {
+        count = tenantsBy(t.key).length;
+      }
+      return `
+      <button class="filter-pill ${activeTab === t.key ? "active" : ""}" onclick="switchTab('${t.key}')">${t.label} <span class="ms-1">(${count})</span></button>
+    `}).join("");
   }
 
   function getPgName(pgId){
@@ -42,11 +108,54 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderTable(){
-    const rows = tenantsBy(activeTab);
+    const rows = activeTab === "verification" ? verificationTransactions.filter(v => v.status === "pending") : tenantsBy(activeTab);
     const wrap = document.getElementById("billTableWrap");
     document.getElementById("billEmpty").classList.toggle("d-none", rows.length > 0);
 
-    if(activeTab === "unpaid" || activeTab === "unfinished"){
+    if (activeTab === "verification") {
+      wrap.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <p class="small text-muted-soft mb-0">Review and verify pending payment proofs submitted by tenants.</p>
+      </div>
+      <div class="row g-3">
+        ${rows.map(v => `
+        <div class="col-md-6 col-lg-4">
+          <div class="verification-card" onclick="openVerificationDetail('${v.id}')" style="cursor:pointer;">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <h6 class="mb-1">${v.tenantName}</h6>
+                <small class="text-muted-soft">${v.pgName} · Room ${v.roomNo}</small>
+              </div>
+              <span class="verification-status-badge verification-status-pending">Pending</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <div>
+                <span class="text-muted-soft small">Transaction ID</span>
+                <p class="fw-semibold mb-0 small">${v.transactionId}</p>
+              </div>
+              <div class="text-end">
+                <span class="text-muted-soft small">Amount</span>
+                <p class="fw-semibold mb-0">${fmtINR(v.amount)}</p>
+              </div>
+            </div>
+            <div class="mt-2">
+              <img src="${v.image}" alt="Payment proof" class="verification-preview-img" style="width:100%;height:120px;object-fit:cover;border-radius:6px;">
+            </div>
+            <div class="d-flex gap-2 mt-3">
+              <button class="btn btn-sm btn-verify-accept w-50" onclick="event.stopPropagation(); verifyTransaction('${v.id}', 'accepted')">
+                <i class="bi bi-check-lg me-1"></i>Received
+              </button>
+              <button class="btn btn-sm btn-verify-reject w-50" onclick="event.stopPropagation(); verifyTransaction('${v.id}', 'rejected')">
+                <i class="bi bi-x-lg me-1"></i>Unreceived
+              </button>
+            </div>
+          </div>
+        </div>
+        `).join("")}
+      </div>
+      ${rows.length === 0 ? '<p class="text-center text-muted-soft small py-4">No pending verification requests.</p>' : ""}`;
+    }
+    else if(activeTab === "unpaid" || activeTab === "unfinished"){
       wrap.innerHTML = `
       <table class="data-table">
         <thead><tr><th>Tenant Name</th><th>PG</th><th>Room No</th><th>Email</th><th>Due Months</th><th>Due Amount</th></tr></thead>
@@ -115,6 +224,107 @@ document.addEventListener("DOMContentLoaded", () => {
       ${rows.length === 0 ? '<p class="text-center text-muted-soft small py-3">No cash payments recorded yet.</p>' : ""}`;
     }
   }
+
+  // -------- Verification functions --------
+  window.verifyTransaction = function(id, action){
+    const v = verificationTransactions.find(x => x.id === id);
+    if (!v) return;
+    
+    if (action === 'accepted') {
+      v.status = 'verified';
+      // Update tenant's bill status
+      const tenant = LK.tenants.find(t => t.id === v.tenantId);
+      if (tenant) {
+        tenant.billStatus = 'paid';
+        tenant.paidAmount = v.amount;
+        tenant.paidDate = new Date().toISOString().split('T')[0];
+        tenant.nextPaymentDate = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0];
+        tenant.dueMonths = [];
+        tenant.dueAmount = 0;
+        tenant.delayedDays = 0;
+        tenant.fine = 0;
+      }
+      showToast(`✅ Payment of ${fmtINR(v.amount)} from ${v.tenantName} verified.`, "success");
+    } else {
+      v.status = 'rejected';
+      showToast(`❌ Payment from ${v.tenantName} marked as unreceived.`, "danger");
+    }
+    
+    renderStats();
+    renderTabs();
+    renderTable();
+  };
+
+  window.openVerificationDetail = function(id){
+    const v = verificationTransactions.find(x => x.id === id);
+    if (!v) return;
+    
+    document.getElementById("vDetailTxnId").textContent = v.transactionId;
+    document.getElementById("vDetailAmount").textContent = fmtINR(v.amount);
+    document.getElementById("vDetailTenant").textContent = `${v.tenantName} (${v.pgName} · Room ${v.roomNo})`;
+    document.getElementById("vDetailDate").textContent = v.date;
+    
+    if (v.image) {
+      document.getElementById("vDetailImage").src = v.image;
+      document.getElementById("vDetailImage").style.display = "block";
+      document.getElementById("vDetailNoImage").style.display = "none";
+    } else {
+      document.getElementById("vDetailImage").style.display = "none";
+      document.getElementById("vDetailNoImage").style.display = "block";
+    }
+    
+    const statusMap = {
+      'pending': '<span class="verification-status-badge verification-status-pending">Pending</span>',
+      'verified': '<span class="verification-status-badge verification-status-verified">Verified</span>',
+      'rejected': '<span class="verification-status-badge verification-status-rejected">Rejected</span>'
+    };
+    document.getElementById("vDetailStatus").innerHTML = statusMap[v.status] || statusMap['pending'];
+    
+    // Set action buttons
+    const verifyBtn = document.getElementById("vDetailVerifyBtn");
+    const rejectBtn = document.getElementById("vDetailRejectBtn");
+    
+    if (v.status !== 'pending') {
+      verifyBtn.disabled = true;
+      verifyBtn.style.opacity = '0.5';
+      rejectBtn.disabled = true;
+      rejectBtn.style.opacity = '0.5';
+    } else {
+      verifyBtn.disabled = false;
+      verifyBtn.style.opacity = '1';
+      rejectBtn.disabled = false;
+      rejectBtn.style.opacity = '1';
+    }
+    
+    // Store the current ID for the buttons
+    verifyBtn.dataset.verificationId = id;
+    rejectBtn.dataset.verificationId = id;
+    
+    // Remove old listeners and add new ones
+    const newVerifyBtn = verifyBtn.cloneNode(true);
+    const newRejectBtn = rejectBtn.cloneNode(true);
+    verifyBtn.parentNode.replaceChild(newVerifyBtn, verifyBtn);
+    rejectBtn.parentNode.replaceChild(newRejectBtn, rejectBtn);
+    
+    newVerifyBtn.addEventListener('click', function() {
+      const vid = this.dataset.verificationId;
+      bootstrap.Modal.getInstance(document.getElementById("verificationDetailModal")).hide();
+      setTimeout(() => {
+        verifyTransaction(vid, 'accepted');
+      }, 300);
+    });
+    
+    newRejectBtn.addEventListener('click', function() {
+      const vid = this.dataset.verificationId;
+      bootstrap.Modal.getInstance(document.getElementById("verificationDetailModal")).hide();
+      setTimeout(() => {
+        verifyTransaction(vid, 'rejected');
+      }, 300);
+    });
+    
+    const detailModal = new bootstrap.Modal(document.getElementById("verificationDetailModal"));
+    detailModal.show();
+  };
 
   /* -------- Detail / message modal -------- */
   const detailModal = new bootstrap.Modal(document.getElementById("detailModal"));
