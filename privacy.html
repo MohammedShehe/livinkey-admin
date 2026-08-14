@@ -1,50 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy Policy · Livinkey Admin</title>
-<link rel="icon" href="assets/img/black_logo.png">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-<link href="assets/css/style.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy · Livinkey Admin</title>
+  <link rel="icon" href="assets/img/black_logo.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body style="background:var(--bg);">
 <div class="container py-5" style="max-width:760px;">
-  <a href="index.html" class="small text-muted-soft d-inline-flex align-items-center gap-1 mb-4" id="backToSignInBtn"><i class="bi bi-arrow-left"></i> Back to sign in</a>
+  <a href="index.html" class="small text-muted-soft d-inline-flex align-items-center gap-1 mb-4" id="backToSignInBtn">
+    <i class="bi bi-arrow-left"></i> Back to sign in
+  </a>
   <div class="section-card">
     <h1 class="h3 mb-1">Privacy Policy</h1>
-    <p class="text-muted-soft mb-4">Last updated: July 2026</p>
+    <p class="text-muted-soft mb-4">Last updated: August 2026</p>
 
-    <h2 class="h6">1. Information we store</h2>
-    <p class="text-muted-soft">The Livinkey admin console stores tenant information such as name, contact details, nationality, identity and immigration documents (e.g. passport, visa, FRRO, C-Form, arrival stamp, Aadhar), room assignment and payment history, solely to operate PG accommodation services.</p>
+    <h2 class="h6">1. Information we collect and store</h2>
+    <p class="text-muted-soft">
+      Livinkey collects and stores the following categories of personal data solely to operate PG accommodation services:
+    </p>
+    <ul class="text-muted-soft small">
+      <li><strong>Tenant &amp; Guest data:</strong> Full name, email, phone number, nationality, gender, residency status (national/international), room assignment, PG assignment, rent amount, security fee, payment dates, arrival date.</li>
+      <li><strong>Identity &amp; immigration documents:</strong> Passport, visa, arrival stamp, C-Form, e-FRRO, Aadhaar (tenant and parent), university ID, passport-size photo.</li>
+      <li><strong>Payment &amp; billing history:</strong> Rent, electricity, maintenance, other charges, fines, payment proofs, cash payment records, transaction IDs.</li>
+      <li><strong>Maintenance requests:</strong> Issue type, description, service date, attached images.</li>
+      <li><strong>Feedback &amp; ratings:</strong> Tenant feedback on living experience, maintenance, communication, amenities, technology.</li>
+      <li><strong>Admin data:</strong> Name, email, phone, role (super_admin / admin), ID document, permissions, login activity (OTP, reset tokens).</li>
+    </ul>
 
-    <h2 class="h6">2. How admin data is used</h2>
-    <p class="text-muted-soft">Admin login details and one-time verification codes are used only to authenticate access to the console and are never shared with third parties for marketing purposes.</p>
+    <h2 class="h6">2. How your data is used</h2>
+    <p class="text-muted-soft">
+      All collected data is used strictly for:
+    </p>
+    <ul class="text-muted-soft small">
+      <li>Managing tenant/guest profiles, room assignments, and billing.</li>
+      <li>Generating bills and processing payments (online, cash, partial).</li>
+      <li>Handling maintenance requests and support tickets.</li>
+      <li>Collecting feedback to improve PG services.</li>
+      <li>Authenticating admins via email + OTP and role-based permissions.</li>
+      <li>Sending service-related emails (bill notifications, OTPs, password resets, e-FRRO expiry alerts).</li>
+    </ul>
+    <p class="text-muted-soft">Data is never shared with third parties for marketing or unrelated purposes.</p>
 
-    <h2 class="h6">3. Document storage</h2>
-    <p class="text-muted-soft">Uploaded identity and travel documents are visible only to admins with granted access and can be downloaded or deleted directly from a tenant's profile by an authorized admin.</p>
+    <h2 class="h6">3. Document storage &amp; retention</h2>
+    <p class="text-muted-soft">
+      Uploaded identity and travel documents are stored securely in Cloudinary and are visible only to admins with granted access. Authorized admins can view, download, or delete documents directly from a tenant's profile. Documents are retained as long as the tenant's account is active or as required by applicable law.
+    </p>
 
     <h2 class="h6">4. Messaging data</h2>
-    <p class="text-muted-soft">Conversations between admins and tenants/guests are automatically removed 30 days after being sent, and can also be deleted earlier by an admin.</p>
+    <p class="text-muted-soft">
+      Conversations between admins and tenants/guests are automatically removed 30 days after being sent. Admins may also delete messages earlier manually. Custom bill messages and QR codes expire after the configured validity period.
+    </p>
 
-    <h2 class="h6">5. Your rights</h2>
-    <p class="text-muted-soft">Tenants may request access to, correction of, or deletion of their personal data by contacting their property admin or livinkey@gmail.com.</p>
+    <h2 class="h6">5. Cookies &amp; tracking</h2>
+    <p class="text-muted-soft">
+      The Livinkey admin console uses session tokens (JWT) for authentication. No persistent cookies are used for tracking or analytics.
+    </p>
 
-    <h2 class="h6">6. Security</h2>
-    <p class="text-muted-soft mb-0">Access to tenant data is restricted through role-based permissions and two-factor (OTP) verification for every admin sign-in.</p>
+    <h2 class="h6">6. Data security</h2>
+    <p class="text-muted-soft">
+      Access to tenant data is protected through:
+    </p>
+    <ul class="text-muted-soft small">
+      <li>Role-based permissions (view, add, edit, delete per module).</li>
+      <li>Two-factor verification (email OTP) for every admin sign-in.</li>
+      <li>Secure hashing of passwords and OTPs (bcrypt).</li>
+      <li>Encrypted transmission via HTTPS.</li>
+    </ul>
+
+    <h2 class="h6">7. Your rights</h2>
+    <p class="text-muted-soft">
+      Tenants and guests may request:
+    </p>
+    <ul class="text-muted-soft small">
+      <li>Access to their personal data stored in the system.</li>
+      <li>Correction of inaccurate or incomplete data.</li>
+      <li>Deletion of their data (subject to legal and operational retention requirements).</li>
+    </ul>
+    <p class="text-muted-soft">
+      To exercise these rights, contact your property admin or email <a href="mailto:livinkey@gmail.com" class="text-green">livinkey@gmail.com</a>.
+    </p>
+
+    <h2 class="h6">8. Changes to this policy</h2>
+    <p class="text-muted-soft mb-0">
+      This privacy policy may be updated periodically. Continued use of the Livinkey platform after an update constitutes acceptance of the revised policy. Significant changes will be communicated via email or in-app notification.
+    </p>
   </div>
 </div>
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  const backBtn = document.getElementById('backToSignInBtn');
-  if (backBtn) {
-    backBtn.addEventListener('click', function(e) {
-      AUTH.clearPending('lk_login_pending');
-      AUTH.clearPending('lk_reset_pending');
-    });
-  }
-});
+  document.addEventListener("DOMContentLoaded", function() {
+    const backBtn = document.getElementById('backToSignInBtn');
+    if (backBtn) {
+      backBtn.addEventListener('click', function(e) {
+        if (typeof AUTH !== 'undefined') {
+          AUTH.clearPending('lk_login_pending');
+          AUTH.clearPending('lk_reset_pending');
+        }
+      });
+    }
+  });
 </script>
 </body>
 </html>
