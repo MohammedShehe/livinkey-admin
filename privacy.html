@@ -11,7 +11,7 @@
 </head>
 <body style="background:var(--bg);">
 <div class="container py-5" style="max-width:760px;">
-  <a href="index.html" class="small text-muted-soft d-inline-flex align-items-center gap-1 mb-4"><i class="bi bi-arrow-left"></i> Back to sign in</a>
+  <a href="index.html" class="small text-muted-soft d-inline-flex align-items-center gap-1 mb-4" id="backToSignInBtn"><i class="bi bi-arrow-left"></i> Back to sign in</a>
   <div class="section-card">
     <h1 class="h3 mb-1">Privacy Policy</h1>
     <p class="text-muted-soft mb-4">Last updated: July 2026</p>
@@ -35,5 +35,16 @@
     <p class="text-muted-soft mb-0">Access to tenant data is restricted through role-based permissions and two-factor (OTP) verification for every admin sign-in.</p>
   </div>
 </div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const backBtn = document.getElementById('backToSignInBtn');
+  if (backBtn) {
+    backBtn.addEventListener('click', function(e) {
+      AUTH.clearPending('lk_login_pending');
+      AUTH.clearPending('lk_reset_pending');
+    });
+  }
+});
+</script>
 </body>
 </html>

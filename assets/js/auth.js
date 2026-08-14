@@ -38,6 +38,9 @@ const AUTH = {
   },
   logout(){
     sessionStorage.removeItem("lk_session");
+    // Clear any pending states
+    sessionStorage.removeItem("lk_login_pending");
+    sessionStorage.removeItem("lk_reset_pending");
     window.location.href = "index.html";
   },
   requireAuth(){
@@ -225,6 +228,14 @@ function initForgotPasswordPage(){
       show(stepDone);
       LOADER.hide(btn);
     }, 600);
+  });
+
+  // Handle "Back to sign in" link to clear pending state
+  document.querySelectorAll('a[href="index.html"]').forEach(link => {
+    link.addEventListener("click", function(e) {
+      AUTH.clearPending("lk_login_pending");
+      AUTH.clearPending("lk_reset_pending");
+    });
   });
 }
 
