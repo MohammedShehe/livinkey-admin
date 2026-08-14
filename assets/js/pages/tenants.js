@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let currentFilter = "";
+  let currentPgFilter = "all";
   let isEditMode = false;
   let editingTenantId = null;
 
@@ -107,6 +108,73 @@ document.addEventListener("DOMContentLoaded", () => {
     if(!pg) return 0;
     const room = pg.rooms.find(r => r.roomNo === roomNo);
     return room ? room.capacity : 0;
+  }
+
+  // ============================================
+  // PG FILTER FUNCTIONS
+  // ============================================
+
+  function populatePgFilter() {
+    const select = document.getElementById("pgFilter");
+    if (!select) return;
+    
+    // Keep the "All PGs" option
+    let options = `<option value="all">All PGs</option>`;
+    
+    // Add each PG as an option
+    LK.pgs.forEach(pg => {
+      const selected = currentPgFilter === pg.id ? "selected" : "";
+      options += `<option value="${pg.id}" ${selected}>${pg.name}</option>`;
+    });
+    
+    select.innerHTML = options;
+    
+    // Show/hide clear button
+    const clearBtn = document.getElementById("pgFilterClear");
+    if (clearBtn) {
+      if (currentPgFilter !== "all") {
+        clearBtn.classList.add("visible");
+      } else {
+        clearBtn.classList.remove("visible");
+      }
+    }
+  }
+
+  function setupPgFilter() {
+    const select = document.getElementById("pgFilter");
+    const clearBtn = document.getElementById("pgFilterClear");
+    
+    if (!select) return;
+    
+    // Initial population
+    populatePgFilter();
+    
+    // On change, filter tenants
+    select.addEventListener("change", function() {
+      currentPgFilter = this.value;
+      const searchInput = document.getElementById("tenantSearch");
+      renderTable(searchInput.value);
+      
+      // Show/hide clear button
+      if (clearBtn) {
+        if (currentPgFilter !== "all") {
+          clearBtn.classList.add("visible");
+        } else {
+          clearBtn.classList.remove("visible");
+        }
+      }
+    });
+    
+    // Clear filter button
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function() {
+        select.value = "all";
+        currentPgFilter = "all";
+        this.classList.remove("visible");
+        const searchInput = document.getElementById("tenantSearch");
+        renderTable(searchInput.value);
+      });
+    }
   }
 
   // ============================================
@@ -654,6 +722,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.filterByStat = function(filter){
     const searchInput = document.getElementById("tenantSearch");
+    // Reset PG filter when clicking stats
+    const pgFilter = document.getElementById("pgFilter");
+    if (pgFilter) {
+      pgFilter.value = "all";
+      currentPgFilter = "all";
+      const clearBtn = document.getElementById("pgFilterClear");
+      if (clearBtn) clearBtn.classList.remove("visible");
+    }
     if(filter === "all"){
       searchInput.value = "";
       currentFilter = "";
@@ -676,6 +752,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderTable(filter = ""){
     const f = (filter || currentFilter || "").trim().toLowerCase();
     let rows = LK.tenants.filter(t => t.role === "Tenant");
+    
+    // Apply PG filter
+    if (currentPgFilter !== "all") {
+      rows = rows.filter(t => t.pgId === currentPgFilter);
+    }
     
     if(f === "__efrro_expiring__"){
       rows = rows.filter(t => {
@@ -1194,6 +1275,8 @@ document.addEventListener("DOMContentLoaded", () => {
     confirmModal.show();
   };
 
+  // Initialize PG filter
+  setupPgFilter();
   initDropdowns();
   renderStats();
   renderTable();

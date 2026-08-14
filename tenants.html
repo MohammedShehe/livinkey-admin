@@ -133,6 +133,81 @@
     background: #bdc3c7;
     color: #000;
   }
+
+  /* PG Filter Styles */
+  .pg-filter-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pg-filter-container .pg-filter-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .pg-filter-container .pg-filter-select {
+    min-width: 160px;
+    padding: 6px 30px 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    background: var(--surface);
+    color: var(--text);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7a6b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .pg-filter-container .pg-filter-select:focus {
+    outline: none;
+    border-color: var(--lk-green);
+    box-shadow: 0 0 0 3px var(--lk-green-100);
+  }
+  .pg-filter-container .pg-filter-select option {
+    padding: 4px 8px;
+  }
+  .pg-filter-container .pg-filter-clear {
+    background: none;
+    border: none;
+    color: var(--muted);
+    padding: 4px 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background 0.2s, color 0.2s;
+    display: none;
+  }
+  .pg-filter-container .pg-filter-clear:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+  .pg-filter-container .pg-filter-clear.visible {
+    display: block;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .pg-filter-container .pg-filter-select {
+      min-width: 120px;
+      font-size: 0.8rem;
+      padding: 5px 26px 5px 10px;
+    }
+    .pg-filter-container .pg-filter-label {
+      font-size: 0.75rem;
+    }
+  }
+  @media (max-width: 576px) {
+    .pg-filter-container {
+      width: 100%;
+    }
+    .pg-filter-container .pg-filter-select {
+      flex: 1;
+      min-width: 80px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -152,6 +227,17 @@
             <p class="text-muted-soft small mb-0">Search and manage every resident tenant of your property.</p>
           </div>
           <div class="d-flex align-items-center gap-2 flex-wrap">
+            <!-- PG Filter -->
+            <div class="pg-filter-container">
+              <span class="pg-filter-label"><i class="bi bi-building me-1"></i>PG:</span>
+              <select class="pg-filter-select" id="pgFilter">
+                <option value="all">All PGs</option>
+              </select>
+              <button class="pg-filter-clear" id="pgFilterClear" title="Clear PG filter">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+            <!-- Search -->
             <div class="table-search">
               <i class="bi bi-search"></i>
               <input type="text" class="form-control" style="width:260px;" id="tenantSearch" placeholder="Search by name, room no, nationality or rent">
