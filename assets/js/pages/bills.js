@@ -1,760 +1,1174 @@
+// Livinkey Admin - Bills Management
+// Full backend integration for bills management
+
 document.addEventListener("DOMContentLoaded", () => {
-  renderLayout("bills", "Bills", "Track rent status and manage collections across all tenants");
-
-  const TABS = [
-    { key: "unpaid",     label: "Unpaid Tenants",              icon: "bi-exclamation-circle", color: "var(--danger)" },
-    { key: "unfinished", label: "Unfinished Payments",         icon: "bi-hourglass-split",    color: "var(--warning)" },
-    { key: "paid",       label: "Paid Tenants",                icon: "bi-check-circle",       color: "var(--success)" },
-    { key: "delayed",    label: "Delayed Payments",             icon: "bi-alarm",              color: "var(--danger)" },
-    { key: "verification", label: "Pending Verification",      icon: "bi-clock-history",      color: "var(--warning)" },
-    { key: "cash",       label: "Cash Payments",                icon: "bi-cash-coin",          color: "var(--info)" }
-  ];
-  let activeTab = "unpaid";
-
-  // Mock verification data
-  let verificationTransactions = [
-    {
-      id: "VT001",
-      tenantId: "T001",
-      tenantName: "Amit Sharma",
-      pgName: "Alishan PG",
-      roomNo: "101",
-      transactionId: "TXN-2026-08-01-001",
-      amount: 8500,
-      date: "2026-08-01",
-      status: "pending", // pending, verified, rejected
-      image: "https://placehold.co/400x600/92C24A/FFFFFF?text=Payment+Screenshot",
-      submittedBy: "Amit Sharma"
-    },
-    {
-      id: "VT002",
-      tenantId: "T003",
-      tenantName: "Riya Kapoor",
-      pgName: "Alishan PG",
-      roomNo: "103",
-      transactionId: "TXN-2026-08-02-002",
-      amount: 13500,
-      date: "2026-08-02",
-      status: "pending",
-      image: "https://placehold.co/400x600/FF6B6B/FFFFFF?text=Payment+Screenshot",
-      submittedBy: "Riya Kapoor"
-    },
-    {
-      id: "VT003",
-      tenantId: "T005",
-      tenantName: "Karan Mehta",
-      pgName: "Alishan PG",
-      roomNo: "203",
-      transactionId: "TXN-2026-08-03-003",
-      amount: 10000,
-      date: "2026-08-03",
-      status: "pending",
-      image: "https://placehold.co/400x600/4ECDC4/FFFFFF?text=Payment+Screenshot",
-      submittedBy: "Karan Mehta"
+    // ============================================================
+    // FIX: Change page title/sub based on hash
+    // ============================================================
+    let pageTitle = "Bills";
+    let pageSub = "Track rent status and manage collections across all tenants";
+    
+    if (window.location.hash === '#proofs') {
+        pageTitle = "Payment Proofs";
+        pageSub = "Verify and manage tenant payment submissions";
     }
-  ];
+    
+    renderLayout("bills", pageTitle, pageSub);
 
-  let pendingVerificationId = null;
-  let pendingVerificationAction = null;
+    let activeTab = "unpaid";
+    let activeSubTab = "bills"; // "bills" or "proofs"
+    let billStats = {};
+    let billData = [];
+    let unpaidTenants = [];
+    let currentBillId = null;
+    let proofData = [];
+    let selectedProofId = null;
+    let currentProofFilter = "all";
 
-  function tenantsBy(status){ 
-    if (status === "verification") {
-      return verificationTransactions.filter(v => v.status === "pending");
+    const canAddBills = Permissions.canAdd('bills');
+    const canEditBills = Permissions.canEdit('bills');
+    const canDeleteBills = Permissions.canDelete('bills');
+    const canViewBills = Permissions.canView('bills');
+
+    // ============================================
+    // FETCH DATA
+    // ============================================
+    async function loadData() {
+        try {
+            const [statsRes, billsRes, unpaidRes] = await Promise.all([
+                API.bills.stats(),
+                API.bills.getAll(),
+                API.bills.unpaidTenants()
+            ]);
+            
+            if (statsRes.success) {
+                billStats = statsRes.data || {};
+            }
+            if (billsRes.success) {
+                billData = billsRes.data || [];
+                window.LK_BILLS = billData;
+            }
+            if (unpaidRes.success) {
+                unpaidTenants = unpaidRes.data || [];
+                window.LK_UNPAID_TENANTS = unpaidTenants;
+            }
+            
+            renderStats();
+            renderTabs();
+            renderTable();
+            renderActionButtons();
+        } catch (error) {
+            showToast("Error loading bills data: " + error.message, "danger");
+        }
     }
-    return LK.tenants.filter(t => t.role === "Tenant" && t.billStatus === status); 
-  }
-  function allTenants(){ return LK.tenants.filter(t => t.role === "Tenant"); }
 
-  function renderStats(){
-    const verificationCount = verificationTransactions.filter(v => v.status === "pending").length;
-    document.getElementById("billStats").innerHTML = TABS.map(t => {
-      let count = 0;
-      if (t.key === "verification") {
-        count = verificationCount;
-      } else {
-        count = tenantsBy(t.key).length;
-      }
-      return `
-      <div class="col-6 col-md-4 col-lg">
-        <div class="stat-card hover-lift" onclick="switchTab('${t.key}')">
-          <div class="stat-icon" style="background:${t.color}22;color:${t.color};"><i class="bi ${t.icon}"></i></div>
-          <div><div class="stat-value">${count}</div><div class="stat-label">${t.label}</div></div>
-        </div>
-      </div>`;
-    }).join("");
-  }
+    // ============================================
+    // FETCH PROOFS DATA
+    // ============================================
+    async function loadProofs() {
+        try {
+            const params = {};
+            if (currentProofFilter !== "all") params.status = currentProofFilter;
 
-  function switchTab(tab){
-    activeTab = tab;
-    renderTabs();
-    renderTable();
-  }
-  window.switchTab = switchTab;
+            const [statsRes, proofsRes] = await Promise.all([
+                API.bills.paymentProofs.stats(),
+                API.bills.paymentProofs.getAll(params)
+            ]);
 
-  function renderTabs(){
-    const verificationCount = verificationTransactions.filter(v => v.status === "pending").length;
-    document.getElementById("billTabs").innerHTML = TABS.map(t => {
-      let count = 0;
-      if (t.key === "verification") {
-        count = verificationCount;
-      } else {
-        count = tenantsBy(t.key).length;
-      }
-      return `
-      <button class="filter-pill ${activeTab === t.key ? "active" : ""}" onclick="switchTab('${t.key}')">${t.label} <span class="ms-1">(${count})</span></button>
-    `}).join("");
-  }
+            if (statsRes.success) {
+                renderProofStats(statsRes.data);
+            }
 
-  function getPgName(pgId){
-    const pg = LK.pgs.find(p => p.id === pgId);
-    return pg ? pg.name : "—";
-  }
+            if (proofsRes.success) {
+                proofData = proofsRes.data || [];
+                renderProofTable();
+            }
+        } catch (error) {
+            showToast("Error loading payment proofs: " + error.message, "danger");
+        }
+    }
 
-  function renderTable(){
-    const rows = activeTab === "verification" ? verificationTransactions.filter(v => v.status === "pending") : tenantsBy(activeTab);
-    const wrap = document.getElementById("billTableWrap");
-    document.getElementById("billEmpty").classList.toggle("d-none", rows.length > 0);
-
-    if (activeTab === "verification") {
-      wrap.innerHTML = `
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <p class="small text-muted-soft mb-0">Review and verify pending payment proofs submitted by tenants.</p>
-      </div>
-      <div class="row g-3">
-        ${rows.map(v => `
-        <div class="col-md-6 col-lg-4">
-          <div class="verification-card" onclick="openVerificationDetail('${v.id}')" style="cursor:pointer;">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-              <div>
-                <h6 class="mb-1">${v.tenantName}</h6>
-                <small class="text-muted-soft">${v.pgName} · Room ${v.roomNo}</small>
-              </div>
-              <span class="verification-status-badge verification-status-pending">Pending</span>
+    // ============================================
+    // RENDER BILL STATS
+    // ============================================
+    function renderStats() {
+        const stats = [
+            { 
+                label: "Unpaid", 
+                value: billStats.unpaid || 0, 
+                icon: "bi-exclamation-circle", 
+                color: "var(--danger)", 
+                key: "unpaid" 
+            },
+            { 
+                label: "Partially Paid", 
+                value: billStats.partially_paid || 0, 
+                icon: "bi-hourglass-split", 
+                color: "var(--warning)", 
+                key: "unfinished" 
+            },
+            { 
+                label: "Paid", 
+                value: billStats.paid || 0, 
+                icon: "bi-check-circle", 
+                color: "var(--success)", 
+                key: "paid" 
+            },
+            { 
+                label: "Delayed", 
+                value: billStats.delayed || 0, 
+                icon: "bi-alarm", 
+                color: "var(--danger)", 
+                key: "delayed" 
+            },
+            { 
+                label: "Overdue", 
+                value: billStats.overdue || 0, 
+                icon: "bi-clock-history", 
+                color: "var(--danger)", 
+                key: "overdue" 
+            }
+        ];
+        
+        document.getElementById("billStats").innerHTML = stats.map(s => `
+            <div class="col-6 col-md-4 col-lg">
+                <div class="stat-card hover-lift" onclick="switchTab('${s.key}')">
+                    <div class="stat-icon" style="background:${s.color}22;color:${s.color};"><i class="bi ${s.icon}"></i></div>
+                    <div><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div>
+                </div>
             </div>
-            <div class="d-flex justify-content-between align-items-center mt-2">
-              <div>
-                <span class="text-muted-soft small">Transaction ID</span>
-                <p class="fw-semibold mb-0 small">${v.transactionId}</p>
-              </div>
-              <div class="text-end">
-                <span class="text-muted-soft small">Amount</span>
-                <p class="fw-semibold mb-0">${fmtINR(v.amount)}</p>
-              </div>
+        `).join("");
+    }
+
+    // ============================================
+    // RENDER PROOF STATS
+    // ============================================
+    function renderProofStats(stats) {
+        const statsHtml = [
+            { label: "Total", value: stats.total || 0, icon: "bi-files", color: "var(--info)", filter: "all" },
+            { label: "Pending", value: stats.pending || 0, icon: "bi-clock-history", color: "var(--warning)", filter: "pending" },
+            { label: "Verified", value: stats.verified || 0, icon: "bi-check-circle", color: "var(--success)", filter: "verified" },
+            { label: "Rejected", value: stats.rejected || 0, icon: "bi-x-circle", color: "var(--danger)", filter: "rejected" }
+        ];
+
+        const container = document.getElementById("proofStats");
+        if (!container) return;
+        
+        container.innerHTML = statsHtml.map(s => `
+            <div class="col-6 col-md-3">
+                <div class="stat-card hover-lift ${currentProofFilter === s.filter ? 'active' : ''}" onclick="filterProofsByStatus('${s.filter}')">
+                    <div class="stat-icon" style="background:${s.color}22;color:${s.color};"><i class="bi ${s.icon}"></i></div>
+                    <div>
+                        <div class="stat-value">${s.value}</div>
+                        <div class="stat-label">${s.label}</div>
+                    </div>
+                </div>
             </div>
-            <div class="mt-2">
-              <img src="${v.image}" alt="Payment proof" class="verification-preview-img" style="width:100%;height:120px;object-fit:cover;border-radius:6px;">
-            </div>
-            <div class="d-flex gap-2 mt-3">
-              <button class="btn btn-sm btn-verify-accept w-50" onclick="event.stopPropagation(); confirmVerification('${v.id}', 'accepted')">
-                <i class="bi bi-check-lg me-1"></i>Received
-              </button>
-              <button class="btn btn-sm btn-verify-reject w-50" onclick="event.stopPropagation(); confirmVerification('${v.id}', 'rejected')">
-                <i class="bi bi-x-lg me-1"></i>Unreceived
-              </button>
-            </div>
-          </div>
-        </div>
-        `).join("")}
-      </div>
-      ${rows.length === 0 ? '<p class="text-center text-muted-soft small py-4">No pending verification requests.</p>' : ""}`;
+        `).join("");
     }
-    else if(activeTab === "unpaid" || activeTab === "unfinished"){
-      wrap.innerHTML = `
-      <table class="data-table">
-        <thead><tr><th>Tenant Name</th><th>PG</th><th>Room No</th><th>Email</th><th>Due Months</th><th>Due Amount</th></tr></thead>
-        <tbody>
-          ${rows.map(t => `
-          <tr>
-            <td><span class="name-link" onclick="openDetail('${t.id}')">${t.name}</span></td>
-            <td>${getPgName(t.pgId)}</td>
-            <td>${t.roomNo}</td>
-            <td>${t.email}</td>
-            <td>${t.dueMonths.join(", ")}</td>
-            <td class="fw-semibold">${fmtINR(t.dueAmount)}</td>
-          </tr>`).join("")}
-        </tbody>
-      </table>`;
-    }
-    else if(activeTab === "paid"){
-      wrap.innerHTML = `
-      <table class="data-table">
-        <thead><tr><th>Name</th><th>PG</th><th>Email</th><th>Paid Amount</th><th>Paid Date</th><th>Next Payment Date</th></tr></thead>
-        <tbody>
-          ${rows.map(t => `
-          <tr>
-            <td><span class="name-link" onclick="openDetail('${t.id}')">${t.name}</span></td>
-            <td>${getPgName(t.pgId)}</td>
-            <td>${t.email}</td>
-            <td>${fmtINR(t.paidAmount)}</td>
-            <td>${t.paidDate}</td>
-            <td>${t.nextPaymentDate}</td>
-          </tr>`).join("")}
-        </tbody>
-      </table>`;
-    }
-    else if(activeTab === "delayed"){
-      wrap.innerHTML = `
-      <table class="data-table">
-        <thead><tr><th>Name</th><th>PG</th><th>Room No</th><th>Email</th><th>Phone</th><th>Due Amount</th><th>Due Months</th><th>Fine</th><th>Days Delayed</th></tr></thead>
-        <tbody>
-          ${rows.map(t => `
-          <tr>
-            <td><span class="name-link" onclick="openDetail('${t.id}')">${t.name}</span></td>
-            <td>${getPgName(t.pgId)}</td>
-            <td>${t.roomNo}</td>
-            <td>${t.email}</td>
-            <td>${t.countryCode} ${t.phone}</td>
-            <td class="fw-semibold">${fmtINR(t.dueAmount)}</td>
-            <td>${t.dueMonths.join(", ")}</td>
-            <td><span class="chip chip-red">${fmtINR(t.fine)}</span></td>
-            <td>${t.delayedDays} day(s)</td>
-          </tr>`).join("")}
-        </tbody>
-      </table>`;
-    }
-    else if(activeTab === "cash"){
-      wrap.innerHTML = `
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <p class="small text-muted-soft mb-0">Record a new cash collection, or review past cash payments below.</p>
-        <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#cashModal"><i class="bi bi-cash-coin me-1"></i>Record Cash Payment</button>
-      </div>
-      <table class="data-table">
-        <thead><tr><th>Name</th><th>PG</th><th>Room No</th><th>Amount</th><th>Paid Date</th></tr></thead>
-        <tbody>
-          ${rows.map(t => `<tr><td>${t.name}</td><td>${getPgName(t.pgId)}</td><td>${t.roomNo}</td><td>${fmtINR(t.paidAmount)}</td><td>${t.paidDate}</td></tr>`).join("")}
-        </tbody>
-      </table>
-      ${rows.length === 0 ? '<p class="text-center text-muted-soft small py-3">No cash payments recorded yet.</p>' : ""}`;
-    }
-  }
 
-  // -------- Confirmation Modal --------
-  window.confirmVerification = function(id, action) {
-    const v = verificationTransactions.find(x => x.id === id);
-    if (!v) return;
-    
-    pendingVerificationId = id;
-    pendingVerificationAction = action;
-    
-    const confirmationModal = new bootstrap.Modal(document.getElementById("confirmationModal"));
-    const iconWrapper = document.getElementById("confirmationIconWrapper");
-    const icon = document.getElementById("confirmationIcon");
-    const title = document.getElementById("confirmationTitle");
-    const message = document.getElementById("confirmationMessage");
-    const actionBtn = document.getElementById("confirmationActionBtn");
-    
-    if (action === 'accepted') {
-      iconWrapper.style.background = 'var(--lk-green-100)';
-      icon.className = 'bi bi-check-circle-fill confirmation-modal-icon';
-      icon.style.color = 'var(--lk-green)';
-      title.textContent = 'Confirm Payment Received';
-      message.textContent = `Are you sure you want to mark this payment of ${fmtINR(v.amount)} from ${v.tenantName} as RECEIVED? This will update the tenant's bill status to "Paid".`;
-      actionBtn.className = 'btn btn-verify-accept px-4';
-      actionBtn.textContent = 'Yes, Received';
-    } else {
-      iconWrapper.style.background = 'var(--danger-bg)';
-      icon.className = 'bi bi-x-circle-fill confirmation-modal-icon';
-      icon.style.color = 'var(--danger)';
-      title.textContent = 'Confirm Payment Unreceived';
-      message.textContent = `Are you sure you want to mark this payment of ${fmtINR(v.amount)} from ${v.tenantName} as UNRECEIVED? This will reject the payment proof.`;
-      actionBtn.className = 'btn btn-verify-reject px-4';
-      actionBtn.textContent = 'Yes, Unreceived';
-    }
-    
-    // Remove old listener and add new one
-    const newActionBtn = actionBtn.cloneNode(true);
-    actionBtn.parentNode.replaceChild(newActionBtn, actionBtn);
-    
-    newActionBtn.addEventListener('click', function() {
-      confirmationModal.hide();
-      setTimeout(() => {
-        executeVerification(pendingVerificationId, pendingVerificationAction);
-      }, 300);
-    });
-    
-    confirmationModal.show();
-  };
-
-  function executeVerification(id, action) {
-    const v = verificationTransactions.find(x => x.id === id);
-    if (!v) return;
-    
-    if (action === 'accepted') {
-      v.status = 'verified';
-      // Update tenant's bill status
-      const tenant = LK.tenants.find(t => t.id === v.tenantId);
-      if (tenant) {
-        tenant.billStatus = 'paid';
-        tenant.paidAmount = v.amount;
-        tenant.paidDate = new Date().toISOString().split('T')[0];
-        tenant.nextPaymentDate = new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0];
-        tenant.dueMonths = [];
-        tenant.dueAmount = 0;
-        tenant.delayedDays = 0;
-        tenant.fine = 0;
-      }
-      showToast(`✅ Payment of ${fmtINR(v.amount)} from ${v.tenantName} verified.`, "success");
-    } else {
-      v.status = 'rejected';
-      showToast(`❌ Payment from ${v.tenantName} marked as unreceived.`, "danger");
-    }
-    
-    renderStats();
-    renderTabs();
-    renderTable();
-  }
-
-  // -------- Verification functions --------
-  window.verifyTransaction = function(id, action){
-    // This is kept for backward compatibility but now uses the confirmation flow
-    confirmVerification(id, action);
-  };
-
-  window.openVerificationDetail = function(id){
-    const v = verificationTransactions.find(x => x.id === id);
-    if (!v) return;
-    
-    document.getElementById("vDetailTxnId").textContent = v.transactionId;
-    document.getElementById("vDetailAmount").textContent = fmtINR(v.amount);
-    document.getElementById("vDetailTenant").textContent = `${v.tenantName} (${v.pgName} · Room ${v.roomNo})`;
-    document.getElementById("vDetailDate").textContent = v.date;
-    
-    if (v.image) {
-      document.getElementById("vDetailImage").src = v.image;
-      document.getElementById("vDetailImage").style.display = "block";
-      document.getElementById("vDetailNoImage").style.display = "none";
-    } else {
-      document.getElementById("vDetailImage").style.display = "none";
-      document.getElementById("vDetailNoImage").style.display = "block";
-    }
-    
-    const statusMap = {
-      'pending': '<span class="verification-status-badge verification-status-pending">Pending</span>',
-      'verified': '<span class="verification-status-badge verification-status-verified">Verified</span>',
-      'rejected': '<span class="verification-status-badge verification-status-rejected">Rejected</span>'
+    window.filterProofsByStatus = function(filter) {
+        currentProofFilter = filter;
+        loadProofs();
     };
-    document.getElementById("vDetailStatus").innerHTML = statusMap[v.status] || statusMap['pending'];
-    
-    // Set action buttons
-    const verifyBtn = document.getElementById("vDetailVerifyBtn");
-    const rejectBtn = document.getElementById("vDetailRejectBtn");
-    
-    if (v.status !== 'pending') {
-      verifyBtn.disabled = true;
-      verifyBtn.style.opacity = '0.5';
-      rejectBtn.disabled = true;
-      rejectBtn.style.opacity = '0.5';
-    } else {
-      verifyBtn.disabled = false;
-      verifyBtn.style.opacity = '1';
-      rejectBtn.disabled = false;
-      rejectBtn.style.opacity = '1';
-    }
-    
-    // Store the current ID for the buttons
-    verifyBtn.dataset.verificationId = id;
-    rejectBtn.dataset.verificationId = id;
-    
-    // Remove old listeners and add new ones
-    const newVerifyBtn = verifyBtn.cloneNode(true);
-    const newRejectBtn = rejectBtn.cloneNode(true);
-    verifyBtn.parentNode.replaceChild(newVerifyBtn, verifyBtn);
-    rejectBtn.parentNode.replaceChild(newRejectBtn, rejectBtn);
-    
-    newVerifyBtn.addEventListener('click', function() {
-      const vid = this.dataset.verificationId;
-      bootstrap.Modal.getInstance(document.getElementById("verificationDetailModal")).hide();
-      setTimeout(() => {
-        confirmVerification(vid, 'accepted');
-      }, 300);
-    });
-    
-    newRejectBtn.addEventListener('click', function() {
-      const vid = this.dataset.verificationId;
-      bootstrap.Modal.getInstance(document.getElementById("verificationDetailModal")).hide();
-      setTimeout(() => {
-        confirmVerification(vid, 'rejected');
-      }, 300);
-    });
-    
-    const detailModal = new bootstrap.Modal(document.getElementById("verificationDetailModal"));
-    detailModal.show();
-  };
 
-  /* -------- Detail / message modal -------- */
-  const detailModal = new bootstrap.Modal(document.getElementById("detailModal"));
-  window.openDetail = function(id){
-    const t = LK.tenants.find(x => x.id === id);
-    document.getElementById("detailName").textContent = t.name;
-    const payBefore = "the " + (t.paymentDate + 7) + (["1","21","31"].includes(String(t.paymentDate + 7)) ? "st" : ["2","22"].includes(String(t.paymentDate + 7)) ? "nd" : "rd") + " of the month";
-
-    let bodyHtml = `
-      <div class="row g-2 small">
-        <div class="col-6"><span class="text-muted-soft">PG:</span> <strong>${getPgName(t.pgId)}</strong></div>
-        <div class="col-6"><span class="text-muted-soft">Room No:</span> <strong>${t.roomNo}</strong></div>
-        <div class="col-6"><span class="text-muted-soft">Phone:</span> <strong>${t.countryCode} ${t.phone}</strong></div>
-        <div class="col-6"><span class="text-muted-soft">Payment date:</span> <strong>Day ${t.paymentDate}</strong></div>
-        <div class="col-6"><span class="text-muted-soft">Rent:</span> <strong>${fmtINR(t.rent)}</strong></div>
-      </div><hr>`;
-
-    if(activeTab === "unpaid" || activeTab === "unfinished"){
-      bodyHtml += `<div class="row g-2 small">
-        <div class="col-6"><span class="text-muted-soft">Due months:</span> <strong>${t.dueMonths.join(", ")}</strong></div>
-        <div class="col-6"><span class="text-muted-soft">Due amount:</span> <strong>${fmtINR(t.dueAmount)}</strong></div>
-      </div>`;
-      document.getElementById("detailMessage").value =
-`Hi ${t.name.split(" ")[0]}, this is a reminder that ${fmtINR(t.dueAmount)} is due for ${t.dueMonths.join(", ")}. Please pay before ${payBefore} to avoid a late fine of ₹100/day. You can complete your payment directly on the Livinkey App.
-
-Thank you,
-Livinkey Team`;
-      document.getElementById("detailMessageWrap").classList.remove("d-none");
-      document.getElementById("detailFooter").innerHTML = `
-        <button class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
-        <button class="btn btn-brand" onclick="sendDetailMessage('${t.id}')"><i class="bi bi-send me-1"></i>Send message</button>
-        <button class="btn btn-dark-brand" onclick="generateAndSendQR('${t.id}')"><i class="bi bi-qr-code me-1"></i>Generate & Send QR</button>`;
-    }
-    else if(activeTab === "paid"){
-      bodyHtml += `<div class="row g-2 small">
-        <div class="col-6"><span class="text-muted-soft">Paid amount:</span> <strong>${fmtINR(t.paidAmount)}</strong></div>
-        <div class="col-6"><span class="text-muted-soft">Paid date:</span> <strong>${t.paidDate}</strong></div>
-        <div class="col-6"><span class="text-muted-soft">Next payment date:</span> <strong>${t.nextPaymentDate}</strong></div>
-      </div>`;
-      document.getElementById("detailMessage").value =
-`Hi ${t.name.split(" ")[0]}, thank you for your payment of ${fmtINR(t.paidAmount)} received on ${t.paidDate}. Your next payment of ${fmtINR(t.rent)} is due on ${t.nextPaymentDate}.
-
-— Livinkey Team`;
-      document.getElementById("detailMessageWrap").classList.remove("d-none");
-      document.getElementById("detailFooter").innerHTML = `
-        <button class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
-        <button class="btn btn-dark-brand" onclick="generateReceipt('${t.id}')"><i class="bi bi-file-earmark-text me-1"></i>Generate &amp; send receipt</button>
-        <button class="btn btn-brand" onclick="sendDetailMessage('${t.id}')"><i class="bi bi-send me-1"></i>Send message</button>`;
-    }
-    else if(activeTab === "delayed"){
-      bodyHtml += `<div class="row g-2 small">
-        <div class="col-6"><span class="text-muted-soft">Due months:</span> <strong>${t.dueMonths.join(", ")}</strong></div>
-        <div class="col-6"><span class="text-muted-soft">Due amount:</span> <strong>${fmtINR(t.dueAmount)}</strong></div>
-        <div class="col-6"><span class="text-muted-soft">Days delayed:</span> <strong>${t.delayedDays}</strong></div>
-        <div class="col-6"><span class="text-muted-soft">Fine accrued:</span> <strong class="text-danger">${fmtINR(t.fine)}</strong></div>
-      </div>`;
-      document.getElementById("detailMessage").value =
-`Hi ${t.name.split(" ")[0]}, your payment is ${t.delayedDays} day(s) overdue and a fine of ${fmtINR(t.fine)} has been added (₹100/day). Total due: ${fmtINR(t.dueAmount + t.fine)}. Please settle this on the Livinkey App as soon as possible.
-
-— Livinkey Team`;
-      document.getElementById("detailMessageWrap").classList.remove("d-none");
-      document.getElementById("detailFooter").innerHTML = `
-        <button class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
-        <button class="btn btn-brand" onclick="sendDetailMessage('${t.id}')"><i class="bi bi-send me-1"></i>Send message</button>
-        <button class="btn btn-dark-brand" onclick="generateAndSendQR('${t.id}')"><i class="bi bi-qr-code me-1"></i>Generate & Send QR</button>`;
-    }
-    document.getElementById("detailBody").innerHTML = bodyHtml;
-    detailModal.show();
-  };
-
-  window.sendDetailMessage = function(id){
-    const btn = document.querySelector('#detailFooter .btn-brand');
-    if(btn) LOADER.show(btn, 'Sending...');
-    setTimeout(() => {
-      detailModal.hide();
-      showToast("Message sent to tenant.", "success");
-      if(btn) LOADER.hide(btn);
-    }, 600);
-  };
-  
-  window.generateReceipt = function(id){
-    const btn = document.querySelector('#detailFooter .btn-dark-brand');
-    if(btn) LOADER.show(btn, 'Generating...');
-    setTimeout(() => {
-      showToast("Receipt generated and sent to tenant's email.", "success");
-      if(btn) LOADER.hide(btn);
-    }, 800);
-  };
-
-  window.generateAndSendQR = function(id){
-    const t = LK.tenants.find(x => x.id === id);
-    const amount = t.dueAmount || t.rent || 0;
-    const qrData = {
-      tenant: t.name,
-      amount: amount,
-      pg: getPgName(t.pgId),
-      room: t.roomNo,
-      date: new Date().toISOString().split('T')[0],
-      billId: `BILL-${t.id}-${Date.now().toString().slice(-6)}`
+    window.switchTab = function(tab) {
+        activeTab = tab;
+        renderTabs();
+        renderTable();
     };
-    
-    const btn = document.querySelector('#detailFooter .btn-dark-brand');
-    if(btn) LOADER.show(btn, 'Generating...');
-    
-    setTimeout(() => {
-      showToast(`📱 QR Code generated for ${t.name} (₹${amount})`, "info");
-      
-      const conv = LK.conversations[t.id] || (LK.conversations[t.id] = []);
-      conv.push({ 
-        from: "admin", 
-        text: `🔷 Payment QR Code attached — Bill ID: ${qrData.billId}, Amount: ${fmtINR(amount)}. Please scan to pay.`, 
-        time: "Just now",
-        hasQR: true,
-        qrData: qrData
-      });
-      
-      setTimeout(() => {
-        showToast(`✅ QR Code sent to ${t.name} via messages.`, "success");
-        if(btn) LOADER.hide(btn);
-        detailModal.hide();
-      }, 400);
-    }, 600);
-  };
 
-  /* -------- Attach and QR Code -------- */
-  document.getElementById("attachBtn")?.addEventListener("click", () => {
-    document.getElementById("attachInput").click();
-  });
-  document.getElementById("attachInput")?.addEventListener("change", function(){
-    if(this.files.length > 0){
-      showToast("File attached successfully.", "info");
+    // ============================================
+    // RENDER TABS
+    // ============================================
+    function renderTabs() {
+        const tabs = [
+            { key: "unpaid", label: "Unpaid" },
+            { key: "unfinished", label: "Partially Paid" },
+            { key: "paid", label: "Paid" },
+            { key: "delayed", label: "Delayed" },
+            { key: "overdue", label: "Overdue" }
+        ];
+        
+        document.getElementById("billTabs").innerHTML = tabs.map(t => `
+            <button class="filter-pill ${activeTab === t.key ? "active" : ""}" onclick="switchTab('${t.key}')">${t.label}</button>
+        `).join("");
     }
-  });
-  document.getElementById("qrBtn")?.addEventListener("click", function(){
-    const btn = this;
-    LOADER.show(btn, 'Generating...');
-    setTimeout(() => {
-      showToast("QR Code generated for payment.", "success");
-      LOADER.hide(btn);
-    }, 500);
-  });
 
-  /* -------- Cash payment + OTP -------- */
-  const cashModal = document.getElementById("cashModal");
-  cashModal.addEventListener("show.bs.modal", () => {
-    document.getElementById("cashTenant").innerHTML = allTenants().map(t => `<option value="${t.id}">${t.name} — ${getPgName(t.pgId)} Room ${t.roomNo}</option>`).join("");
-  });
-  const cashOtpModal = new bootstrap.Modal(document.getElementById("cashOtpModal"));
-  let pendingCash = null;
+    // ============================================
+    // RENDER BILL TABLE
+    // ============================================
+    function renderTable() {
+        let filtered = billData;
+        
+        if (activeTab === "unpaid") {
+            filtered = billData.filter(b => b.status === 'unpaid');
+        } else if (activeTab === "unfinished") {
+            filtered = billData.filter(b => b.status === 'partially_paid');
+        } else if (activeTab === "paid") {
+            filtered = billData.filter(b => b.status === 'paid');
+        } else if (activeTab === "delayed") {
+            filtered = billData.filter(b => b.status === 'delayed');
+        } else if (activeTab === "overdue") {
+            filtered = billData.filter(b => b.status === 'overdue' || b.status === 'delayed');
+        }
+        
+        const wrap = document.getElementById("billTableWrap");
+        const empty = document.getElementById("billEmpty");
+        
+        if (filtered.length === 0) {
+            wrap.innerHTML = '';
+            empty.classList.remove("d-none");
+            return;
+        }
+        empty.classList.add("d-none");
+        
+        wrap.innerHTML = `
+        <table class="data-table">
+            <thead><tr>
+                <th>Tenant</th>
+                <th>PG</th>
+                <th>Room</th>
+                <th>Total Amount</th>
+                <th>Paid</th>
+                <th>Due</th>
+                <th>Status</th>
+                <th>Valid Until</th>
+                <th class="text-end">Actions</th>
+            </tr></thead>
+            <tbody>
+                ${filtered.map(b => `
+                <tr>
+                    <td>
+                        <span class="name-link" onclick="openBillDetail('${b.id}')">${b.tenant_name || '—'}</span>
+                        <div class="small text-muted-soft">${b.tenant_email || '—'}</div>
+                    </td>
+                    <td>${b.pg_name || '—'}</td>
+                    <td>${b.room_number || '—'}</td>
+                    <td>${fmtINR(b.total_amount || 0)}</td>
+                    <td>${fmtINR(b.paid_amount || 0)}</td>
+                    <td>${fmtINR((b.due_amount || 0) > 0 ? b.due_amount : 0)}</td>
+                    <td>${getStatusBadge(b.status)}</td>
+                    <td>${b.valid_until ? formatDate(b.valid_until) : '—'}</td>
+                    <td class="text-end">
+                        <button class="btn-icon me-1" title="View" onclick="openBillDetail('${b.id}')"><i class="bi bi-eye"></i></button>
+                        ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon me-1" title="Cash Payment" onclick="openCashPayment('${b.id}')"><i class="bi bi-cash"></i></button>` : ''}
+                        ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon" title="Send Message" onclick="openCustomMessage('${b.id}')"><i class="bi bi-chat-dots"></i></button>` : ''}
+                    </td>
+                </tr>
+                `).join("")}
+            </tbody>
+        </table>`;
+    }
 
-  document.getElementById("cashForm").addEventListener("submit", function(e){
-    e.preventDefault();
-    const btn = this.querySelector('button[type="submit"]');
-    LOADER.show(btn, 'Processing...');
-    
-    const t = LK.tenants.find(x => x.id === document.getElementById("cashTenant").value);
-    pendingCash = {
-      tenantId: t.id,
-      from: document.getElementById("cashFrom").value,
-      till: document.getElementById("cashTill").value,
-      amount: Number(document.getElementById("cashAmount").value)
+
+    // ============================================
+    // RENDER PROOF TABLE - UPDATED with better error handling
+    // ============================================
+    function renderProofTable() {
+        const tbody = document.getElementById("proofsTbody");
+        const empty = document.getElementById("proofsEmpty");
+
+        if (!tbody) return;
+
+        if (proofData.length === 0) {
+            tbody.innerHTML = '';
+            empty.classList.remove("d-none");
+            return;
+        }
+        empty.classList.add("d-none");
+
+        tbody.innerHTML = proofData.map(p => {
+            const statusColors = {
+                pending: 'status-pending',
+                verified: 'status-success',
+                rejected: 'status-failed'
+            };
+            const statusLabels = {
+                pending: '⏳ Pending',
+                verified: '✅ Verified',
+                rejected: '❌ Rejected'
+            };
+
+            const isPending = p.status === 'pending';
+            const isVerified = p.status === 'verified';
+            
+            // Check if bill exists (bill_total will be 0 or null if bill was deleted)
+            const billExists = p.bill_total !== null && p.bill_total !== undefined;
+            const billTotalDisplay = billExists ? `₹${(p.bill_total || 0).toLocaleString('en-IN')}` : 'Bill deleted';
+            const billTotalClass = billExists ? '' : 'text-muted-soft';
+
+            return `
+                <tr>
+                    <td>
+                        <span class="fw-semibold">${p.tenant_name || '—'}</span>
+                        <div class="small text-muted-soft">${p.tenant_email || '—'}</div>
+                    </td>
+                    <td>${p.pg_name || '—'}</td>
+                    <td>${p.room_number || '—'}</td>
+                    <td>
+                        <span class="fw-semibold">₹${(p.amount_paid || 0).toLocaleString('en-IN')}</span>
+                        <div class="small ${billTotalClass}">of ${billTotalDisplay}</div>
+                    </td>
+                    <td>
+                        <code class="small">${p.transaction_id || '—'}</code>
+                    </td>
+                    <td>
+                        ${p.proof_url ? `<img src="${p.proof_url}" alt="Proof" style="width:50px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="previewProof('${p.id}')">` : '—'}
+                    </td>
+                    <td>
+                        <span class="status-badge ${statusColors[p.status] || 'status-pending'}">${statusLabels[p.status] || p.status}</span>
+                    </td>
+                    <td>${p.created_at ? formatDate(p.created_at) : '—'}</td>
+                    <td class="text-end">
+                        ${isPending && canEditBills ? `
+                            <button class="btn-icon me-1" title="Verify" onclick="verifyProof('${p.id}')" style="color:var(--success);border-color:var(--success);">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button class="btn-icon me-1" title="Reject" onclick="rejectProof('${p.id}')" style="color:var(--danger);border-color:var(--danger);">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        ` : ''}
+                        ${!isPending && canEditBills ? `
+                            <button class="btn-icon me-1" title="Delete" onclick="deleteProof('${p.id}')" style="color:var(--danger);">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        ` : ''}
+                        <button class="btn-icon" title="View Proof" onclick="previewProof('${p.id}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                </tr>`;
+        }).join("");
+    }
+
+    // ============================================
+    // PROOF PREVIEW - UPDATED with better error handling
+    // ============================================
+    window.previewProof = async function(id) {
+        try {
+            const res = await API.bills.paymentProofs.getById(id);
+            if (!res.success || !res.data) {
+                showToast("Proof not found.", "danger");
+                return;
+            }
+
+            const p = res.data;
+            selectedProofId = id;
+
+            // Check if bill exists
+            const billExists = p.bill_total !== null && p.bill_total !== undefined;
+            const billTotalDisplay = billExists ? `₹${(p.bill_total || 0).toLocaleString('en-IN')}` : 'Bill deleted';
+            const billTotalClass = billExists ? '' : 'text-muted-soft';
+
+            document.getElementById("proofPreviewTitle").textContent = 
+                `Payment Proof - ${p.tenant_name || 'Tenant'}`;
+            document.getElementById("proofPreviewImage").src = p.proof_url || '';
+
+            const details = document.getElementById("proofPreviewDetails");
+            details.innerHTML = `
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Tenant</div>
+                        <div>${p.tenant_name || '—'}</div>
+                        <div class="small text-muted-soft">${p.tenant_email || '—'}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">PG / Room</div>
+                        <div>${p.pg_name || '—'} / ${p.room_number || '—'}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fw-bold small text-muted-soft">Amount Paid</div>
+                        <div class="fw-bold">₹${(p.amount_paid || 0).toLocaleString('en-IN')}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fw-bold small text-muted-soft">Bill Total</div>
+                        <div class="${billTotalClass}">${billTotalDisplay}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fw-bold small text-muted-soft">Status</div>
+                        <div><span class="status-badge ${p.status === 'pending' ? 'status-pending' : p.status === 'verified' ? 'status-success' : 'status-failed'}">${p.status || '—'}</span></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Transaction ID</div>
+                        <div><code>${p.transaction_id || '—'}</code></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Submitted</div>
+                        <div>${p.created_at ? formatDateTime(p.created_at) : '—'}</div>
+                    </div>
+                    ${p.verified_by_name ? `
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Verified By</div>
+                        <div>${p.verified_by_name}</div>
+                    </div>
+                    ` : ''}
+                    ${p.verified_at ? `
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Verified At</div>
+                        <div>${formatDateTime(p.verified_at)}</div>
+                    </div>
+                    ` : ''}
+                    ${p.admin_notes ? `
+                    <div class="col-12">
+                        <div class="fw-bold small text-muted-soft">Admin Notes</div>
+                        <div class="border rounded-3 p-2 bg-light">${p.admin_notes}</div>
+                    </div>
+                    ` : ''}
+                    ${!billExists ? `
+                    <div class="col-12">
+                        <div class="alert alert-warning py-2 small">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            The bill associated with this payment proof has been deleted.
+                            ${p.status === 'pending' ? 'This proof cannot be verified.' : ''}
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            const verifyBtn = document.getElementById("proofVerifyBtn");
+            const rejectBtn = document.getElementById("proofRejectBtn");
+            const deleteBtn = document.getElementById("proofDeleteBtn");
+            const notesInput = document.getElementById("proofAdminNotes");
+
+            // Only allow verification if bill exists
+            if (p.status === 'pending' && canEditBills && billExists) {
+                verifyBtn.style.display = '';
+                rejectBtn.style.display = '';
+                deleteBtn.style.display = 'none';
+                notesInput.style.display = '';
+            } else if (p.status === 'pending' && canEditBills && !billExists) {
+                // Bill was deleted - cannot verify, only reject or delete
+                verifyBtn.style.display = 'none';
+                rejectBtn.style.display = '';
+                deleteBtn.style.display = 'none';
+                notesInput.style.display = '';
+            } else {
+                verifyBtn.style.display = 'none';
+                rejectBtn.style.display = 'none';
+                deleteBtn.style.display = canEditBills ? '' : 'none';
+                notesInput.style.display = 'none';
+            }
+
+            proofPreviewModal.show();
+        } catch (error) {
+            showToast("Error loading proof: " + error.message, "danger");
+        }
     };
-    
-    setTimeout(() => {
-      bootstrap.Modal.getInstance(cashModal).hide();
-      document.getElementById("cashOtpTenant").textContent = t.name;
-      document.querySelectorAll(".cash-otp-box").forEach(b => b.value = "");
-      showToast(`Demo OTP sent to ${t.name}: <strong>123456</strong>`, "info");
-      cashOtpModal.show();
-      LOADER.hide(btn);
-    }, 500);
-  });
 
-  document.querySelectorAll(".cash-otp-box").forEach((box, i, arr) => {
-    box.addEventListener("input", () => { 
-      box.value = box.value.replace(/\D/g,"").slice(0,1); 
-      if(box.value && arr[i+1]) arr[i+1].focus(); 
-    });
-  });
+    function renderActionButtons() {
+        const createBtn = document.querySelector('.btn-fab[data-bs-target="#createBillModal"]');
+        if (createBtn) {
+            createBtn.style.display = canAddBills ? '' : 'none';
+        }
+    }
 
-  document.getElementById("verifyCashOtpBtn").addEventListener("click", function(){
-    const btn = this;
-    LOADER.show(btn, 'Verifying...');
-    
-    const code = Array.from(document.querySelectorAll(".cash-otp-box")).map(b => b.value).join("");
-    setTimeout(() => {
-      if(code !== "1234" && code !== "123456"){
-        showToast("Incorrect OTP. Please try again.", "danger");
+    // ============================================
+    // BILL DETAIL
+    // ============================================
+    const detailModal = new bootstrap.Modal(document.getElementById("detailModal"));
+
+    window.openBillDetail = async function(id) {
+        try {
+            const res = await API.bills.getById(id);
+            if (!res.success || !res.data) {
+                showToast("Bill not found.", "danger");
+                return;
+            }
+            const b = res.data;
+            currentBillId = id;
+            
+            document.getElementById("detailName").textContent = `Bill #${b.id} - ${b.tenant_name || 'Tenant'}`;
+            
+            const totalAmount = parseFloat(b.total_amount) || 0;
+            const paidAmount = parseFloat(b.paid_amount) || 0;
+            const fineAmount = parseFloat(b.fine_amount) || 0;
+            const cashPaid = parseFloat(b.total_cash_paid) || 0;
+            const totalDue = totalAmount + fineAmount - paidAmount - cashPaid;
+            
+            let bodyHtml = `
+            <div class="row g-2 small">
+                <div class="col-6"><span class="text-muted-soft">PG:</span> <strong>${b.pg_name || '—'}</strong></div>
+                <div class="col-6"><span class="text-muted-soft">Room:</span> <strong>${b.room_number || '—'}</strong></div>
+                <div class="col-6"><span class="text-muted-soft">Rent:</span> <strong>${fmtINR(parseFloat(b.rent_amount) || 0)}</strong></div>
+                <div class="col-6"><span class="text-muted-soft">Electricity:</span> <strong>${fmtINR(parseFloat(b.electricity_amount) || 0)}</strong></div>
+                <div class="col-6"><span class="text-muted-soft">Maintenance:</span> <strong>${fmtINR(parseFloat(b.maintenance_amount) || 0)}</strong></div>
+                <div class="col-6"><span class="text-muted-soft">Other Charges:</span> <strong>${fmtINR(parseFloat(b.other_charges) || 0)}</strong></div>
+                <div class="col-6"><span class="text-muted-soft">Fine:</span> <strong class="text-danger">${fmtINR(fineAmount)}</strong></div>
+                <div class="col-6"><span class="text-muted-soft">Total:</span> <strong>${fmtINR(totalAmount)}</strong></div>
+                <div class="col-12"><hr></div>
+                <div class="col-4"><span class="text-muted-soft">Paid (Online):</span> <strong>${fmtINR(paidAmount)}</strong></div>
+                <div class="col-4"><span class="text-muted-soft">Paid (Cash):</span> <strong>${fmtINR(cashPaid)}</strong></div>
+                <div class="col-4"><span class="text-muted-soft">Due:</span> <strong class="${totalDue > 0 ? 'text-danger' : 'text-success'}">${fmtINR(totalDue)}</strong></div>
+                <div class="col-12"><span class="text-muted-soft">Status:</span> ${getStatusBadge(b.status)}</div>
+                <div class="col-12"><span class="text-muted-soft">Valid Until:</span> <strong>${b.valid_until ? formatDateTime(b.valid_until) : '—'}</strong></div>
+                <div class="col-12"><span class="text-muted-soft">QR Status:</span> <span class="chip ${b.qr_status === 'active' ? 'chip-green' : 'chip-gray'}">${b.qr_status || 'N/A'}</span></div>
+                ${b.electricity_meter_image ? `<div class="col-12"><span class="text-muted-soft">Meter Image:</span> <a href="${b.electricity_meter_image}" target="_blank" class="text-brand">View</a></div>` : ''}
+                ${b.payment_qr ? `<div class="col-12"><span class="text-muted-soft">Payment QR:</span> <img src="${b.payment_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
+                ${b.admin_qr ? `<div class="col-12"><span class="text-muted-soft">Admin QR:</span> <img src="${b.admin_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
+            </div>`;
+            
+            document.getElementById("detailBody").innerHTML = bodyHtml;
+            document.getElementById("detailMessageWrap").classList.add("d-none");
+            
+            let footerButtons = `
+                <button class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
+            `;
+            
+            if (canEditBills && totalDue > 0 && b.status !== 'paid') {
+                footerButtons += `
+                    <button class="btn btn-outline-warning" onclick="openCashPayment('${b.id}')"><i class="bi bi-cash me-1"></i>Cash Payment</button>
+                `;
+            }
+            
+            if (canEditBills && b.status !== 'paid') {
+                footerButtons += `
+                    <button class="btn btn-outline-brand" onclick="openCustomMessage('${b.id}')"><i class="bi bi-chat-dots me-1"></i>Message</button>
+                `;
+            }
+            
+            document.getElementById("detailFooter").innerHTML = footerButtons;
+            
+            detailModal.show();
+        } catch (error) {
+            showToast("Error loading bill: " + error.message, "danger");
+        }
+    };
+
+    // ============================================
+    // CASH PAYMENT
+    // ============================================
+    const cashModal = new bootstrap.Modal(document.getElementById("cashPaymentModal"));
+
+    function resetCashOtpBoxes() {
+        document.querySelectorAll('.cash-otp-box').forEach(b => b.value = '');
+    }
+
+    function getCashOtpValue() {
+        return Array.from(document.querySelectorAll('.cash-otp-box')).map(b => b.value).join('');
+    }
+
+    (function wireCashOtpBoxes() {
+        const boxes = Array.from(document.querySelectorAll('.cash-otp-box'));
+        boxes.forEach((box, i) => {
+            box.addEventListener('input', () => {
+                box.value = box.value.replace(/[^0-9]/g, '').slice(0, 1);
+                if (box.value && boxes[i + 1]) boxes[i + 1].focus();
+            });
+            box.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !box.value && boxes[i - 1]) boxes[i - 1].focus();
+            });
+        });
+    })();
+
+    window.openCashPayment = function(billId) {
+        if (!canEditBills) {
+            showToast("You don't have permission to process cash payments.", "warning");
+            return;
+        }
+        document.getElementById("cashBillId").value = billId;
+        document.getElementById("cashPaymentForm").reset();
+        document.getElementById("cashOtpSection").classList.add("d-none");
+        resetCashOtpBoxes();
+
+        const otpBtn = document.getElementById("requestCashOtpBtn");
+        const verifyBtn = document.getElementById("verifyCashBtn");
+        if (otpBtn) {
+            otpBtn.innerHTML = '<i class="bi bi-envelope me-1"></i>Request OTP';
+            otpBtn.disabled = false;
+            otpBtn.classList.remove('d-none');
+        }
+        if (verifyBtn) {
+            verifyBtn.classList.add('d-none');
+        }
+        cashModal.show();
+    };
+
+    document.getElementById("requestCashOtpBtn")?.addEventListener("click", async function() {
+        const billId = document.getElementById("cashBillId").value;
+        const amount = parseFloat(document.getElementById("cashAmount").value);
+        const paidFrom = document.getElementById("cashPaidFrom").value;
+        const paidTill = document.getElementById("cashPaidTill").value;
+        const notes = document.getElementById("cashNotes").value;
+
+        if (!amount || amount <= 0) {
+            showToast("Please enter a valid amount.", "warning");
+            return;
+        }
+        if (!paidFrom || !paidTill) {
+            showToast("Please select paid from and paid till dates.", "warning");
+            return;
+        }
+
+        const btn = this;
+        const originalText = btn.innerHTML;
+        LOADER.show(btn, 'Requesting OTP...');
+
+        try {
+            const res = await API.bills.requestCashOTP(billId, {
+                amount: amount,
+                paid_from: paidFrom,
+                paid_till: paidTill,
+                notes: notes
+            });
+
+            if (res.success) {
+                showToast(res.message || "OTP sent to tenant's email.", "success");
+                document.getElementById("cashOtpSection").classList.remove("d-none");
+                resetCashOtpBoxes();
+
+                btn.classList.add('d-none');
+                const verifyBtn = document.getElementById("verifyCashBtn");
+                if (verifyBtn) verifyBtn.classList.remove('d-none');
+
+                const firstBox = document.querySelector('.cash-otp-box');
+                if (firstBox) firstBox.focus();
+            } else {
+                showToast(res.message || "Failed to request OTP.", "danger");
+            }
+        } catch (error) {
+            showToast(error.message || "An error occurred.", "danger");
+        }
         LOADER.hide(btn);
-        return;
-      }
-      const t = LK.tenants.find(x => x.id === pendingCash.tenantId);
-      t.billStatus = "cash";
-      t.dueMonths = []; 
-      t.dueAmount = 0; 
-      t.delayedDays = 0; 
-      t.fine = 0;
-      t.paidAmount = pendingCash.amount; 
-      t.paidDate = pendingCash.till; 
-      t.nextPaymentDate = pendingCash.till;
-      cashOtpModal.hide();
-      showToast(`Cash payment of ${fmtINR(pendingCash.amount)} collected from ${t.name}.`, "success");
-      renderStats(); 
-      renderTabs(); 
-      renderTable();
-      LOADER.hide(btn);
-    }, 600);
-  });
+        btn.innerHTML = originalText;
+    });
 
-  /* -------- Create bill with meter upload, attachment and QR -------- */
-  let billAttachment = null;
-  let billQRCode = null;
-  let meterImageFile = null;
+    document.getElementById("verifyCashBtn")?.addEventListener("click", async function() {
+        const billId = document.getElementById("cashBillId").value;
+        const otp = getCashOtpValue();
+        const amount = parseFloat(document.getElementById("cashAmount").value);
+        const paidFrom = document.getElementById("cashPaidFrom").value;
+        const paidTill = document.getElementById("cashPaidTill").value;
+        const notes = document.getElementById("cashNotes").value;
 
-  document.getElementById("createBillModal").addEventListener("show.bs.modal", () => {
-    document.getElementById("billTenant").innerHTML = tenantsBy("unpaid").map(t => `<option value="${t.id}">${t.name} — ${getPgName(t.pgId)} Room ${t.roomNo}</option>`).join("");
-    billAttachment = null;
-    billQRCode = null;
-    meterImageFile = null;
-    document.getElementById("billAttachmentStatus").textContent = "No file attached";
-    document.getElementById("billQRStatus").textContent = "No QR generated";
-    document.getElementById("meterUploadStatus").textContent = "No image uploaded";
-    document.getElementById("meterPreview").classList.add("d-none");
-    document.getElementById("meterUploadInput").value = "";
-  });
-  
-  document.getElementById("billRent").addEventListener("input", calculateTotal);
-  document.getElementById("billElectricity").addEventListener("input", calculateTotal);
-  document.getElementById("billMaintenance").addEventListener("input", calculateTotal);
-  document.getElementById("billOther").addEventListener("input", calculateTotal);
+        if (!otp || otp.length !== 4) {
+            showToast("Please enter the 4-digit OTP.", "warning");
+            return;
+        }
 
-  document.getElementById("billAttachBtn")?.addEventListener("click", () => {
-    document.getElementById("billAttachInput").click();
-  });
-  
-  document.getElementById("billAttachInput")?.addEventListener("change", function(){
-    if(this.files.length > 0){
-      billAttachment = this.files[0];
-      document.getElementById("billAttachmentStatus").innerHTML = `<i class="bi bi-paperclip me-1"></i> ${billAttachment.name}`;
-      showToast(`File "${billAttachment.name}" attached.`, "info");
+        const btn = this;
+        const originalText = btn.innerHTML;
+        LOADER.show(btn, 'Verifying...');
+
+        try {
+            const res = await API.bills.verifyCash(billId, {
+                otp: otp,
+                amount: amount,
+                paid_from: paidFrom,
+                paid_till: paidTill,
+                notes: notes
+            });
+
+            if (res.success) {
+                showToast(res.message || "Cash payment verified successfully.", "success");
+                cashModal.hide();
+                loadData();
+            } else {
+                showToast(res.message || "Failed to verify cash payment.", "danger");
+                resetCashOtpBoxes();
+                const firstBox = document.querySelector('.cash-otp-box');
+                if (firstBox) firstBox.focus();
+            }
+        } catch (error) {
+            showToast(error.message || "An error occurred.", "danger");
+        }
+        LOADER.hide(btn);
+        btn.innerHTML = originalText;
+    });
+
+    // ============================================
+    // PROOF PREVIEW
+    // ============================================
+    const proofPreviewModal = new bootstrap.Modal(document.getElementById("proofPreviewModal"));
+
+    window.previewProof = async function(id) {
+        try {
+            const res = await API.bills.paymentProofs.getById(id);
+            if (!res.success || !res.data) {
+                showToast("Proof not found.", "danger");
+                return;
+            }
+
+            const p = res.data;
+            selectedProofId = id;
+
+            document.getElementById("proofPreviewTitle").textContent = 
+                `Payment Proof - ${p.tenant_name || 'Tenant'}`;
+            document.getElementById("proofPreviewImage").src = p.proof_url || '';
+
+            const details = document.getElementById("proofPreviewDetails");
+            details.innerHTML = `
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Tenant</div>
+                        <div>${p.tenant_name || '—'}</div>
+                        <div class="small text-muted-soft">${p.tenant_email || '—'}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">PG / Room</div>
+                        <div>${p.pg_name || '—'} / ${p.room_number || '—'}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fw-bold small text-muted-soft">Amount Paid</div>
+                        <div class="fw-bold">₹${(p.amount_paid || 0).toLocaleString('en-IN')}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fw-bold small text-muted-soft">Bill Total</div>
+                        <div>₹${(p.bill_total || 0).toLocaleString('en-IN')}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fw-bold small text-muted-soft">Status</div>
+                        <div><span class="status-badge ${p.status === 'pending' ? 'status-pending' : p.status === 'verified' ? 'status-success' : 'status-failed'}">${p.status || '—'}</span></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Transaction ID</div>
+                        <div><code>${p.transaction_id || '—'}</code></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Submitted</div>
+                        <div>${p.created_at ? formatDateTime(p.created_at) : '—'}</div>
+                    </div>
+                    ${p.verified_by_name ? `
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Verified By</div>
+                        <div>${p.verified_by_name}</div>
+                    </div>
+                    ` : ''}
+                    ${p.verified_at ? `
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Verified At</div>
+                        <div>${formatDateTime(p.verified_at)}</div>
+                    </div>
+                    ` : ''}
+                    ${p.admin_notes ? `
+                    <div class="col-12">
+                        <div class="fw-bold small text-muted-soft">Admin Notes</div>
+                        <div class="border rounded-3 p-2 bg-light">${p.admin_notes}</div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            const verifyBtn = document.getElementById("proofVerifyBtn");
+            const rejectBtn = document.getElementById("proofRejectBtn");
+            const deleteBtn = document.getElementById("proofDeleteBtn");
+            const notesInput = document.getElementById("proofAdminNotes");
+
+            if (p.status === 'pending' && canEditBills) {
+                verifyBtn.style.display = '';
+                rejectBtn.style.display = '';
+                deleteBtn.style.display = 'none';
+                notesInput.style.display = '';
+            } else {
+                verifyBtn.style.display = 'none';
+                rejectBtn.style.display = 'none';
+                deleteBtn.style.display = canEditBills ? '' : 'none';
+                notesInput.style.display = 'none';
+            }
+
+            proofPreviewModal.show();
+        } catch (error) {
+            showToast("Error loading proof: " + error.message, "danger");
+        }
+    };
+
+    // ============================================
+    // VERIFY PROOF
+    // ============================================
+    window.verifyProof = async function(id, admin_notes = null) {
+        if (!canEditBills) {
+            showToast("You don't have permission to verify payment proofs.", "warning");
+            return;
+        }
+
+        if (id === selectedProofId) {
+            const notesInput = document.getElementById("proofAdminNotes");
+            admin_notes = notesInput?.value || null;
+        }
+
+        if (!confirm("Verify this payment proof? This will update the bill status.")) {
+            return;
+        }
+
+        const btn = document.querySelector('.btn-verify-proof');
+        if (btn) LOADER.show(btn, 'Verifying...');
+
+        try {
+            const res = await API.bills.paymentProofs.verify(id, admin_notes);
+            if (res.success) {
+                showToast(res.message || "Payment proof verified successfully.", "success");
+                proofPreviewModal.hide();
+                loadProofs();
+                loadData();
+            } else {
+                showToast(res.message || "Failed to verify payment proof.", "danger");
+            }
+        } catch (error) {
+            showToast("Error verifying proof: " + error.message, "danger");
+        }
+        if (btn) LOADER.hide(btn);
+    };
+
+    // ============================================
+    // REJECT PROOF
+    // ============================================
+    window.rejectProof = async function(id) {
+        if (!canEditBills) {
+            showToast("You don't have permission to reject payment proofs.", "warning");
+            return;
+        }
+
+        const notes = prompt("Please provide a reason for rejection (optional):");
+        if (notes === null) return;
+
+        if (!confirm("Reject this payment proof?")) {
+            return;
+        }
+
+        try {
+            const res = await API.bills.paymentProofs.reject(id, notes || null);
+            if (res.success) {
+                showToast(res.message || "Payment proof rejected successfully.", "success");
+                proofPreviewModal.hide();
+                loadProofs();
+            } else {
+                showToast(res.message || "Failed to reject payment proof.", "danger");
+            }
+        } catch (error) {
+            showToast("Error rejecting proof: " + error.message, "danger");
+        }
+    };
+
+    // ============================================
+    // DELETE PROOF
+    // ============================================
+    window.deleteProof = async function(id) {
+        if (!canDeleteBills) {
+            showToast("You don't have permission to delete payment proofs.", "warning");
+            return;
+        }
+
+        if (!confirm("Delete this payment proof permanently? This action cannot be undone.")) {
+            return;
+        }
+
+        try {
+            const res = await API.bills.paymentProofs.delete(id);
+            if (res.success) {
+                showToast(res.message || "Payment proof deleted successfully.", "success");
+                proofPreviewModal.hide();
+                loadProofs();
+            } else {
+                showToast(res.message || "Failed to delete payment proof.", "danger");
+            }
+        } catch (error) {
+            showToast("Error deleting proof: " + error.message, "danger");
+        }
+    };
+
+    // ============================================
+    // PROOF PREVIEW MODAL ACTION BUTTONS
+    // ============================================
+    document.getElementById("proofVerifyBtn")?.addEventListener("click", function() {
+        if (selectedProofId) {
+            verifyProof(selectedProofId);
+        }
+    });
+
+    document.getElementById("proofRejectBtn")?.addEventListener("click", function() {
+        if (selectedProofId) {
+            rejectProof(selectedProofId);
+        }
+    });
+
+    document.getElementById("proofDeleteBtn")?.addEventListener("click", function() {
+        if (selectedProofId) {
+            deleteProof(selectedProofId);
+        }
+    });
+
+    // ============================================
+    // CUSTOM MESSAGE
+    // ============================================
+    const messageModal = new bootstrap.Modal(document.getElementById("customMessageModal"));
+    let messageFile = null;
+
+    window.openCustomMessage = function(billId) {
+        if (!canEditBills) {
+            showToast("You don't have permission to send custom messages.", "warning");
+            return;
+        }
+        document.getElementById("messageBillId").value = billId;
+        document.getElementById("customMessageForm").reset();
+        messageFile = null;
+        document.getElementById("messageAttachmentStatus").textContent = "No file attached";
+        messageModal.show();
+    };
+
+    document.getElementById("messageAttachBtn")?.addEventListener("click", () => {
+        document.getElementById("messageAttachInput").click();
+    });
+
+    document.getElementById("messageAttachInput")?.addEventListener("change", function() {
+        if (this.files.length > 0) {
+            messageFile = this.files[0];
+            document.getElementById("messageAttachmentStatus").innerHTML = `<i class="bi bi-paperclip me-1"></i> ${messageFile.name}`;
+        }
+    });
+
+    document.getElementById("customMessageForm")?.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        const originalText = btn.innerHTML;
+        LOADER.show(btn, 'Sending...');
+
+        try {
+            const billId = document.getElementById("messageBillId").value;
+            const subject = document.getElementById("messageSubject").value;
+            const message = document.getElementById("messageText").value;
+
+            if (!subject || !message) {
+                showToast("Please enter both subject and message.", "warning");
+                LOADER.hide(btn);
+                btn.innerHTML = originalText;
+                return;
+            }
+
+            const res = await API.bills.sendCustomMessage(billId, subject, message, messageFile);
+
+            if (res.success) {
+                showToast(res.message || "Custom message sent successfully.", "success");
+                messageModal.hide();
+                loadData();
+            } else {
+                showToast(res.message || "Failed to send message.", "danger");
+            }
+        } catch (error) {
+            showToast(error.message || "An error occurred.", "danger");
+        }
+        LOADER.hide(btn);
+        btn.innerHTML = originalText;
+    });
+
+    // ============================================
+    // CREATE BILL
+    // ============================================
+    const createBillModal = new bootstrap.Modal(document.getElementById("createBillModal"));
+    let billAttachment = null;
+    let meterImageFile = null;
+
+    document.getElementById("createBillModal")?.addEventListener("show.bs.modal", async function(e) {
+        if (!canAddBills) {
+            e.preventDefault();
+            showToast("You don't have permission to create bills.", "warning");
+            return;
+        }
+        
+        try {
+            const res = await API.bills.unpaidTenants();
+            const select = document.getElementById("billTenant");
+            if (res.success && res.data) {
+                select.innerHTML = `<option value="">Select tenant...</option>` + 
+                    res.data.map(t => `<option value="${t.id}">${t.full_name} — ${t.pg_name} Room ${t.room_number}</option>`).join("");
+            }
+        } catch (error) {
+            showToast("Error loading unpaid tenants.", "danger");
+        }
+        billAttachment = null;
+        meterImageFile = null;
+        document.getElementById("billAttachmentStatus").textContent = "No file attached";
+        document.getElementById("meterUploadStatus").textContent = "No image uploaded";
+        document.getElementById("meterPreview").classList.add("d-none");
+        document.getElementById("meterUploadInput").value = "";
+        calculateTotal();
+    });
+
+    function calculateTotal() {
+        const rent = Number(document.getElementById("billRent").value || 0);
+        const elec = Number(document.getElementById("billElectricity").value || 0);
+        const maint = Number(document.getElementById("billMaintenance").value || 0);
+        const other = Number(document.getElementById("billOther").value || 0);
+        const total = rent + elec + maint + other;
+        document.getElementById("billTotalDisplay").textContent = fmtINR(total);
     }
-  });
 
-  // Meter upload functionality
-  document.getElementById("meterUploadBtn")?.addEventListener("click", () => {
-    document.getElementById("meterUploadInput").click();
-  });
+    document.getElementById("billRent")?.addEventListener("input", calculateTotal);
+    document.getElementById("billElectricity")?.addEventListener("input", calculateTotal);
+    document.getElementById("billMaintenance")?.addEventListener("input", calculateTotal);
+    document.getElementById("billOther")?.addEventListener("input", calculateTotal);
 
-  document.getElementById("meterUploadInput")?.addEventListener("change", function(){
-    if(this.files.length > 0){
-      meterImageFile = this.files[0];
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        document.getElementById("meterPreviewImage").src = e.target.result;
-        document.getElementById("meterPreview").classList.remove("d-none");
-        document.getElementById("meterUploadStatus").innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> ${meterImageFile.name}`;
-        showToast(`Meter image "${meterImageFile.name}" uploaded.`, "info");
-      };
-      reader.readAsDataURL(this.files[0]);
+    document.getElementById("billAttachBtn")?.addEventListener("click", () => {
+        document.getElementById("billAttachInput").click();
+    });
+
+    document.getElementById("billAttachInput")?.addEventListener("change", function() {
+        if (this.files.length > 0) {
+            billAttachment = this.files[0];
+            document.getElementById("billAttachmentStatus").innerHTML = `<i class="bi bi-paperclip me-1"></i> ${billAttachment.name}`;
+        }
+    });
+
+    document.getElementById("meterUploadBtn")?.addEventListener("click", () => {
+        document.getElementById("meterUploadInput").click();
+    });
+
+    document.getElementById("meterUploadInput")?.addEventListener("change", function() {
+        if (this.files.length > 0) {
+            meterImageFile = this.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById("meterPreviewImage").src = e.target.result;
+                document.getElementById("meterPreview").classList.remove("d-none");
+                document.getElementById("meterUploadStatus").innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> ${meterImageFile.name}`;
+            };
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    document.getElementById("removeMeterImage")?.addEventListener("click", function() {
+        meterImageFile = null;
+        document.getElementById("meterUploadInput").value = "";
+        document.getElementById("meterPreview").classList.add("d-none");
+        document.getElementById("meterUploadStatus").textContent = "No image uploaded";
+    });
+
+    document.getElementById("createBillForm")?.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        const originalText = btn.innerHTML;
+        LOADER.show(btn, 'Sending bill...');
+        
+        try {
+            const tenantId = document.getElementById("billTenant").value;
+            const rent = Number(document.getElementById("billRent").value || 0);
+            const electricity = Number(document.getElementById("billElectricity").value || 0);
+            const maintenance = Number(document.getElementById("billMaintenance").value || 0);
+            const other = Number(document.getElementById("billOther").value || 0);
+            
+            if (!tenantId || rent <= 0) {
+                showToast("Please select a tenant and enter rent amount.", "warning");
+                LOADER.hide(btn);
+                btn.innerHTML = originalText;
+                return;
+            }
+            
+            const data = {
+                tenant_id: tenantId,
+                rent_amount: rent,
+                electricity_amount: electricity,
+                maintenance_amount: maintenance,
+                other_charges: other
+            };
+            
+            const files = {};
+            if (meterImageFile) files.meterImage = meterImageFile;
+            if (billAttachment) files.paymentQr = billAttachment;
+            
+            const res = await API.bills.create(data, files);
+            if (res.success) {
+                showToast(res.message || "Bill sent successfully.", "success");
+                createBillModal.hide();
+                loadData();
+            } else {
+                showToast(res.message || "Failed to send bill.", "danger");
+            }
+        } catch (error) {
+            showToast("Error creating bill: " + error.message, "danger");
+        }
+        LOADER.hide(btn);
+        btn.innerHTML = originalText;
+    });
+
+    // ============================================
+    // TAB SWITCHING
+    // ============================================
+    function switchMainTab(tab) {
+        document.querySelectorAll('.main-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        
+        document.getElementById('billsTabContent').style.display = tab === 'bills' ? 'block' : 'none';
+        document.getElementById('proofsTabContent').style.display = tab === 'proofs' ? 'block' : 'none';
+        
+        // ============================================================
+        // FIX: Update page title and sub when switching tabs
+        // ============================================================
+        const pageTitleEl = document.querySelector('.page-title');
+        const pageSubEl = document.querySelector('.page-sub');
+        
+        if (tab === 'proofs') {
+            if (pageTitleEl) pageTitleEl.textContent = 'Payment Proofs';
+            if (pageSubEl) pageSubEl.textContent = 'Verify and manage tenant payment submissions';
+            loadProofs();
+        } else {
+            if (pageTitleEl) pageTitleEl.textContent = 'Bills';
+            if (pageSubEl) pageSubEl.textContent = 'Track rent status and manage collections across all tenants';
+        }
     }
-  });
 
-  document.getElementById("removeMeterImage")?.addEventListener("click", function(){
-    meterImageFile = null;
-    document.getElementById("meterUploadInput").value = "";
-    document.getElementById("meterPreview").classList.add("d-none");
-    document.getElementById("meterUploadStatus").textContent = "No image uploaded";
-    showToast("Meter image removed.", "info");
-  });
+    document.querySelectorAll('.main-tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            switchMainTab(this.dataset.tab);
+        });
+    });
 
-  document.getElementById("billGenerateQRBtn")?.addEventListener("click", function(){
-    const btn = this;
-    LOADER.show(btn, 'Generating QR...');
-    
-    const tenantId = document.getElementById("billTenant").value;
-    if(!tenantId){
-      showToast("Please select a tenant first.", "warning");
-      LOADER.hide(btn);
-      return;
+    // ============================================
+    // SEARCH
+    // ============================================
+    document.getElementById("billSearch")?.addEventListener("input", function() {
+        const term = this.value.trim().toLowerCase();
+        if (!term) {
+            loadData();
+            return;
+        }
+        const filtered = billData.filter(b => 
+            (b.tenant_name || '').toLowerCase().includes(term) ||
+            (b.pg_name || '').toLowerCase().includes(term) ||
+            (b.room_number || '').toLowerCase().includes(term) ||
+            (b.tenant_email || '').toLowerCase().includes(term)
+        );
+        const temp = billData;
+        billData = filtered;
+        renderTable();
+        billData = temp;
+    });
+
+    // ============================================
+    // PROOF SEARCH
+    // ============================================
+    document.getElementById("proofSearch")?.addEventListener("input", function() {
+        const term = this.value.trim().toLowerCase();
+        if (!term) {
+            loadProofs();
+            return;
+        }
+        const filtered = proofData.filter(p =>
+            (p.tenant_name || '').toLowerCase().includes(term) ||
+            (p.tenant_email || '').toLowerCase().includes(term) ||
+            (p.transaction_id || '').toLowerCase().includes(term)
+        );
+        const temp = proofData;
+        proofData = filtered;
+        renderProofTable();
+        proofData = temp;
+    });
+
+    // ============================================
+    // HASH CHECK FOR PROOFS TAB
+    // ============================================
+    if (window.location.hash === '#proofs') {
+        setTimeout(() => {
+            switchMainTab('proofs');
+        }, 100);
     }
-    const t = LK.tenants.find(x => x.id === tenantId);
-    const rent = Number(document.getElementById("billRent").value || 0);
-    const elec = Number(document.getElementById("billElectricity").value || 0);
-    const maint = Number(document.getElementById("billMaintenance").value || 0);
-    const other = Number(document.getElementById("billOther").value || 0);
-    const total = rent + elec + maint + other;
-    
-    if(total === 0){
-      showToast("Please enter an amount to generate QR.", "warning");
-      LOADER.hide(btn);
-      return;
+
+    // ============================================
+    // INIT - Load bills tab by default
+    // ============================================
+    loadData();
+    // Only switch to proofs if hash is present, otherwise stay on bills
+    if (window.location.hash !== '#proofs') {
+        switchMainTab('bills');
     }
-    
-    setTimeout(() => {
-      billQRCode = {
-        tenant: t.name,
-        amount: total,
-        pg: getPgName(t.pgId),
-        room: t.roomNo,
-        date: new Date().toISOString().split('T')[0],
-        billId: `BILL-${t.id}-${Date.now().toString().slice(-6)}`
-      };
-      
-      document.getElementById("billQRStatus").innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> QR Generated (₹${total})`;
-      showToast(`✅ QR Code generated for ${t.name} — ₹${total}`, "success");
-      LOADER.hide(btn);
-    }, 500);
-  });
-
-  function calculateTotal(){
-    const rent = Number(document.getElementById("billRent").value || 0);
-    const elec = Number(document.getElementById("billElectricity").value || 0);
-    const maint = Number(document.getElementById("billMaintenance").value || 0);
-    const other = Number(document.getElementById("billOther").value || 0);
-    const total = rent + elec + maint + other;
-    document.getElementById("billTotalDisplay").textContent = fmtINR(total);
-  }
-
-  document.getElementById("createBillForm").addEventListener("submit", function(e){
-    e.preventDefault();
-    const btn = this.querySelector('button[type="submit"]');
-    LOADER.show(btn, 'Sending bill...');
-    
-    const t = LK.tenants.find(x => x.id === document.getElementById("billTenant").value);
-    const rent = Number(document.getElementById("billRent").value || 0);
-    const elec = Number(document.getElementById("billElectricity").value || 0);
-    const maint = Number(document.getElementById("billMaintenance").value || 0);
-    const other = Number(document.getElementById("billOther").value || 0);
-    const total = rent + elec + maint + other;
-    
-    setTimeout(() => {
-      const conv = LK.conversations[t.id] || (LK.conversations[t.id] = []);
-      let messageText = `📄 New bill generated — Rent: ${fmtINR(rent)}, Electricity: ${fmtINR(elec)}, Maintenance: ${fmtINR(maint)}, Other: ${fmtINR(other)}. Total due: ${fmtINR(total)}.`;
-      
-      if(meterImageFile){
-        messageText += ` 📸 Meter reading image attached.`;
-      }
-      
-      if(billAttachment){
-        messageText += ` 📎 Attachment: ${billAttachment.name}`;
-      }
-      
-      if(billQRCode){
-        messageText += ` 📱 QR Code attached for payment (ID: ${billQRCode.billId})`;
-      }
-      
-      conv.push({ 
-        from: "admin", 
-        text: messageText, 
-        time: "Just now",
-        hasMeterImage: !!meterImageFile,
-        meterImageName: meterImageFile ? meterImageFile.name : null,
-        hasAttachment: !!billAttachment,
-        attachmentName: billAttachment ? billAttachment.name : null,
-        hasQR: !!billQRCode,
-        qrData: billQRCode
-      });
-      
-      bootstrap.Modal.getInstance(document.getElementById("createBillModal")).hide();
-      this.reset();
-      document.getElementById("billTotalDisplay").textContent = "₹0";
-      document.getElementById("billAttachmentStatus").textContent = "No file attached";
-      document.getElementById("billQRStatus").textContent = "No QR generated";
-      document.getElementById("meterUploadStatus").textContent = "No image uploaded";
-      document.getElementById("meterPreview").classList.add("d-none");
-      billAttachment = null;
-      billQRCode = null;
-      meterImageFile = null;
-      
-      showToast(`✅ Bill of ${fmtINR(total)} sent to ${t.name}.`, "success");
-      LOADER.hide(btn);
-    }, 600);
-  });
-
-  renderStats(); 
-  renderTabs(); 
-  renderTable();
 });

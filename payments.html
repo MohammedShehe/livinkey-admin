@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payments · Livinkey Admin</title>
+<link rel="icon" href="assets/img/black_logo.png">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="assets/css/style.css" rel="stylesheet">
+<style>
+  /* ===== Consistent stat cards ===== */
+  .payment-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  .payment-stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    transition: all 0.2s ease;
+    cursor: default;
+  }
+  .payment-stat-card:hover {
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+  }
+  .payment-stat-card .stat-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+  }
+  .payment-stat-card .stat-value {
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--lk-black);
+  }
+  .payment-stat-card .stat-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* ===== Filters ===== */
+  .filter-select {
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    padding: 0.6rem 0.85rem;
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.92rem;
+    font-weight: 500;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7a6b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    cursor: pointer;
+  }
+  .filter-select:focus {
+    border-color: var(--lk-green);
+    outline: none;
+    box-shadow: 0 0 0 4px var(--lk-green-100);
+  }
+
+  /* ===== Status badges ===== */
+  .status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+  }
+  .status-pending {
+    background: #fff3cd;
+    color: #856404;
+  }
+  .status-processing {
+    background: #cce5ff;
+    color: #004085;
+  }
+  .status-success {
+    background: #d4edda;
+    color: #155724;
+  }
+  .status-failed {
+    background: #f8d7da;
+    color: #721c24;
+  }
+  .status-refunded {
+    background: #e8d5f5;
+    color: #6c3483;
+  }
+  .chip-blue {
+    background: #cfe2ff;
+    color: #084298;
+  }
+  .chip-amber {
+    background: #fff3cd;
+    color: #856404;
+  }
+  .chip-gray {
+    background: #e9ecef;
+    color: #495057;
+  }
+
+  /* ===== FAB ===== */
+  .btn-fab {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--lk-green);
+    color: #fff;
+    border: none;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.2s;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-fab:hover {
+    background: var(--lk-green-darker);
+    transform: scale(1.05);
+    color: #fff;
+  }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 768px) {
+    .payment-stat-card {
+      padding: 0.8rem 1rem;
+      gap: 0.6rem;
+    }
+    .payment-stat-card .stat-icon {
+      width: 38px;
+      height: 38px;
+      font-size: 1rem;
+    }
+    .payment-stat-card .stat-value {
+      font-size: 1.25rem;
+    }
+    .payment-stat-card .stat-label {
+      font-size: 0.7rem;
+    }
+    .payment-stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 576px) {
+    .payment-stats {
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .payment-stat-card {
+      padding: 0.6rem 0.8rem;
+      gap: 0.5rem;
+    }
+    .payment-stat-card .stat-icon {
+      width: 34px;
+      height: 34px;
+      font-size: 0.9rem;
+    }
+    .payment-stat-card .stat-value {
+      font-size: 1.1rem;
+    }
+    .payment-stat-card .stat-label {
+      font-size: 0.6rem;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebarMount"></div>
+  <div class="main-area">
+    <div id="topbarMount"></div>
+    <main class="content-area">
+      <!-- Header -->
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+          <h5 class="fw-bold mb-0">Payment Transactions</h5>
+          <p class="text-muted-soft small">Track all payment transactions across gateways</p>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-brand btn-sm" id="refreshPaymentsBtn">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="payment-stats mb-4" id="paymentStats">
+        <div class="payment-stat-card">
+          <div class="stat-icon" style="background:var(--lk-green-100);color:var(--lk-green);"><i class="bi bi-credit-card"></i></div>
+          <div><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total</div></div>
+        </div>
+        <div class="payment-stat-card">
+          <div class="stat-icon" style="background:#d4edda;color:#155724;"><i class="bi bi-check-circle-fill"></i></div>
+          <div><div class="stat-value" id="statSuccess">0</div><div class="stat-label">Success</div></div>
+        </div>
+        <div class="payment-stat-card">
+          <div class="stat-icon" style="background:#fff3cd;color:#856404;"><i class="bi bi-clock-fill"></i></div>
+          <div><div class="stat-value" id="statPending">0</div><div class="stat-label">Pending</div></div>
+        </div>
+        <div class="payment-stat-card">
+          <div class="stat-icon" style="background:#f8d7da;color:#721c24;"><i class="bi bi-x-circle-fill"></i></div>
+          <div><div class="stat-value" id="statFailed">0</div><div class="stat-label">Failed</div></div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="row g-3 mb-3">
+        <div class="col-md-5">
+          <select class="filter-select w-100" id="paymentTenantFilter">
+            <option value="">All Tenants</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <select class="filter-select w-100" id="paymentStatusFilter">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="success">Success</option>
+            <option value="failed">Failed</option>
+            <option value="refunded">Refunded</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="verified">Verified</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select class="filter-select w-100" id="paymentGatewayFilter">
+            <option value="">All Methods</option>
+            <option value="online">Online</option>
+            <option value="cash">Cash</option>
+            <option value="proof">Proof</option>
+            <option value="qr_code">QR Code</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="section-card fade-in">
+        <div id="paymentHistoryWrap" class="table-responsive">
+          <div class="text-center text-muted-soft py-4">
+            <i class="bi bi-credit-card" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
+            Select a tenant to view payment history
+          </div>
+        </div>
+        <div id="paymentEmpty" class="empty-state d-none">
+          <i class="bi bi-receipt"></i>
+          <p class="mb-0 fw-semibold">No transactions found</p>
+          <p class="text-muted-soft small">Try adjusting your filters</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- GENERATE PAYMENT LINK BUTTON (FAB) -->
+<!-- ============================================ -->
+<button class="btn-fab" id="generatePaymentLinkBtn" title="Generate Payment Link">
+  <i class="bi bi-link-45deg"></i>
+</button>
+
+<!-- ============================================ -->
+<!-- QR CODE MODAL -->
+<!-- ============================================ -->
+<div class="modal fade" id="qrCodeModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Payment QR Code</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="qrCodeImage" src="" alt="Payment QR Code" style="max-width:100%;max-height:300px;border:1px solid var(--border);border-radius:8px;">
+        <p class="mt-3 fw-bold">Amount: <span id="qrCodeAmount">₹0</span></p>
+        <p class="text-muted-soft small">Scan with any UPI app to pay</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SCRIPTS -->
+<!-- ============================================ -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/layout.js"></script>
+<script src="assets/js/pages/payments.js"></script>
+</body>
+</html>

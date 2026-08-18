@@ -1,265 +1,514 @@
-/* ==========================================================================
-   Livinkey Admin — Auth flow (frontend simulation)
-   OTP is mocked as 123456 and shown in a toast, since there is no backend/SMS
-   provider wired up in this frontend-only build.
-   ========================================================================== */
+// Livinkey Admin - Authentication Flow
+// Full backend integration
 
-// Loading utility
-const LOADER = {
-  show(button, text = null) {
-    if (!button) return;
-    button.disabled = true;
-    button._originalText = button.innerHTML;
-    button._originalWidth = button.style.minWidth || button.offsetWidth + 'px';
-    button.style.minWidth = button._originalWidth;
-    button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${text || 'Loading...'}`;
-  },
-  hide(button) {
-    if (!button) return;
-    button.disabled = false;
-    if (button._originalText) {
-      button.innerHTML = button._originalText;
-      if (button._originalWidth) {
-        button.style.minWidth = '';
-      }
-    }
-  }
-};
-
-const AUTH = {
-  DEMO_OTP: "123456",
-
-  session(){
-    try { return JSON.parse(sessionStorage.getItem("lk_session")); } catch(e){ return null; }
-  },
-  setSession(email){
-    const cred = LK.credentials[email];
-    sessionStorage.setItem("lk_session", JSON.stringify({ email, role: cred.role, name: cred.name }));
-  },
-  logout(){
-    sessionStorage.removeItem("lk_session");
-    // Clear any pending states
-    sessionStorage.removeItem("lk_login_pending");
-    sessionStorage.removeItem("lk_reset_pending");
-    window.location.href = "index.html";
-  },
-  requireAuth(){
-    if(!this.session()){
-      window.location.href = "index.html";
-    }
-  },
-  pending(key){
-    try { return JSON.parse(sessionStorage.getItem(key)); } catch(e){ return null; }
-  },
-  setPending(key, val){ sessionStorage.setItem(key, JSON.stringify(val)); },
-  clearPending(key){ sessionStorage.removeItem(key); }
-};
-
-/* ---------------- Login page ---------------- */
-function initLoginPage(){
-  const form = document.getElementById("loginForm");
-  if(!form) return;
-  const errorBox = document.getElementById("loginError");
-
-  document.getElementById("togglePwd")?.addEventListener("click", function(){
-    const pwd = document.getElementById("password");
-    const isPwd = pwd.type === "password";
-    pwd.type = isPwd ? "text" : "password";
-    this.querySelector("i").className = isPwd ? "bi bi-eye-slash" : "bi bi-eye";
-  });
-
-  form.addEventListener("submit", function(e){
-    e.preventDefault();
-    errorBox.classList.add("d-none");
-    const btn = this.querySelector('button[type="submit"]');
-    LOADER.show(btn, 'Signing in...');
-    
-    const email = document.getElementById("email").value.trim().toLowerCase();
-    const password = document.getElementById("password").value;
-    const cred = LK.credentials[email];
-
-    setTimeout(() => {
-      if(!cred || cred.password !== password){
-        errorBox.textContent = "Incorrect email or password. Please try again.";
-        errorBox.classList.remove("d-none");
-        LOADER.hide(btn);
-        return;
-      }
-      AUTH.setPending("lk_login_pending", { email, purpose: "login" });
-      window.location.href = "otp-verify.html";
-    }, 800);
-  });
+if (typeof LOADER === 'undefined') {
+    const LOADER = {
+        show(button, text = null) {
+            if (!button) return;
+            button.disabled = true;
+            button._originalText = button.innerHTML;
+            button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${text || 'Loading...'}`;
+        },
+        hide(button) {
+            if (!button) return;
+            button.disabled = false;
+            if (button._originalText) {
+                button.innerHTML = button._originalText;
+            }
+        }
+    };
+    window.LOADER = LOADER;
 }
 
-/* ---------------- OTP page (shared: login + forgot password) ---------------- */
-function initOtpPage(){
-  const wrap = document.getElementById("otpForm");
-  if(!wrap) return;
+// ============================================
+// LOGIN PAGE
+// ============================================
+function initLoginPage() {
+    const form = document.getElementById("loginForm");
+    if (!form) return;
+    const errorBox = document.getElementById("loginError");
 
-  const loginPending = AUTH.pending("lk_login_pending");
-  const resetPending = AUTH.pending("lk_reset_pending");
-  const purpose = loginPending?.purpose === "login" ? "login" : (resetPending ? "reset" : null);
-
-  if(!purpose){ window.location.href = "index.html"; return; }
-
-  const email = purpose === "login" ? loginPending.email : resetPending.email;
-  document.getElementById("otpEmailTarget").textContent = email;
-
-  // demo OTP toast
-  showToast(`Demo OTP sent to ${email}: <strong>${AUTH.DEMO_OTP}</strong>`, "info");
-
-  const inputs = Array.from(document.querySelectorAll(".otp-box"));
-  inputs.forEach((box, i) => {
-    box.addEventListener("input", () => {
-      box.value = box.value.replace(/[^0-9]/g, "").slice(0,1);
-      if(box.value && inputs[i+1]) inputs[i+1].focus();
-    });
-    box.addEventListener("keydown", (e) => {
-      if(e.key === "Backspace" && !box.value && inputs[i-1]) inputs[i-1].focus();
-    });
-  });
-
-  const errorBox = document.getElementById("otpError");
-  wrap.addEventListener("submit", function(e){
-    e.preventDefault();
-    const btn = this.querySelector('button[type="submit"]');
-    LOADER.show(btn, 'Verifying...');
-    
-    const code = inputs.map(i => i.value).join("");
-    if(code.length < 6){
-      errorBox.textContent = "Please enter the complete 6-digit code.";
-      errorBox.classList.remove("d-none");
-      LOADER.hide(btn);
-      return;
+    // Check for change password requirement
+    const changePasswordPending = Auth.pending("lk_change_password_pending");
+    if (changePasswordPending) {
+        // Show change password UI
+        showChangePasswordUI(changePasswordPending);
+        return;
     }
-    if(code !== AUTH.DEMO_OTP){
-      errorBox.textContent = "Incorrect OTP. Please try again.";
-      errorBox.classList.remove("d-none");
-      inputs.forEach(i => i.value = "");
-      inputs[0].focus();
-      LOADER.hide(btn);
-      return;
-    }
-    errorBox.classList.add("d-none");
 
-    setTimeout(() => {
-      if(purpose === "login"){
-        AUTH.clearPending("lk_login_pending");
-        AUTH.setSession(email);
+    if (Auth.isAuthenticated()) {
+        API.admins.dashboard()
+            .then(() => {
+                window.location.href = "tenants.html";
+            })
+            .catch(() => {
+                Auth.clear();
+            });
+        return;
+    }
+
+    document.getElementById("togglePwd")?.addEventListener("click", function() {
+        const pwd = document.getElementById("password");
+        const isPwd = pwd.type === "password";
+        pwd.type = isPwd ? "text" : "password";
+        this.querySelector("i").className = isPwd ? "bi bi-eye-slash" : "bi bi-eye";
+    });
+
+    form.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        errorBox.classList.add("d-none");
+        const btn = this.querySelector('button[type="submit"]');
+        LOADER.show(btn, 'Signing in...');
+
+        const email = document.getElementById("email").value.trim().toLowerCase();
+        const password = document.getElementById("password").value;
+
+        try {
+            const res = await API.auth.login(email, password);
+            
+            if (res.success) {
+                // Check if admin must change password
+                if (res.must_change_password) {
+                    // Store change password data
+                    Auth.setPending("lk_change_password_pending", {
+                        email: email,
+                        token: res.token,
+                        user: res.user
+                    });
+                    // Store token
+                    if (res.token) {
+                        Auth.setToken(res.token);
+                    }
+                    // Show change password UI
+                    showChangePasswordUI({
+                        email: email,
+                        token: res.token,
+                        user: res.user,
+                        name: res.user?.name || 'Admin'
+                    });
+                    LOADER.hide(btn);
+                    return;
+                }
+
+                Auth.setPending("lk_login_pending", { email, purpose: "login" });
+                if (res.demoOTP) {
+                    showToast(`📧 Demo OTP: ${res.demoOTP}. Check your email for the actual code.`, "info");
+                } else {
+                    showToast("📧 OTP sent to your email. Please check and enter the code.", "info");
+                }
+                window.location.href = "otp-verify.html";
+            } else {
+                errorBox.textContent = res.message || "Invalid email or password.";
+                errorBox.classList.remove("d-none");
+                LOADER.hide(btn);
+            }
+        } catch (error) {
+            console.error("Login error:", error);
+            errorBox.textContent = error.message || "An error occurred. Please try again.";
+            errorBox.classList.remove("d-none");
+            LOADER.hide(btn);
+        }
+    });
+}
+
+// ============================================
+// CHANGE PASSWORD UI (When must_change_password is true)
+// ============================================
+function showChangePasswordUI(data) {
+    const loginCard = document.querySelector('.auth-card');
+    if (!loginCard) return;
+
+    // Store the data
+    window._changePasswordData = data;
+
+    // Replace login form with change password form
+    loginCard.innerHTML = `
+        <div class="d-lg-none text-center mb-4">
+            <img src="assets/img/black_logo.png" height="34" alt="Livinkey">
+        </div>
+        <span class="step-eyebrow">Security Required</span>
+        <h1 class="h3 mb-1">Change Your Password</h1>
+        <p class="text-muted-soft mb-4">As a new admin, you must change your password before continuing.</p>
+
+        <div class="alert alert-danger py-2 small d-none" id="changePwdError"></div>
+        <div class="alert alert-success py-2 small d-none" id="changePwdSuccess"></div>
+
+        <form id="changePwdForm">
+            <div class="mb-3">
+                <label class="form-label">Current Password</label>
+                <input type="password" class="form-control" id="changeCurrentPwd" placeholder="Enter your current password" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">New Password</label>
+                <input type="password" class="form-control" id="changeNewPwd" placeholder="At least 6 characters" required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label">Confirm New Password</label>
+                <input type="password" class="form-control" id="changeConfirmPwd" placeholder="Re-enter new password" required>
+            </div>
+            <button type="submit" class="btn btn-brand w-100 py-2">Change Password <i class="bi bi-arrow-right ms-1"></i></button>
+        </form>
+
+        <div class="mt-3">
+            <p class="small text-muted-soft mb-0">You'll need to login again after changing your password.</p>
+        </div>
+    `;
+
+    // Add event listener for change password form
+    document.getElementById("changePwdForm")?.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        const errorBox = document.getElementById("changePwdError");
+        const successBox = document.getElementById("changePwdSuccess");
+        errorBox.classList.add("d-none");
+        successBox.classList.add("d-none");
+
+        const currentPassword = document.getElementById("changeCurrentPwd").value;
+        const newPassword = document.getElementById("changeNewPwd").value;
+        const confirmPassword = document.getElementById("changeConfirmPwd").value;
+
+        if (newPassword.length < 6) {
+            errorBox.textContent = "Password must be at least 6 characters long.";
+            errorBox.classList.remove("d-none");
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            errorBox.textContent = "Passwords do not match.";
+            errorBox.classList.remove("d-none");
+            return;
+        }
+
+        LOADER.show(btn, 'Changing password...');
+
+        try {
+            // Ensure we have the token in headers
+            const token = window._changePasswordData?.token || Auth.getToken();
+            if (token) {
+                Auth.setToken(token);
+            }
+
+            const res = await API.auth.changePassword(currentPassword, newPassword, confirmPassword);
+            
+            if (res.success) {
+                successBox.textContent = res.message || "Password changed successfully. Please login again.";
+                successBox.classList.remove("d-none");
+                
+                // Clear pending data
+                Auth.clearPending("lk_change_password_pending");
+                Auth.clear();
+                
+                setTimeout(() => {
+                    window.location.href = "index.html";
+                }, 2000);
+            } else {
+                errorBox.textContent = res.message || "Failed to change password.";
+                errorBox.classList.remove("d-none");
+            }
+        } catch (error) {
+            console.error("Change password error:", error);
+            errorBox.textContent = error.message || "An error occurred. Please try again.";
+            errorBox.classList.remove("d-none");
+        }
+        LOADER.hide(btn);
+    });
+}
+
+// ============================================
+// OTP VERIFICATION PAGE
+// ============================================
+function initOtpPage() {
+    const wrap = document.getElementById("otpForm");
+    if (!wrap) return;
+
+    // Check for change password pending
+    const changePwdPending = Auth.pending("lk_change_password_pending");
+    if (changePwdPending) {
+        showChangePasswordUI(changePwdPending);
+        return;
+    }
+
+    if (Auth.isAuthenticated()) {
         window.location.href = "tenants.html";
-      } else {
-        AUTH.setPending("lk_reset_pending", { email, verified: true });
-        window.location.href = "forgot-password.html#reset";
-      }
-    }, 500);
-  });
-
-  document.getElementById("resendOtp")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    showToast(`A new demo OTP has been sent: <strong>${AUTH.DEMO_OTP}</strong>`, "info");
-  });
-}
-
-/* ---------------- Forgot password page (3 steps) ---------------- */
-function initForgotPasswordPage(){
-  const stepEmail = document.getElementById("stepEmail");
-  if(!stepEmail) return;
-
-  const stepReset = document.getElementById("stepReset");
-  const stepDone = document.getElementById("stepDone");
-  const resetPending = AUTH.pending("lk_reset_pending");
-
-  function show(step){
-    [stepEmail, stepReset, stepDone].forEach(s => s.classList.add("d-none"));
-    step.classList.remove("d-none");
-  }
-
-  if(window.location.hash === "#reset" && resetPending?.verified){
-    show(stepReset);
-  } else {
-    show(stepEmail);
-  }
-
-  document.getElementById("emailForm").addEventListener("submit", function(e){
-    e.preventDefault();
-    const btn = this.querySelector('button[type="submit"]');
-    LOADER.show(btn, 'Sending OTP...');
-    
-    const email = document.getElementById("fpEmail").value.trim().toLowerCase();
-    const errorBox = document.getElementById("fpEmailError");
-    
-    setTimeout(() => {
-      if(!LK.credentials[email]){
-        errorBox.textContent = "This email is not registered with Livinkey.";
-        errorBox.classList.remove("d-none");
-        LOADER.hide(btn);
         return;
-      }
-      errorBox.classList.add("d-none");
-      AUTH.setPending("lk_reset_pending", { email, verified: false });
-      window.location.href = "otp-verify.html";
-    }, 600);
-  });
+    }
 
-  document.getElementById("resetForm").addEventListener("submit", function(e){
-    e.preventDefault();
-    const btn = this.querySelector('button[type="submit"]');
-    LOADER.show(btn, 'Setting password...');
-    
-    const p1 = document.getElementById("newPwd").value;
-    const p2 = document.getElementById("confirmPwd").value;
-    const errorBox = document.getElementById("fpResetError");
-    
-    setTimeout(() => {
-      if(p1.length < 6){
-        errorBox.textContent = "Password must be at least 6 characters.";
-        errorBox.classList.remove("d-none");
-        LOADER.hide(btn);
-        return;
-      }
-      if(p1 !== p2){
-        errorBox.textContent = "Passwords do not match.";
-        errorBox.classList.remove("d-none");
-        LOADER.hide(btn);
-        return;
-      }
-      errorBox.classList.add("d-none");
-      AUTH.clearPending("lk_reset_pending");
-      show(stepDone);
-      LOADER.hide(btn);
-    }, 600);
-  });
+    const loginPending = Auth.pending("lk_login_pending");
+    const resetPending = Auth.pending("lk_reset_pending");
+    const purpose = loginPending?.purpose === "login" ? "login" : (resetPending ? "reset" : null);
 
-  // Handle "Back to sign in" link to clear pending state
-  document.querySelectorAll('a[href="index.html"]').forEach(link => {
-    link.addEventListener("click", function(e) {
-      AUTH.clearPending("lk_login_pending");
-      AUTH.clearPending("lk_reset_pending");
+    if (!purpose) {
+        window.location.href = "index.html";
+        return;
+    }
+
+    const email = purpose === "login" ? loginPending.email : resetPending.email;
+    document.getElementById("otpEmailTarget").textContent = email;
+
+    const inputs = Array.from(document.querySelectorAll(".otp-box"));
+    inputs.forEach((box, i) => {
+        box.addEventListener("input", () => {
+            box.value = box.value.replace(/[^0-9]/g, "").slice(0, 1);
+            if (box.value && inputs[i + 1]) inputs[i + 1].focus();
+        });
+        box.addEventListener("keydown", (e) => {
+            if (e.key === "Backspace" && !box.value && inputs[i - 1]) inputs[i - 1].focus();
+        });
     });
-  });
+
+    const errorBox = document.getElementById("otpError");
+
+    inputs.forEach((box, i) => {
+        box.addEventListener("input", () => {
+            const allFilled = inputs.every(b => b.value.length === 1);
+            if (allFilled) {
+                wrap.dispatchEvent(new Event("submit"));
+            }
+        });
+    });
+
+    wrap.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        LOADER.show(btn, 'Verifying...');
+
+        const code = inputs.map(i => i.value).join("");
+        if (code.length < 6) {
+            errorBox.textContent = "Please enter the complete 6-digit code.";
+            errorBox.classList.remove("d-none");
+            LOADER.hide(btn);
+            return;
+        }
+
+        try {
+            let res;
+            if (purpose === "login") {
+                res = await API.auth.verifyOTP(email, code);
+            } else {
+                res = await API.auth.verifyForgotOTP(email, code);
+            }
+
+            if (res.success) {
+                errorBox.classList.add("d-none");
+                if (purpose === "login") {
+                    if (res.token) {
+                        Auth.setToken(res.token);
+                        const userData = {
+                            ...res.user,
+                            permissions: res.user?.permissions || {}
+                        };
+                        Auth.setSession(userData);
+                        Auth.clearPending("lk_login_pending");
+                        showToast("✅ Login successful! Redirecting...", "success");
+                        setTimeout(() => {
+                            window.location.href = "tenants.html";
+                        }, 500);
+                    } else {
+                        showToast("Login successful but no token received.", "warning");
+                        if (res.user) {
+                            Auth.setSession({
+                                ...res.user,
+                                permissions: res.user?.permissions || {}
+                            });
+                            setTimeout(() => {
+                                window.location.href = "tenants.html";
+                            }, 500);
+                        }
+                    }
+                } else {
+                    Auth.setPending("lk_reset_pending", { 
+                        email: email, 
+                        verified: true,
+                        resetToken: res.resetToken 
+                    });
+                    showToast("✅ OTP verified. Please set a new password.", "success");
+                    setTimeout(() => {
+                        window.location.href = "forgot-password.html#reset";
+                    }, 500);
+                }
+            } else {
+                errorBox.textContent = res.message || "Invalid OTP. Please try again.";
+                errorBox.classList.remove("d-none");
+                inputs.forEach(i => i.value = "");
+                inputs[0].focus();
+            }
+        } catch (error) {
+            console.error("OTP verification error:", error);
+            errorBox.textContent = error.message || "An error occurred. Please try again.";
+            errorBox.classList.remove("d-none");
+        }
+        LOADER.hide(btn);
+    });
+
+    document.getElementById("resendOtp")?.addEventListener("click", async function(e) {
+        e.preventDefault();
+        try {
+            let res;
+            if (purpose === "login") {
+                res = await API.auth.resendOTP(email);
+            } else {
+                res = await API.auth.forgotPassword(email);
+            }
+            if (res.success) {
+                if (res.demoOTP) {
+                    showToast(`📧 New Demo OTP: ${res.demoOTP}`, "info");
+                } else {
+                    showToast(res.message || "New OTP sent successfully.", "success");
+                }
+            } else {
+                showToast(res.message || "Failed to resend OTP.", "danger");
+            }
+        } catch (error) {
+            console.error("Resend OTP error:", error);
+            showToast("Error resending OTP: " + error.message, "danger");
+        }
+    });
+
+    const backBtn = document.getElementById('backToSignInBtn');
+    if (backBtn) {
+        backBtn.addEventListener('click', function(e) {
+            Auth.clearPending('lk_login_pending');
+            Auth.clearPending('lk_reset_pending');
+        });
+    }
 }
 
-/* ---------------- Toast helper (used app-wide) ---------------- */
-function showToast(message, type = "success"){
-  const icons = { success: "bi-check-circle-fill", info: "bi-info-circle-fill", danger: "bi-x-circle-fill", warning: "bi-exclamation-triangle-fill" };
-  const colors = { success: "var(--success)", info: "var(--info)", danger: "var(--danger)", warning: "var(--warning)" };
-  let container = document.getElementById("lkToastContainer");
-  if(!container){
-    container = document.createElement("div");
-    container.id = "lkToastContainer";
-    container.className = "toast-lk d-flex flex-column gap-2";
-    document.body.appendChild(container);
-  }
-  const el = document.createElement("div");
-  el.className = "fade-in";
-  el.style.cssText = "background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:.85rem 1.1rem;display:flex;gap:.6rem;align-items:flex-start;min-width:280px;max-width:360px;";
-  el.innerHTML = `<i class="bi ${icons[type]}" style="color:${colors[type]};font-size:1.1rem;margin-top:.1rem;"></i><div style="font-size:.87rem;color:var(--ink);">${message}</div>`;
-  container.appendChild(el);
-  setTimeout(() => { el.style.transition = ".3s"; el.style.opacity = "0"; el.style.transform = "translateX(20px)"; setTimeout(() => el.remove(), 300); }, 3800);
+// ============================================
+// FORGOT PASSWORD PAGE
+// ============================================
+function initForgotPasswordPage() {
+    const stepEmail = document.getElementById("stepEmail");
+    if (!stepEmail) return;
+
+    const stepReset = document.getElementById("stepReset");
+    const stepDone = document.getElementById("stepDone");
+    const resetPending = Auth.pending("lk_reset_pending");
+
+    function show(step) {
+        [stepEmail, stepReset, stepDone].forEach(s => s.classList.add("d-none"));
+        step.classList.remove("d-none");
+    }
+
+    if (window.location.hash === "#reset" && resetPending?.verified) {
+        show(stepReset);
+        if (resetPending.resetToken) {
+            const tokenInput = document.getElementById("resetToken");
+            if (tokenInput) tokenInput.value = resetPending.resetToken;
+        }
+    } else {
+        show(stepEmail);
+    }
+
+    document.getElementById("emailForm")?.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        LOADER.show(btn, 'Sending OTP...');
+
+        const email = document.getElementById("fpEmail").value.trim().toLowerCase();
+        const errorBox = document.getElementById("fpEmailError");
+
+        try {
+            const res = await API.auth.forgotPassword(email);
+            if (res.success) {
+                errorBox.classList.add("d-none");
+                Auth.setPending("lk_reset_pending", { email, verified: false });
+                if (res.demoOTP) {
+                    showToast(`📧 Demo OTP: ${res.demoOTP}. Check your email for the actual code.`, "info");
+                } else {
+                    showToast("📧 OTP sent to your email for password reset.", "info");
+                }
+                setTimeout(() => {
+                    window.location.href = "otp-verify.html";
+                }, 500);
+            } else {
+                errorBox.textContent = res.message || "Email not found.";
+                errorBox.classList.remove("d-none");
+            }
+        } catch (error) {
+            console.error("Forgot password error:", error);
+            errorBox.textContent = error.message || "An error occurred.";
+            errorBox.classList.remove("d-none");
+        }
+        LOADER.hide(btn);
+    });
+
+    document.getElementById("resetForm")?.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        LOADER.show(btn, 'Setting password...');
+
+        const resetToken = document.getElementById("resetToken")?.value;
+        const p1 = document.getElementById("newPwd").value;
+        const p2 = document.getElementById("confirmPwd").value;
+        const errorBox = document.getElementById("fpResetError");
+
+        if (p1.length < 6) {
+            errorBox.textContent = "Password must be at least 6 characters.";
+            errorBox.classList.remove("d-none");
+            LOADER.hide(btn);
+            return;
+        }
+        if (p1 !== p2) {
+            errorBox.textContent = "Passwords do not match.";
+            errorBox.classList.remove("d-none");
+            LOADER.hide(btn);
+            return;
+        }
+
+        try {
+            const res = await API.auth.resetPassword(resetToken, p1, p2);
+            if (res.success) {
+                errorBox.classList.add("d-none");
+                Auth.clearPending("lk_reset_pending");
+                show(stepDone);
+                showToast(res.message || "Password reset successfully.", "success");
+            } else {
+                errorBox.textContent = res.message || "Failed to reset password.";
+                errorBox.classList.remove("d-none");
+            }
+        } catch (error) {
+            console.error("Reset password error:", error);
+            errorBox.textContent = error.message || "An error occurred.";
+            errorBox.classList.remove("d-none");
+        }
+        LOADER.hide(btn);
+    });
+
+    document.querySelectorAll('a[href="index.html"]').forEach(link => {
+        link.addEventListener("click", function() {
+            Auth.clearPending("lk_login_pending");
+            Auth.clearPending("lk_reset_pending");
+        });
+    });
 }
 
+// ============================================
+// INIT
+// ============================================
 document.addEventListener("DOMContentLoaded", () => {
-  initLoginPage();
-  initOtpPage();
-  initForgotPasswordPage();
+    const isAuthPage = window.location.pathname.includes('index.html') || 
+                       window.location.pathname.includes('otp-verify.html') ||
+                       window.location.pathname.includes('forgot-password.html');
+    
+    if (!isAuthPage) {
+        if (!Auth.isAuthenticated()) {
+            const token = localStorage.getItem('lk_token');
+            if (token) {
+                sessionStorage.setItem('lk_token', token);
+                const session = localStorage.getItem('lk_session');
+                if (session) {
+                    sessionStorage.setItem('lk_session', session);
+                }
+                if (Auth.isAuthenticated()) {
+                    return;
+                }
+            }
+            window.location.href = 'index.html';
+            return;
+        }
+    }
+    
+    initLoginPage();
+    initOtpPage();
+    initForgotPasswordPage();
 });
