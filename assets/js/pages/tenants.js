@@ -1557,7 +1557,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================
-    // DOCUMENTS MODAL
+    // DOCUMENTS MODAL - FIXED
     // ============================================
     const docsModal = new bootstrap.Modal(document.getElementById("docsModal"));
     let currentDocTenantId = null;
@@ -1611,13 +1611,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 };
 
                 let docs = [];
-                if (docRes.success) {
+                
+                // ============================================================
+                // FIX: The backend returns { tenant: {...}, uploaded_documents: [...] }
+                // but the frontend was looking for 'documents' first.
+                // Now we check for 'uploaded_documents' directly.
+                // ============================================================
+                if (docRes.success && docRes.data) {
+                    // Case 1: Direct array of documents
                     if (Array.isArray(docRes.data)) {
                         docs = docRes.data;
-                    } else if (docRes.data && Array.isArray(docRes.data.documents)) {
-                        docs = docRes.data.documents;
-                    } else if (docRes.data && Array.isArray(docRes.data.uploaded_documents)) {
+                    } 
+                    // Case 2: Response has uploaded_documents (the actual docs array)
+                    else if (docRes.data.uploaded_documents && Array.isArray(docRes.data.uploaded_documents)) {
                         docs = docRes.data.uploaded_documents;
+                    } 
+                    // Case 3: Response has documents (legacy, keep as fallback)
+                    else if (docRes.data.documents && Array.isArray(docRes.data.documents)) {
+                        docs = docRes.data.documents;
                     }
                 }
                 
