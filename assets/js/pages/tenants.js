@@ -12,7 +12,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const canDeleteTenants = Permissions.canDelete('tenants');
     const canViewTenants = Permissions.canView('tenants');
 
-    // Store permissions globally for this page
     window.LK_TENANT_PERMS = {
         canAdd: canAddTenants,
         canEdit: canEditTenants,
@@ -985,6 +984,20 @@ document.addEventListener("DOMContentLoaded", () => {
                         <label class="form-label">Phone</label>
                         <input type="text" class="form-control tenant-phone" placeholder="9876543210">
                     </div>
+                    <!-- ============================================================ -->
+                    <!-- NEW: International Phone (only for international tenants) -->
+                    <!-- FIX: was col-md-3 with an inline style="display:none;" that -->
+                    <!-- never got cleared — the residency-toggle handler below only -->
+                    <!-- looks for a closest('.col-md-4') wrapper (matching the other -->
+                    <!-- international-only fields), so this field could never be -->
+                    <!-- revealed. Now uses col-md-4 + d-none so it toggles correctly. -->
+                    <!-- ============================================================ -->
+                    <div class="col-md-4 tenant-international-only d-none">
+                        <label class="form-label">International Phone</label>
+                        <input type="text" class="form-control tenant-international-phone" placeholder="+1 234 567 8900">
+                        <div class="form-text small text-muted">For family/emergency contact abroad</div>
+                    </div>
+                    <!-- ============================================================ -->
                     <div class="col-md-3">
                         <label class="form-label">Gender</label>
                         <select class="form-select tenant-gender">
@@ -1191,6 +1204,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 const residency = entry.querySelector('.tenant-residency').value;
                 const countryCode = entry.querySelector('.tenant-code').value.trim() || "+91";
                 const phone = entry.querySelector('.tenant-phone').value.trim();
+                // ============================================================
+                // NEW: Capture international phone
+                // ============================================================
+                const internationalPhone = entry.querySelector('.tenant-international-phone')?.value.trim() || '';
                 const gender = entry.querySelector('.tenant-gender').value;
                 const rent = parseFloat(entry.querySelector('.tenant-rent').value) || 0;
                 const securityFee = parseFloat(entry.querySelector('.tenant-security-fee').value) || 0;
@@ -1232,6 +1249,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     nationality: nationality,
                     country_code: countryCode,
                     phone: phone,
+                    international_phone: internationalPhone,
                     gender: gender,
                     residency: residency,
                     aadhaar_id: aadhaarId || null,
@@ -1262,6 +1280,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     nationality: data.nationality,
                     country_code: data.country_code,
                     phone: data.phone,
+                    international_phone: data.international_phone,
                     gender: data.gender,
                     pg_id: parseInt(pgId),
                     room_id: roomId,
@@ -1303,6 +1322,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     nationality: data.nationality,
                     country_code: data.country_code,
                     phone: data.phone,
+                    international_phone: data.international_phone,
                     gender: data.gender,
                     pg_id: parseInt(pgId),
                     room_id: roomId,
@@ -1428,6 +1448,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 const phoneInput = entry.querySelector('.tenant-phone');
                 if (phoneInput) phoneInput.value = t.phone || '';
+
+                // ============================================================
+                // NEW: Populate international phone when editing
+                // ============================================================
+                const intlPhoneInput = entry.querySelector('.tenant-international-phone');
+                if (intlPhoneInput) intlPhoneInput.value = t.international_phone || '';
 
                 const genderSelect = entry.querySelector('.tenant-gender');
                 if (genderSelect) genderSelect.value = t.gender || 'male';
@@ -1612,21 +1638,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 let docs = [];
                 
-                // ============================================================
-                // FIX: The backend returns { tenant: {...}, uploaded_documents: [...] }
-                // but the frontend was looking for 'documents' first.
-                // Now we check for 'uploaded_documents' directly.
-                // ============================================================
                 if (docRes.success && docRes.data) {
-                    // Case 1: Direct array of documents
                     if (Array.isArray(docRes.data)) {
                         docs = docRes.data;
                     } 
-                    // Case 2: Response has uploaded_documents (the actual docs array)
                     else if (docRes.data.uploaded_documents && Array.isArray(docRes.data.uploaded_documents)) {
                         docs = docRes.data.uploaded_documents;
                     } 
-                    // Case 3: Response has documents (legacy, keep as fallback)
                     else if (docRes.data.documents && Array.isArray(docRes.data.documents)) {
                         docs = docRes.data.documents;
                     }
