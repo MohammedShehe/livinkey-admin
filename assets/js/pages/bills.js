@@ -261,6 +261,14 @@ document.addEventListener("DOMContentLoaded", () => {
         </table>`;
     }
 
+    // ============================================
+    // MODAL DECLARATIONS - FIXED: Added proofPreviewModal
+    // ============================================
+    const detailModal = new bootstrap.Modal(document.getElementById("detailModal"));
+    const cashModal = new bootstrap.Modal(document.getElementById("cashPaymentModal"));
+    const messageModal = new bootstrap.Modal(document.getElementById("customMessageModal"));
+    const createBillModal = new bootstrap.Modal(document.getElementById("createBillModal"));
+    const proofPreviewModal = new bootstrap.Modal(document.getElementById("proofPreviewModal")); // ← FIXED: Added this line
 
     // ============================================
     // RENDER PROOF TABLE - UPDATED with better error handling
@@ -322,7 +330,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td>${p.created_at ? formatDate(p.created_at) : '—'}</td>
                     <td class="text-end">
                         ${isPending && canEditBills ? `
-                            <button class="btn-icon me-1" title="Verify" onclick="verifyProof('${p.id}')" style="color:var(--success);border-color:var(--success);">
+                            <button class="btn-icon me-1" title="Verify" onclick="previewProof('${p.id}')" style="color:var(--success);border-color:var(--success);">
                                 <i class="bi bi-check-lg"></i>
                             </button>
                             <button class="btn-icon me-1" title="Reject" onclick="rejectProof('${p.id}')" style="color:var(--danger);border-color:var(--danger);">
@@ -343,7 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================
-    // PROOF PREVIEW - UPDATED with better error handling
+    // PROOF PREVIEW - UPDATED with paid_from and paid_till
     // ============================================
     window.previewProof = async function(id) {
         try {
@@ -431,6 +439,29 @@ document.addEventListener("DOMContentLoaded", () => {
             const rejectBtn = document.getElementById("proofRejectBtn");
             const deleteBtn = document.getElementById("proofDeleteBtn");
             const notesInput = document.getElementById("proofAdminNotes");
+            
+            // ============================================================
+            // NEW: Show paid_from and paid_till fields for verification
+            // ============================================================
+            const dateFieldsContainer = document.getElementById("proofDateFieldsContainer");
+            if (dateFieldsContainer) {
+                if (p.status === 'pending' && canEditBills && billExists) {
+                    dateFieldsContainer.style.display = 'block';
+                    // Pre-fill with existing values or default to current month
+                    if (!document.getElementById("proofPaidFrom").value) {
+                        const today = new Date();
+                        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                        document.getElementById("proofPaidFrom").value = firstDay.toISOString().split('T')[0];
+                    }
+                    if (!document.getElementById("proofPaidTill").value) {
+                        const today = new Date();
+                        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                        document.getElementById("proofPaidTill").value = lastDay.toISOString().split('T')[0];
+                    }
+                } else {
+                    dateFieldsContainer.style.display = 'none';
+                }
+            }
 
             // Only allow verification if bill exists
             if (p.status === 'pending' && canEditBills && billExists) {
@@ -467,8 +498,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // BILL DETAIL
     // ============================================
-    const detailModal = new bootstrap.Modal(document.getElementById("detailModal"));
-
     window.openBillDetail = async function(id) {
         try {
             const res = await API.bills.getById(id);
@@ -539,8 +568,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // CASH PAYMENT
     // ============================================
-    const cashModal = new bootstrap.Modal(document.getElementById("cashPaymentModal"));
-
     function resetCashOtpBoxes() {
         document.querySelectorAll('.cash-otp-box').forEach(b => b.value = '');
     }
@@ -571,6 +598,13 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("cashPaymentForm").reset();
         document.getElementById("cashOtpSection").classList.add("d-none");
         resetCashOtpBoxes();
+
+        // Set default dates
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        document.getElementById("cashPaidFrom").value = firstDay.toISOString().split('T')[0];
+        document.getElementById("cashPaidTill").value = lastDay.toISOString().split('T')[0];
 
         const otpBtn = document.getElementById("requestCashOtpBtn");
         const verifyBtn = document.getElementById("verifyCashBtn");
@@ -678,107 +712,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ============================================
-    // PROOF PREVIEW
-    // ============================================
-    const proofPreviewModal = new bootstrap.Modal(document.getElementById("proofPreviewModal"));
-
-    window.previewProof = async function(id) {
-        try {
-            const res = await API.bills.paymentProofs.getById(id);
-            if (!res.success || !res.data) {
-                showToast("Proof not found.", "danger");
-                return;
-            }
-
-            const p = res.data;
-            selectedProofId = id;
-
-            document.getElementById("proofPreviewTitle").textContent = 
-                `Payment Proof - ${p.tenant_name || 'Tenant'}`;
-            document.getElementById("proofPreviewImage").src = p.proof_url || '';
-
-            const details = document.getElementById("proofPreviewDetails");
-            details.innerHTML = `
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="fw-bold small text-muted-soft">Tenant</div>
-                        <div>${p.tenant_name || '—'}</div>
-                        <div class="small text-muted-soft">${p.tenant_email || '—'}</div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="fw-bold small text-muted-soft">PG / Room</div>
-                        <div>${p.pg_name || '—'} / ${p.room_number || '—'}</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="fw-bold small text-muted-soft">Amount Paid</div>
-                        <div class="fw-bold">₹${(p.amount_paid || 0).toLocaleString('en-IN')}</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="fw-bold small text-muted-soft">Bill Total</div>
-                        <div>₹${(p.bill_total || 0).toLocaleString('en-IN')}</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="fw-bold small text-muted-soft">Status</div>
-                        <div><span class="status-badge ${p.status === 'pending' ? 'status-pending' : p.status === 'verified' ? 'status-success' : 'status-failed'}">${p.status || '—'}</span></div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="fw-bold small text-muted-soft">Transaction ID</div>
-                        <div><code>${p.transaction_id || '—'}</code></div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="fw-bold small text-muted-soft">Submitted</div>
-                        <div>${p.created_at ? formatDateTime(p.created_at) : '—'}</div>
-                    </div>
-                    ${p.verified_by_name ? `
-                    <div class="col-md-6">
-                        <div class="fw-bold small text-muted-soft">Verified By</div>
-                        <div>${p.verified_by_name}</div>
-                    </div>
-                    ` : ''}
-                    ${p.verified_at ? `
-                    <div class="col-md-6">
-                        <div class="fw-bold small text-muted-soft">Verified At</div>
-                        <div>${formatDateTime(p.verified_at)}</div>
-                    </div>
-                    ` : ''}
-                    ${p.admin_notes ? `
-                    <div class="col-12">
-                        <div class="fw-bold small text-muted-soft">Admin Notes</div>
-                        <div class="border rounded-3 p-2 bg-light">${p.admin_notes}</div>
-                    </div>
-                    ` : ''}
-                </div>
-            `;
-
-            const verifyBtn = document.getElementById("proofVerifyBtn");
-            const rejectBtn = document.getElementById("proofRejectBtn");
-            const deleteBtn = document.getElementById("proofDeleteBtn");
-            const notesInput = document.getElementById("proofAdminNotes");
-
-            if (p.status === 'pending' && canEditBills) {
-                verifyBtn.style.display = '';
-                rejectBtn.style.display = '';
-                deleteBtn.style.display = 'none';
-                notesInput.style.display = '';
-            } else {
-                verifyBtn.style.display = 'none';
-                rejectBtn.style.display = 'none';
-                deleteBtn.style.display = canEditBills ? '' : 'none';
-                notesInput.style.display = 'none';
-            }
-
-            proofPreviewModal.show();
-        } catch (error) {
-            showToast("Error loading proof: " + error.message, "danger");
-        }
-    };
-
-    // ============================================
-    // VERIFY PROOF
+    // VERIFY PROOF - UPDATED with paid_from and paid_till
     // ============================================
     window.verifyProof = async function(id, admin_notes = null) {
         if (!canEditBills) {
             showToast("You don't have permission to verify payment proofs.", "warning");
+            return;
+        }
+
+        // Get paid_from and paid_till from the form
+        const paidFrom = document.getElementById("proofPaidFrom")?.value;
+        const paidTill = document.getElementById("proofPaidTill")?.value;
+
+        if (!paidFrom || !paidTill) {
+            showToast("Please select both Payment Start Date and Payment End Date.", "warning");
             return;
         }
 
@@ -795,7 +742,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (btn) LOADER.show(btn, 'Verifying...');
 
         try {
-            const res = await API.bills.paymentProofs.verify(id, admin_notes);
+            const res = await API.bills.paymentProofs.verify(id, {
+                admin_notes: admin_notes,
+                paid_from: paidFrom,
+                paid_till: paidTill
+            });
             if (res.success) {
                 showToast(res.message || "Payment proof verified successfully.", "success");
                 proofPreviewModal.hide();
@@ -891,7 +842,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // CUSTOM MESSAGE
     // ============================================
-    const messageModal = new bootstrap.Modal(document.getElementById("customMessageModal"));
     let messageFile = null;
 
     window.openCustomMessage = function(billId) {
@@ -954,7 +904,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // CREATE BILL
     // ============================================
-    const createBillModal = new bootstrap.Modal(document.getElementById("createBillModal"));
     let billAttachment = null;
     let meterImageFile = null;
 
@@ -970,7 +919,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const select = document.getElementById("billTenant");
             if (res.success && res.data) {
                 select.innerHTML = `<option value="">Select tenant...</option>` + 
-                    res.data.map(t => `<option value="${t.id}">${t.full_name} — ${t.pg_name} Room ${t.room_number}</option>`).join("");
+                    res.data.map(t => {
+                        const amountOwed = t.amount_owed || 0;
+                        const statusLabel = amountOwed > 0 
+                            ? ` — Owes ₹${amountOwed.toLocaleString('en-IN')}` 
+                            : ' — Paid Up';
+                        return `<option value="${t.id}">${t.full_name} — ${t.pg_name} Room ${t.room_number}${statusLabel}</option>`;
+                    }).join("");
             }
         } catch (error) {
             showToast("Error loading unpaid tenants.", "danger");
@@ -1091,9 +1046,6 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('billsTabContent').style.display = tab === 'bills' ? 'block' : 'none';
         document.getElementById('proofsTabContent').style.display = tab === 'proofs' ? 'block' : 'none';
         
-        // ============================================================
-        // FIX: Update page title and sub when switching tabs
-        // ============================================================
         const pageTitleEl = document.querySelector('.page-title');
         const pageSubEl = document.querySelector('.page-sub');
         
@@ -1167,7 +1119,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // INIT - Load bills tab by default
     // ============================================
     loadData();
-    // Only switch to proofs if hash is present, otherwise stay on bills
     if (window.location.hash !== '#proofs') {
         switchMainTab('bills');
     }

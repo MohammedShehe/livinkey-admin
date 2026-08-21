@@ -193,6 +193,18 @@
     align-items: center;
     justify-content: center;
   }
+  /* NEW: Date fields for verification */
+  .verification-date-fields {
+    background: var(--lk-green-100);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    margin-top: 0.5rem;
+    border: 1px solid var(--lk-green);
+  }
+  .verification-date-fields .form-label {
+    font-weight: 600;
+    color: var(--lk-green-darker);
+  }
 </style>
 </head>
 <body>
@@ -489,7 +501,7 @@
 </div>
 
 <!-- ============================================ -->
-<!-- PROOF PREVIEW MODAL -->
+<!-- PROOF PREVIEW MODAL - UPDATED with date fields -->
 <!-- ============================================ -->
 <div class="modal fade" id="proofPreviewModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -504,6 +516,23 @@
         </div>
         <hr>
         <div id="proofPreviewDetails"></div>
+        
+        <!-- NEW: Date fields for verification -->
+        <div id="proofDateFieldsContainer" class="verification-date-fields" style="display:none;">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Payment Start Date <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="proofPaidFrom" required>
+              <small class="text-muted-soft">Date from which this payment applies</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Payment End Date (Paid Till) <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="proofPaidTill" required>
+              <small class="text-muted-soft">Date until which this payment covers</small>
+            </div>
+          </div>
+        </div>
+        
         <div class="mt-3" id="proofNotesContainer">
           <label class="form-label">Admin Notes</label>
           <textarea class="form-control" id="proofAdminNotes" rows="2" placeholder="Add verification notes... (optional)"></textarea>

@@ -516,6 +516,28 @@ document.addEventListener("DOMContentLoaded", () => {
         const male = tenants.filter(t => t.gender === 'male').length;
         const female = tenants.filter(t => t.gender === 'female').length;
 
+        // Calculate paid status using paid_till date as source of truth
+        const paid = tenants.filter(t => {
+            if (!t.paid_from || !t.paid_till) return false;
+            const today = new Date();
+            const paidTill = new Date(t.paid_till);
+            return paidTill >= today;
+        }).length;
+
+        const partiallyPaid = tenants.filter(t => {
+            if (!t.paid_from || !t.paid_till) return false;
+            const today = new Date();
+            const paidTill = new Date(t.paid_till);
+            return paidTill < today && (t.total_paid_amount || 0) > 0;
+        }).length;
+
+        const unpaid = tenants.filter(t => {
+            if (!t.paid_from || !t.paid_till) return true;
+            const today = new Date();
+            const paidTill = new Date(t.paid_till);
+            return paidTill < today && !(t.total_paid_amount || 0) > 0;
+        }).length;
+
         const expiringEFRRO = tenants.filter(t => {
             if (t.residency !== 'international' || !t.efrro_till) return false;
             const today = new Date();
@@ -530,6 +552,9 @@ document.addEventListener("DOMContentLoaded", () => {
             { label: "International", value: international, icon: "bi-globe2", color: "var(--warning)", filter: "residency:international" },
             { label: "Male", value: male, icon: "bi-gender-male", color: "var(--lk-black)", filter: "gender:male" },
             { label: "Female", value: female, icon: "bi-gender-female", color: "var(--danger)", filter: "gender:female" },
+            { label: "Paid", value: paid, icon: "bi-check-circle", color: "var(--success)", filter: "paid" },
+            { label: "Partially Paid", value: partiallyPaid, icon: "bi-hourglass-split", color: "var(--warning)", filter: "partially_paid" },
+            { label: "Unpaid", value: unpaid, icon: "bi-exclamation-circle", color: "var(--danger)", filter: "unpaid" },
             { label: "Expiring e-FRRO", value: expiringEFRRO.length, icon: "bi-clock-history", color: "#e74c3c", filter: "efrro-expiring" }
         ];
 
@@ -573,6 +598,18 @@ document.addEventListener("DOMContentLoaded", () => {
             searchInput.value = "gender:female";
             currentFilter = "gender:female";
             currentFilterType = "gender";
+        } else if (filter === "paid") {
+            searchInput.value = "status:paid";
+            currentFilter = "status:paid";
+            currentFilterType = "status";
+        } else if (filter === "partially_paid") {
+            searchInput.value = "status:partially_paid";
+            currentFilter = "status:partially_paid";
+            currentFilterType = "status";
+        } else if (filter === "unpaid") {
+            searchInput.value = "status:unpaid";
+            currentFilter = "status:unpaid";
+            currentFilterType = "status";
         } else {
             searchInput.value = filter.charAt(0).toUpperCase() + filter.slice(1);
             currentFilter = searchInput.value;
@@ -582,7 +619,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     // ============================================
-    // RENDER TABLE
+    // RENDER TABLE - FIXED: Uses paid_till as source of truth
     // ============================================
     function renderTable() {
         let tenants = allTenants || [];
@@ -604,6 +641,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 tenants = tenants.filter(t => t.residency === 'national');
             } else if (currentFilter === "residency:international") {
                 tenants = tenants.filter(t => t.residency === 'international');
+            }
+        } else if (currentFilterType === "status") {
+            if (currentFilter === "status:paid") {
+                tenants = tenants.filter(t => {
+                    if (!t.paid_from || !t.paid_till) return false;
+                    const today = new Date();
+                    const paidTill = new Date(t.paid_till);
+                    return paidTill >= today;
+                });
+            } else if (currentFilter === "status:partially_paid") {
+                tenants = tenants.filter(t => {
+                    if (!t.paid_from || !t.paid_till) return false;
+                    const today = new Date();
+                    const paidTill = new Date(t.paid_till);
+                    return paidTill < today && (t.total_paid_amount || 0) > 0;
+                });
+            } else if (currentFilter === "status:unpaid") {
+                tenants = tenants.filter(t => {
+                    if (!t.paid_from || !t.paid_till) return true;
+                    const today = new Date();
+                    const paidTill = new Date(t.paid_till);
+                    return paidTill < today && !(t.total_paid_amount || 0) > 0;
+                });
             }
         } else if (currentFilterType === "efrro") {
             tenants = tenants.filter(t => {
@@ -630,6 +690,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 tenants = tenants.filter(t => t.gender === 'male');
             } else if (searchVal === "gender:female") {
                 tenants = tenants.filter(t => t.gender === 'female');
+            } else if (searchVal === "status:paid") {
+                tenants = tenants.filter(t => {
+                    if (!t.paid_from || !t.paid_till) return false;
+                    const today = new Date();
+                    const paidTill = new Date(t.paid_till);
+                    return paidTill >= today;
+                });
+            } else if (searchVal === "status:partially_paid") {
+                tenants = tenants.filter(t => {
+                    if (!t.paid_from || !t.paid_till) return false;
+                    const today = new Date();
+                    const paidTill = new Date(t.paid_till);
+                    return paidTill < today && (t.total_paid_amount || 0) > 0;
+                });
+            } else if (searchVal === "status:unpaid") {
+                tenants = tenants.filter(t => {
+                    if (!t.paid_from || !t.paid_till) return true;
+                    const today = new Date();
+                    const paidTill = new Date(t.paid_till);
+                    return paidTill < today && !(t.total_paid_amount || 0) > 0;
+                });
             } else {
                 tenants = tenants.filter(t =>
                     t.full_name?.toLowerCase().includes(searchVal) ||
@@ -653,21 +734,28 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("tenantsEmpty").classList.add("d-none");
 
         tbody.innerHTML = tenants.map(t => {
-            const statusLabels = {
-                'unpaid': 'Unpaid',
-                'partially_paid': 'Partial',
-                'paid': 'Paid',
-                'delayed': 'Delayed',
-                'overdue': 'Overdue'
-            };
-            const statusChips = {
-                'unpaid': 'chip-red',
-                'partially_paid': 'chip-amber',
-                'paid': 'chip-green',
-                'delayed': 'chip-red',
-                'overdue': 'chip-red'
-            };
-            const status = t.bill_status || 'unpaid';
+            // ============================================================
+            // FIXED: Determine status using paid_till as source of truth
+            // ============================================================
+            let status = 'unpaid';
+            let statusLabel = 'Unpaid';
+            let statusChip = 'chip-red';
+            
+            if (t.paid_from && t.paid_till) {
+                const today = new Date();
+                const paidTill = new Date(t.paid_till);
+                
+                if (paidTill >= today) {
+                    status = 'paid';
+                    statusLabel = 'Paid';
+                    statusChip = 'chip-green';
+                } else if ((t.total_paid_amount || 0) > 0) {
+                    status = 'partially_paid';
+                    statusLabel = 'Partial';
+                    statusChip = 'chip-amber';
+                }
+            }
+            
             const efrroStatus = getEFRROStatus(t);
             const arrivalDate = t.arrival_date ? formatDate(t.arrival_date) : "—";
 
@@ -686,7 +774,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td>${t.payment_date ? "Day " + t.payment_date : "—"}</td>
                 <td>${arrivalDate}</td>
                 <td>${efrroStatus}</td>
-                <td><span class="chip ${statusChips[status] || 'chip-gray'}">${statusLabels[status] || status}</span></td>
+                <td><span class="chip ${statusChip}">${statusLabel}</span></td>
                 <td class="text-end">
                     ${canEditTenants ? `<button class="btn-icon me-1" title="Edit" onclick="editTenant('${t.id}')"><i class="bi bi-pencil"></i></button>` : ''}
                     ${canDeleteTenants ? `<button class="btn-icon" title="Delete" onclick="deleteTenant('${t.id}')"><i class="bi bi-trash3"></i></button>` : ''}
@@ -984,20 +1072,11 @@ document.addEventListener("DOMContentLoaded", () => {
                         <label class="form-label">Phone</label>
                         <input type="text" class="form-control tenant-phone" placeholder="9876543210">
                     </div>
-                    <!-- ============================================================ -->
-                    <!-- NEW: International Phone (only for international tenants) -->
-                    <!-- FIX: was col-md-3 with an inline style="display:none;" that -->
-                    <!-- never got cleared — the residency-toggle handler below only -->
-                    <!-- looks for a closest('.col-md-4') wrapper (matching the other -->
-                    <!-- international-only fields), so this field could never be -->
-                    <!-- revealed. Now uses col-md-4 + d-none so it toggles correctly. -->
-                    <!-- ============================================================ -->
-                    <div class="col-md-4 tenant-international-only d-none">
+                    <div class="col-md-3 tenant-international-only d-none">
                         <label class="form-label">International Phone</label>
                         <input type="text" class="form-control tenant-international-phone" placeholder="+1 234 567 8900">
                         <div class="form-text small text-muted">For family/emergency contact abroad</div>
                     </div>
-                    <!-- ============================================================ -->
                     <div class="col-md-3">
                         <label class="form-label">Gender</label>
                         <select class="form-select tenant-gender">
@@ -1092,11 +1171,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 const natHidden = entry.querySelector('.tenant-nationality');
                 const natSearch = entry.querySelector('.tenant-nationality-search');
 
+                entry.querySelectorAll('.tenant-international-only').forEach(el => {
+                    el.classList.toggle('d-none', isNational);
+                });
+
                 entry.querySelectorAll('.tenant-national-only').forEach(el => {
                     el.closest('.col-md-4')?.classList.toggle('d-none', !isNational);
-                });
-                entry.querySelectorAll('.tenant-international-only').forEach(el => {
-                    el.closest('.col-md-4')?.classList.toggle('d-none', isNational);
                 });
 
                 if (isNational) {
@@ -1204,9 +1284,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const residency = entry.querySelector('.tenant-residency').value;
                 const countryCode = entry.querySelector('.tenant-code').value.trim() || "+91";
                 const phone = entry.querySelector('.tenant-phone').value.trim();
-                // ============================================================
-                // NEW: Capture international phone
-                // ============================================================
                 const internationalPhone = entry.querySelector('.tenant-international-phone')?.value.trim() || '';
                 const gender = entry.querySelector('.tenant-gender').value;
                 const rent = parseFloat(entry.querySelector('.tenant-rent').value) || 0;
@@ -1449,9 +1526,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const phoneInput = entry.querySelector('.tenant-phone');
                 if (phoneInput) phoneInput.value = t.phone || '';
 
-                // ============================================================
-                // NEW: Populate international phone when editing
-                // ============================================================
                 const intlPhoneInput = entry.querySelector('.tenant-international-phone');
                 if (intlPhoneInput) intlPhoneInput.value = t.international_phone || '';
 
@@ -1583,7 +1657,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================
-    // DOCUMENTS MODAL - FIXED
+    // DOCUMENTS MODAL
     // ============================================
     const docsModal = new bootstrap.Modal(document.getElementById("docsModal"));
     let currentDocTenantId = null;
@@ -1755,6 +1829,18 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Error deleting document: " + error.message, "danger");
         }
     };
+
+    // ============================================
+    // PG FILTER CLEAR
+    // ============================================
+    document.getElementById("pgFilterClear")?.addEventListener("click", function() {
+        const select = document.getElementById("pgFilter");
+        if (select) {
+            select.value = "all";
+            currentPgFilter = "all";
+            renderTable();
+        }
+    });
 
     // ============================================
     // INIT

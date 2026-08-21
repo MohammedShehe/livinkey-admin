@@ -435,8 +435,16 @@ const API = {
             apiRequest('/bills/unpaid-tenants', 'GET'),
         processDelayed: () => 
             apiRequest('/bills/process-delayed', 'POST'),
-        addPayment: (id, data) => 
-            apiRequest(`/bills/${id}/payment`, 'POST', data),
+        addPayment: (id, data, file) => {
+            // Support both JSON and FormData
+            if (file) {
+                const formData = new FormData();
+                Object.keys(data).forEach(k => formData.append(k, data[k]));
+                formData.append('payment_proof', file);
+                return apiRequest(`/bills/${id}/payment`, 'POST', formData, true);
+            }
+            return apiRequest(`/bills/${id}/payment`, 'POST', data);
+        },
         sendCustomMessage: (id, subject, message, file) => {
             const formData = new FormData();
             formData.append('subject', subject);
@@ -476,8 +484,11 @@ const API = {
             getById: (id) => 
                 apiRequest(`/bills/payment-proofs/${id}`, 'GET'),
             
-            verify: (id, admin_notes = null) => 
-                apiRequest(`/bills/payment-proofs/${id}/verify`, 'PUT', { admin_notes }),
+            // FIXED: verify now accepts an object with admin_notes, paid_from, paid_till
+            verify: (id, data) => {
+                // data should be: { admin_notes, paid_from, paid_till }
+                return apiRequest(`/bills/payment-proofs/${id}/verify`, 'PUT', data);
+            },
             
             reject: (id, admin_notes = null) => 
                 apiRequest(`/bills/payment-proofs/${id}/reject`, 'PUT', { admin_notes }),
