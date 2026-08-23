@@ -72,9 +72,222 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("adminSearch")?.addEventListener("input", (e) => renderTable(e.target.value));
 
     // ============================================
+    // AADHAR CAMERA CAPTURE (Desktop + Mobile)
+    // ============================================
+    let cameraStream = null;
+    let capturedFile = null;
+    let currentFacingMode = 'environment';
+    let activeFileInput = null;
+    let activePreviewContainer = null;
+    let activePreviewImg = null;
+
+    function setupAadharCapture(fileInputId, previewContainerId, previewImgId, removeBtnId, cameraBtnId, fileBtnId) {
+        const fileInput = document.getElementById(fileInputId);
+        const previewContainer = document.getElementById(previewContainerId);
+        const previewImg = document.getElementById(previewImgId);
+        const removeBtn = document.getElementById(removeBtnId);
+        const cameraBtn = document.getElementById(cameraBtnId);
+        const fileBtn = document.getElementById(fileBtnId);
+
+        if (!fileInput) return;
+
+        // Helper to show preview
+        function showPreview(file) {
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    previewContainer.classList.remove('d-none');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Camera button - opens camera modal with getUserMedia
+        cameraBtn?.addEventListener('click', function() {
+            // Store references for the camera modal
+            activeFileInput = fileInput;
+            activePreviewContainer = previewContainer;
+            activePreviewImg = previewImg;
+            
+            // Show camera modal
+            const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
+            cameraModal.show();
+            startCamera();
+        });
+
+        // File button - opens file picker
+        fileBtn?.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        // File input change - show preview
+        fileInput.addEventListener('change', function() {
+            if (this.files && this.files.length > 0) {
+                showPreview(this.files[0]);
+            } else {
+                previewContainer?.classList.add('d-none');
+            }
+        });
+
+        // Remove preview
+        removeBtn?.addEventListener('click', function() {
+            fileInput.value = '';
+            previewContainer?.classList.add('d-none');
+        });
+    }
+
+    // ============================================
+    // CAMERA CONTROLS (shared across modals)
+    // ============================================
+    const cameraModalEl = document.getElementById('cameraModal');
+    if (cameraModalEl) {
+        const video = document.getElementById('cameraVideo');
+        const canvas = document.getElementById('cameraCanvas');
+        const placeholder = document.getElementById('cameraPlaceholder');
+        const captureBtn = document.getElementById('cameraCaptureBtn');
+        const retakeBtn = document.getElementById('cameraRetakeBtn');
+        const confirmBtn = document.getElementById('cameraConfirmBtn');
+        const switchBtn = document.getElementById('cameraSwitchBtn');
+        
+        window.startCamera = async function() {
+            try {
+                // Show placeholder while initializing
+                if (placeholder) placeholder.style.display = 'block';
+                video.style.display = 'none';
+                canvas.style.display = 'none';
+                captureBtn.style.display = 'none';
+                
+                stopCamera();
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: currentFacingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                video.srcObject = cameraStream;
+                await video.play();
+                
+                // Hide placeholder, show video
+                if (placeholder) placeholder.style.display = 'none';
+                video.style.display = 'block';
+                canvas.style.display = 'none';
+                captureBtn.style.display = 'inline-flex';
+                retakeBtn.classList.add('d-none');
+                confirmBtn.classList.add('d-none');
+                capturedFile = null;
+            } catch (err) {
+                console.error('Camera error:', err);
+                if (placeholder) {
+                    placeholder.innerHTML = `
+                        <i class="bi bi-camera-off" style="font-size:3rem;color:var(--danger);"></i>
+                        <p class="mt-2">Camera access denied. Please use file upload instead.</p>
+                        <button class="btn btn-outline-brand btn-sm mt-2" onclick="bootstrap.Modal.getInstance(document.getElementById('cameraModal')).hide();">
+                            Close
+                        </button>
+                    `;
+                }
+                showToast('Camera access denied. Please use file upload instead.', 'warning');
+            }
+        };
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+                cameraStream = null;
+            }
+        }
+
+        // Capture photo
+        captureBtn?.addEventListener('click', function() {
+            if (!cameraStream) return;
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth || 1280;
+            canvas.height = video.videoHeight || 720;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            canvas.toBlob(function(blob) {
+                capturedFile = new File([blob], 'aadhar_capture.jpg', { type: 'image/jpeg' });
+                video.style.display = 'none';
+                canvas.style.display = 'block';
+                captureBtn.style.display = 'none';
+                retakeBtn.classList.remove('d-none');
+                confirmBtn.classList.remove('d-none');
+            }, 'image/jpeg', 0.9);
+        });
+
+        // Retake
+        retakeBtn?.addEventListener('click', function() {
+            video.style.display = 'block';
+            canvas.style.display = 'none';
+            captureBtn.style.display = 'inline-flex';
+            retakeBtn.classList.add('d-none');
+            confirmBtn.classList.add('d-none');
+            capturedFile = null;
+        });
+
+        // Switch camera (front/back)
+        switchBtn?.addEventListener('click', function() {
+            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+            startCamera();
+        });
+
+        // Confirm and use photo
+        confirmBtn?.addEventListener('click', function() {
+            if (capturedFile && activeFileInput) {
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(capturedFile);
+                activeFileInput.files = dataTransfer.files;
+                
+                // Show preview
+                if (activePreviewContainer && activePreviewImg) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        activePreviewImg.src = e.target.result;
+                        activePreviewContainer.classList.remove('d-none');
+                    };
+                    reader.readAsDataURL(capturedFile);
+                }
+                
+                const modal = bootstrap.Modal.getInstance(cameraModalEl);
+                if (modal) modal.hide();
+                stopCamera();
+            }
+        });
+
+        // Cleanup on modal close
+        cameraModalEl.addEventListener('hidden.bs.modal', function() {
+            stopCamera();
+            // Reset UI
+            video.style.display = 'none';
+            canvas.style.display = 'none';
+            captureBtn.style.display = 'none';
+            retakeBtn.classList.add('d-none');
+            confirmBtn.classList.add('d-none');
+            capturedFile = null;
+            activeFileInput = null;
+            activePreviewContainer = null;
+            activePreviewImg = null;
+            
+            // Reset placeholder
+            if (placeholder) {
+                placeholder.style.display = 'block';
+                placeholder.innerHTML = `
+                    <i class="bi bi-camera" style="font-size:3rem;"></i>
+                    <p class="mt-2">Initializing camera...</p>
+                `;
+            }
+        });
+    }
+
+    // ============================================
     // ADD ADMIN
     // ============================================
     const addModal = new bootstrap.Modal(document.getElementById("addAdminModal"));
+
+    // Setup Aadhar capture for Add Admin modal
+    setupAadharCapture('aaAadhar', 'aaPreviewContainer', 'aaPreviewImg', 'aaRemovePreview', 'aaCameraBtn', 'aaFileBtn');
 
     document.getElementById("addAdminForm")?.addEventListener("submit", async function(e) {
         e.preventDefault();
@@ -100,6 +313,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast(res.message || `${name} has been added as an admin.`, "success");
                 addModal.hide();
                 document.getElementById("addAdminForm").reset();
+                // Reset preview
+                document.getElementById("aaPreviewContainer")?.classList.add('d-none');
                 loadAdmins();
             } else {
                 showToast(res.message || "Failed to add admin.", "danger");
@@ -115,6 +330,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     const editModal = new bootstrap.Modal(document.getElementById("editAdminModal"));
 
+    // Setup Aadhar capture for Edit Admin modal
+    setupAadharCapture('eaAadhar', 'eaPreviewContainer', 'eaPreviewImg', 'eaRemovePreview', 'eaCameraBtn', 'eaFileBtn');
+
     window.editAdmin = async function(id) {
         try {
             const res = await API.admins.getById(id);
@@ -128,6 +346,8 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("eaEmail").value = a.email || '';
             document.getElementById("eaPhone").value = a.phone || '';
             document.getElementById("eaAadhar").value = '';
+            // Reset preview
+            document.getElementById("eaPreviewContainer")?.classList.add('d-none');
             editModal.show();
         } catch (error) {
             showToast("Error loading admin: " + error.message, "danger");
@@ -158,6 +378,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (res.success) {
                 showToast(res.message || `${name}'s details were updated.`, "success");
                 editModal.hide();
+                // Reset preview
+                document.getElementById("eaPreviewContainer")?.classList.add('d-none');
                 loadAdmins();
             } else {
                 showToast(res.message || "Failed to update admin.", "danger");

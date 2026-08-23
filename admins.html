@@ -75,7 +75,19 @@
           </div>
           <div class="mb-3">
             <label class="form-label">Aadhar Card</label>
-            <input type="file" class="form-control" id="aaAadhar" accept="image/*">
+            <div class="d-flex gap-2 flex-wrap">
+              <button type="button" class="btn btn-outline-brand" id="aaCameraBtn">
+                <i class="bi bi-camera me-1"></i> Take Photo
+              </button>
+              <button type="button" class="btn btn-outline-brand" id="aaFileBtn">
+                <i class="bi bi-folder me-1"></i> Choose File
+              </button>
+            </div>
+            <input type="file" class="form-control d-none" id="aaAadhar" accept="image/*">
+            <div id="aaPreviewContainer" class="mt-2 d-none">
+              <img id="aaPreviewImg" src="#" alt="Aadhar preview" style="max-width:150px;max-height:120px;border-radius:8px;border:1px solid var(--border);object-fit:cover;">
+              <button type="button" class="btn btn-sm btn-soft-danger ms-2" id="aaRemovePreview">✕</button>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -98,13 +110,57 @@
           <div class="mb-3"><label class="form-label">Full name</label><input class="form-control" id="eaName" required></div>
           <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" id="eaEmail" required></div>
           <div class="mb-3"><label class="form-label">Phone</label><input class="form-control" id="eaPhone" required></div>
-          <div class="mb-3"><label class="form-label">Aadhar Card</label><input type="file" class="form-control" id="eaAadhar" accept="image/*"></div>
+          <div class="mb-3">
+            <label class="form-label">Aadhar Card</label>
+            <div class="d-flex gap-2 flex-wrap">
+              <button type="button" class="btn btn-outline-brand" id="eaCameraBtn">
+                <i class="bi bi-camera me-1"></i> Take Photo
+              </button>
+              <button type="button" class="btn btn-outline-brand" id="eaFileBtn">
+                <i class="bi bi-folder me-1"></i> Choose File
+              </button>
+            </div>
+            <input type="file" class="form-control d-none" id="eaAadhar" accept="image/*">
+            <div id="eaPreviewContainer" class="mt-2 d-none">
+              <img id="eaPreviewImg" src="#" alt="Aadhar preview" style="max-width:150px;max-height:120px;border-radius:8px;border:1px solid var(--border);object-fit:cover;">
+              <button type="button" class="btn btn-sm btn-soft-danger ms-2" id="eaRemovePreview">✕</button>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-brand">Save changes</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- Camera Capture Modal -->
+<div class="modal fade" id="cameraModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Capture Aadhar Card</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div id="cameraPlaceholder" class="py-5 text-muted-soft">
+          <i class="bi bi-camera" style="font-size:3rem;"></i>
+          <p class="mt-2">Initializing camera...</p>
+        </div>
+        <video id="cameraVideo" autoplay playsinline style="width:100%;max-height:400px;background:#000;border-radius:8px;display:none;"></video>
+        <canvas id="cameraCanvas" style="display:none;width:100%;max-height:400px;border-radius:8px;"></canvas>
+        <div class="mt-3 d-flex justify-content-center gap-2 flex-wrap">
+          <button class="btn btn-brand" id="cameraCaptureBtn" style="display:none;"><i class="bi bi-camera me-1"></i> Capture</button>
+          <button class="btn btn-outline-brand d-none" id="cameraRetakeBtn"><i class="bi bi-arrow-counterclockwise me-1"></i> Retake</button>
+          <button class="btn btn-outline-brand" id="cameraSwitchBtn" title="Switch camera"><i class="bi bi-arrow-left-right"></i></button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-brand d-none" id="cameraConfirmBtn"><i class="bi bi-check2 me-1"></i> Use Photo</button>
+      </div>
     </div>
   </div>
 </div>

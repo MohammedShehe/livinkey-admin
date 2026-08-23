@@ -3,7 +3,7 @@
 
 // ============ CONFIGURATION ============
 const API_CONFIG = {
-    baseURL: 'https://livinkey-backend-e15s.onrender.com/api',
+    baseURL: 'http://localhost:5000/api',
     useMock: false
 };
 
