@@ -188,6 +188,37 @@
     display: block;
   }
 
+  /* Pending Docs Filter Button */
+  .pending-docs-filter-btn {
+    position: relative;
+    transition: all 0.2s ease;
+  }
+  .pending-docs-filter-btn.active {
+    background: var(--lk-green);
+    border-color: var(--lk-green);
+    color: var(--lk-black);
+  }
+  .pending-docs-filter-btn .pending-docs-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    font-size: 0.6rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 999px;
+    background: var(--danger);
+    color: #fff;
+    display: none;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+  .pending-docs-filter-btn .pending-docs-badge.show {
+    display: flex;
+  }
+
   /* Responsive adjustments */
   @media (max-width: 768px) {
     .pg-filter-container .pg-filter-select {
@@ -237,6 +268,11 @@
                 <i class="bi bi-x-lg"></i>
               </button>
             </div>
+            <!-- Pending Docs Filter -->
+            <button class="btn btn-outline-brand btn-sm pending-docs-filter-btn" id="pendingDocsFilter">
+              <i class="bi bi-file-earmark-text me-1"></i>Pending Docs
+              <span class="pending-docs-badge" id="pendingDocsBadge">0</span>
+            </button>
             <!-- Search -->
             <div class="table-search">
               <i class="bi bi-search"></i>

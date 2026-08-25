@@ -22,9 +22,15 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentFilter = "";
     let currentFilterType = "";
     let currentPgFilter = "all";
+    let currentDocFilter = "all"; // "all" or "pending"
     let isEditMode = false;
     let editingTenantId = null;
     let allTenants = [];
+    
+    // Document status cache
+    let documentStatusCache = {};
+    let isDocumentCacheLoading = false;
+    let documentCacheLoadComplete = false;
 
     const NATIONALITIES = [
         "Afghan", "Albanian", "Algerian", "Andorran", "Angolan", "Argentinian", "Armenian", "Australian",
@@ -123,6 +129,100 @@ document.addEventListener("DOMContentLoaded", () => {
         ...c,
         display: `${c.code} ${c.name}`
     }));
+
+    // ============================================
+    // DOCUMENT STATUS CHECKING
+    // ============================================
+    function getRequiredDocumentTypes(residency) {
+        if (residency === 'national') {
+            return ['passport_photo', 'tenant_aadhaar', 'parent_aadhaar', 'university_id'];
+        } else {
+            return ['passport_photo', 'passport', 'visa', 'arrival_stamp', 'c_form', 'efrro', 'university_id'];
+        }
+    }
+
+    async function checkTenantDocuments(tenantId, residency) {
+        // Return from cache if available
+        if (documentStatusCache[tenantId] !== undefined) {
+            return documentStatusCache[tenantId];
+        }
+
+        try {
+            const res = await API.documents.admin.getByTenant(tenantId);
+            let docs = [];
+            
+            if (res.success && res.data) {
+                if (Array.isArray(res.data)) {
+                    docs = res.data;
+                } else if (res.data.uploaded_documents && Array.isArray(res.data.uploaded_documents)) {
+                    docs = res.data.uploaded_documents;
+                } else if (res.data.documents && Array.isArray(res.data.documents)) {
+                    docs = res.data.documents;
+                }
+            }
+            
+            const uploadedTypes = docs.map(d => d.document_type);
+            const requiredTypes = getRequiredDocumentTypes(residency || 'national');
+            const missing = requiredTypes.filter(type => !uploadedTypes.includes(type));
+            const hasAll = missing.length === 0;
+            
+            // Cache the result
+            documentStatusCache[tenantId] = hasAll;
+            return hasAll;
+        } catch (error) {
+            // On error, assume documents are missing (safer for filtering)
+            documentStatusCache[tenantId] = false;
+            return false;
+        }
+    }
+
+    async function preloadDocumentStatus(tenants) {
+        if (isDocumentCacheLoading || documentCacheLoadComplete) return;
+        
+        isDocumentCacheLoading = true;
+        const tenantIds = tenants.filter(t => documentStatusCache[t.id] === undefined).map(t => t.id);
+        
+        if (tenantIds.length === 0) {
+            isDocumentCacheLoading = false;
+            documentCacheLoadComplete = true;
+            return;
+        }
+
+        // Load in batches to avoid overwhelming the API
+        const batchSize = 5;
+        for (let i = 0; i < tenantIds.length; i += batchSize) {
+            const batch = tenantIds.slice(i, i + batchSize);
+            await Promise.all(batch.map(id => {
+                const tenant = tenants.find(t => t.id === id);
+                return checkTenantDocuments(id, tenant?.residency || 'national');
+            }));
+        }
+        
+        isDocumentCacheLoading = false;
+        documentCacheLoadComplete = true;
+        
+        // Update pending docs badge
+        updatePendingDocsBadge();
+    }
+
+    function updatePendingDocsBadge() {
+        const pendingCount = allTenants.filter(t => {
+            if (documentStatusCache[t.id] !== undefined) {
+                return documentStatusCache[t.id] === false;
+            }
+            return false;
+        }).length;
+        
+        const badge = document.getElementById('pendingDocsBadge');
+        if (badge) {
+            if (pendingCount > 0) {
+                badge.textContent = pendingCount;
+                badge.classList.add('show');
+            } else {
+                badge.classList.remove('show');
+            }
+        }
+    }
 
     // ============================================
     // SEARCHABLE DROPDOWN HELPERS
@@ -495,6 +595,14 @@ document.addEventListener("DOMContentLoaded", () => {
             if (response.success) {
                 allTenants = (response.data || []).filter(t => t.role !== 'guest');
                 window.LK_TENANTS = allTenants;
+                
+                // Reset document cache when tenants are reloaded
+                documentStatusCache = {};
+                documentCacheLoadComplete = false;
+                
+                // Preload document status in background
+                preloadDocumentStatus(allTenants);
+                
                 renderTable();
                 renderStats();
                 populatePgFilter();
@@ -570,6 +678,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.filterByStat = function(filter) {
         const searchInput = document.getElementById("tenantSearch");
+        
+        // Clear pending docs filter when clicking stats
+        const pendingDocsBtn = document.getElementById("pendingDocsFilter");
+        if (pendingDocsBtn) {
+            pendingDocsBtn.classList.remove('active');
+        }
+        currentDocFilter = "all";
         
         currentFilterType = "";
         currentFilter = "";
@@ -672,6 +787,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 const expiryDate = new Date(t.efrro_till);
                 const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
                 return diffDays >= 0 && diffDays <= 30;
+            });
+        } else if (currentDocFilter === "pending") {
+            // Filter tenants that are missing required documents
+            tenants = tenants.filter(t => {
+                if (documentStatusCache[t.id] !== undefined) {
+                    return documentStatusCache[t.id] === false; // Missing documents
+                }
+                // If not checked yet, include them (will be filtered out once cache is populated)
+                return true;
             });
         } else if (searchVal) {
             if (searchVal === "__efrro_expiring__") {
@@ -835,9 +959,64 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById("tenantSearch")?.addEventListener("input", function() {
+        // Clear pending docs filter when searching
+        const pendingDocsBtn = document.getElementById("pendingDocsFilter");
+        if (pendingDocsBtn) {
+            pendingDocsBtn.classList.remove('active');
+        }
+        currentDocFilter = "all";
         currentFilterType = "";
         currentFilter = "";
         renderTable();
+    });
+
+    // ============================================
+    // PENDING DOCUMENTS FILTER
+    // ============================================
+    document.getElementById("pendingDocsFilter")?.addEventListener("click", async function() {
+        const btn = this;
+        const isActive = btn.classList.contains('active');
+        
+        if (isActive) {
+            btn.classList.remove('active');
+            currentDocFilter = "all";
+            // Clear search input if it was set by this filter
+            renderTable();
+            return;
+        }
+        
+        // If document cache is not loaded, load it now
+        if (!documentCacheLoadComplete && !isDocumentCacheLoading) {
+            showToast("Checking document status for all tenants...", "info");
+            await preloadDocumentStatus(allTenants);
+        }
+        
+        btn.classList.add('active');
+        currentDocFilter = "pending";
+        
+        // Clear search input when applying this filter
+        const searchInput = document.getElementById("tenantSearch");
+        if (searchInput) {
+            searchInput.value = "";
+        }
+        currentFilterType = "";
+        currentFilter = "";
+        
+        renderTable();
+        
+        // Show count
+        const pendingCount = allTenants.filter(t => {
+            if (documentStatusCache[t.id] !== undefined) {
+                return documentStatusCache[t.id] === false;
+            }
+            return false;
+        }).length;
+        
+        if (pendingCount === 0) {
+            showToast("All tenants have their required documents uploaded. ✅", "success");
+        } else {
+            showToast(`Showing ${pendingCount} tenant(s) with pending documents.`, "info");
+        }
     });
 
     // ============================================
@@ -1725,6 +1904,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 
                 const uploadedTypes = docs.map(d => d.document_type);
+                
+                // Update document cache with this tenant's status
+                const requiredTypes = getRequiredDocumentTypes(t.residency || 'national');
+                const missing = requiredTypes.filter(type => !uploadedTypes.includes(type));
+                documentStatusCache[id] = missing.length === 0;
+                updatePendingDocsBadge();
 
                 document.getElementById("docsGrid").innerHTML = docTypes.map(key => {
                     const has = uploadedTypes.includes(key);
@@ -1821,7 +2006,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const res = await API.documents.admin.delete(docId);
             if (res.success) {
                 showToast("Document deleted.", "success");
-                if (currentDocTenantId) openDocs(currentDocTenantId);
+                // Update cache - mark as missing
+                if (currentDocTenantId) {
+                    documentStatusCache[currentDocTenantId] = false;
+                    updatePendingDocsBadge();
+                    openDocs(currentDocTenantId);
+                }
             } else {
                 showToast(res.message || "Failed to delete document.", "danger");
             }
