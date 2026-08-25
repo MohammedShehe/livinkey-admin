@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderLayout("admins", "Admins Management", "Manage admin accounts and their module permissions");
 
     // FIXED: Removed "admins" from modules - backend does not support it
+    // ADDED: "feedbacks" module with full permissions support
     const MODULES = [
         { key: "tenants", label: "Tenants Management" },
         { key: "guests", label: "Guests" },
@@ -9,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
         { key: "pgs", label: "PGs Management" },
         { key: "maintenance", label: "Maintenance" },
         { key: "documents", label: "Documents" },
-        { key: "feedbacks", label: "Feedbacks" }
+        { key: "feedbacks", label: "Feedbacks" }  // ← ADDED: Feedbacks module
     ];
 
     let adminData = [];
@@ -480,13 +481,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
             document.getElementById("accessTbody").innerHTML = MODULES.map(m => {
                 const perm = permissions[m.key] || { view: false, add: false, edit: false, delete: false };
-                // FIXED: Show all checkboxes even if false, admin can enable/disable
+                // ============================================================
+                // FIXED: Show all checkboxes including delete for feedbacks
+                // Only disable add/edit for feedbacks (read-only + delete only)
+                // ============================================================
                 return `
                 <tr>
                     <td class="fw-semibold">${m.label}</td>
-                    ${["view", "add", "edit", "delete"].map(p => `
-                        <td><input type="checkbox" class="form-check-input access-cb" data-module="${m.key}" data-perm="${p}" ${perm[p] ? "checked" : ""}></td>
-                    `).join("")}
+                    ${["view", "add", "edit", "delete"].map(p => {
+                        // For feedbacks: disable add and edit, enable view and delete
+                        const isDisabled = m.key === "feedbacks" && (p === "add" || p === "edit");
+                        return `
+                        <td>
+                            <input type="checkbox" 
+                                class="form-check-input access-cb" 
+                                data-module="${m.key}" 
+                                data-perm="${p}" 
+                                ${perm[p] ? "checked" : ""}
+                                ${isDisabled ? "disabled" : ""}
+                            >
+                        </td>`;
+                    }).join("")}
                 </tr>`;
             }).join("");
 

@@ -216,7 +216,6 @@ Enjoy your stay!
         
         if (!g) {
             console.error("Guest not found for ID:", guestId);
-            console.log("Available guest IDs:", guestData.map(x => x.id));
             showToast("Guest not found. Please refresh the page.", "danger");
             return;
         }

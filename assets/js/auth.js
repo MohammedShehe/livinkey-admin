@@ -31,20 +31,33 @@ function initLoginPage() {
     // Check for change password requirement
     const changePasswordPending = Auth.pending("lk_change_password_pending");
     if (changePasswordPending) {
-        // Show change password UI
         showChangePasswordUI(changePasswordPending);
         return;
     }
 
+    // FIX: If there's a session token, verify it with the backend before redirecting.
+    // This prevents a stale token from bypassing login.
     if (Auth.isAuthenticated()) {
-        API.admins.dashboard()
-            .then(() => {
+        Auth.verifySession().then(isValid => {
+            if (isValid) {
                 window.location.href = "tenants.html";
-            })
-            .catch(() => {
-                Auth.clear();
-            });
+            } else {
+                // Token was invalid or expired - already cleared by verifySession
+                // Stay on login page
+            }
+        }).catch(() => {
+            // Any error means we should stay on login page
+            Auth.clear();
+        });
         return;
+    }
+
+    // FIX: If there's a token in localStorage but not sessionStorage, it's a legacy
+    // "remember me" token. Do NOT auto-restore - force a fresh login.
+    const localToken = localStorage.getItem('lk_token');
+    if (localToken && !sessionStorage.getItem('lk_token')) {
+        // Clean up legacy localStorage token
+        Auth.clearLocalStorage();
     }
 
     document.getElementById("togglePwd")?.addEventListener("click", function() {
@@ -69,17 +82,14 @@ function initLoginPage() {
             if (res.success) {
                 // Check if admin must change password
                 if (res.must_change_password) {
-                    // Store change password data
                     Auth.setPending("lk_change_password_pending", {
                         email: email,
                         token: res.token,
                         user: res.user
                     });
-                    // Store token
                     if (res.token) {
                         Auth.setToken(res.token);
                     }
-                    // Show change password UI
                     showChangePasswordUI({
                         email: email,
                         token: res.token,
@@ -118,10 +128,8 @@ function showChangePasswordUI(data) {
     const loginCard = document.querySelector('.auth-card');
     if (!loginCard) return;
 
-    // Store the data
     window._changePasswordData = data;
 
-    // Replace login form with change password form
     loginCard.innerHTML = `
         <div class="d-lg-none text-center mb-4">
             <img src="assets/img/black_logo.png" height="34" alt="Livinkey">
@@ -154,7 +162,6 @@ function showChangePasswordUI(data) {
         </div>
     `;
 
-    // Add event listener for change password form
     document.getElementById("changePwdForm")?.addEventListener("submit", async function(e) {
         e.preventDefault();
         const btn = this.querySelector('button[type="submit"]');
@@ -182,7 +189,6 @@ function showChangePasswordUI(data) {
         LOADER.show(btn, 'Changing password...');
 
         try {
-            // Ensure we have the token in headers
             const token = window._changePasswordData?.token || Auth.getToken();
             if (token) {
                 Auth.setToken(token);
@@ -194,9 +200,8 @@ function showChangePasswordUI(data) {
                 successBox.textContent = res.message || "Password changed successfully. Please login again.";
                 successBox.classList.remove("d-none");
                 
-                // Clear pending data
                 Auth.clearPending("lk_change_password_pending");
-                Auth.clear();
+                Auth.clearAll();
                 
                 setTimeout(() => {
                     window.location.href = "index.html";
@@ -221,15 +226,24 @@ function initOtpPage() {
     const wrap = document.getElementById("otpForm");
     if (!wrap) return;
 
-    // Check for change password pending
     const changePwdPending = Auth.pending("lk_change_password_pending");
     if (changePwdPending) {
         showChangePasswordUI(changePwdPending);
         return;
     }
 
+    // FIX: If there's a session token, verify it with the backend.
     if (Auth.isAuthenticated()) {
-        window.location.href = "tenants.html";
+        Auth.verifySession().then(isValid => {
+            if (isValid) {
+                window.location.href = "tenants.html";
+            } else {
+                // Token invalid - stay on OTP page
+                Auth.clear();
+            }
+        }).catch(() => {
+            Auth.clear();
+        });
         return;
     }
 
@@ -292,6 +306,7 @@ function initOtpPage() {
                 errorBox.classList.add("d-none");
                 if (purpose === "login") {
                     if (res.token) {
+                        // FIX: Store token in sessionStorage only (tab-specific)
                         Auth.setToken(res.token);
                         const userData = {
                             ...res.user,
@@ -491,17 +506,23 @@ document.addEventListener("DOMContentLoaded", () => {
                        window.location.pathname.includes('forgot-password.html');
     
     if (!isAuthPage) {
-        if (!Auth.isAuthenticated()) {
-            const token = localStorage.getItem('lk_token');
-            if (token) {
-                sessionStorage.setItem('lk_token', token);
-                const session = localStorage.getItem('lk_session');
-                if (session) {
-                    sessionStorage.setItem('lk_session', session);
+        // FIX: Verify session with the backend before allowing access to any protected page
+        if (Auth.isAuthenticated()) {
+            Auth.verifySession().then(isValid => {
+                if (!isValid) {
+                    // Token invalid - redirect to login
+                    window.location.href = 'index.html';
                 }
-                if (Auth.isAuthenticated()) {
-                    return;
-                }
+                // If valid, continue - page will load normally
+            }).catch(() => {
+                window.location.href = 'index.html';
+            });
+        } else {
+            // FIX: Check if there's a legacy token in localStorage but not session
+            const localToken = localStorage.getItem('lk_token');
+            if (localToken) {
+                // Clean up legacy localStorage token
+                Auth.clearLocalStorage();
             }
             window.location.href = 'index.html';
             return;

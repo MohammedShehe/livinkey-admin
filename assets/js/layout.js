@@ -2,14 +2,6 @@
 // Full backend integration with permission-based UI
 
 // ============ NOTIFICATION -> EXISTING PAGE MAPPING ============
-// Backend notifications carry an `entity_type` (tenant, guest, bill, pg,
-// admin, feedback, maintenance, document) plus a `link` built from that
-// type (e.g. "/tenants/5"). This admin panel has no router though — it's
-// plain multi-page HTML (tenants.html, bills.html, ...) — so those
-// backend links don't correspond to any real page and would 404 if used
-// directly. This map sends each notification to the correct EXISTING
-// page instead. Unknown/unrecognized types fall back to tenants.html
-// rather than a dead link.
 const NOTIF_PAGE_MAP = {
     tenant: 'tenants.html',
     guest: 'guests.html',
@@ -26,8 +18,6 @@ function resolveNotificationPage(n) {
     if (n.entity_type && NOTIF_PAGE_MAP[n.entity_type]) {
         return NOTIF_PAGE_MAP[n.entity_type];
     }
-    // Fallback: try to infer the type from the first segment of the
-    // backend-provided link (e.g. "/tenants/5" -> "tenants").
     if (n.link) {
         const seg = n.link.split('/').filter(Boolean)[0];
         if (seg && NOTIF_PAGE_MAP[seg]) return NOTIF_PAGE_MAP[seg];
@@ -36,15 +26,36 @@ function resolveNotificationPage(n) {
 }
 
 function renderLayout(activeKey, pageTitle, pageSub) {
-    // Check authentication - redirect to login if not authenticated
+    // FIX: Validate token with backend before rendering layout
     if (!Auth.isAuthenticated()) {
+        // Check for legacy localStorage token - clean it up
+        const localToken = localStorage.getItem('lk_token');
+        if (localToken) {
+            Auth.clearLocalStorage();
+        }
         window.location.href = 'index.html';
         return;
     }
     
+    // FIX: Verify the session with the backend
+    Auth.verifySession().then(isValid => {
+        if (!isValid) {
+            // Token was invalid - redirect to login
+            window.location.href = 'index.html';
+            return;
+        }
+        // Token is valid - proceed with rendering
+        doRender(activeKey, pageTitle, pageSub);
+    }).catch(() => {
+        window.location.href = 'index.html';
+    });
+}
+
+function doRender(activeKey, pageTitle, pageSub) {
     const session = Auth.getSession();
     if (!session) {
-        Auth.logout();
+        Auth.clearAll();
+        window.location.href = 'index.html';
         return;
     }
     
@@ -59,9 +70,6 @@ function renderLayout(activeKey, pageTitle, pageSub) {
     window.LK_ADMIN_ROLE = role;
     window.LK_IS_SUPER_ADMIN = isSuperAdmin;
     
-    // ============================================================
-    // FIX: Check hash to determine if we're on the proofs tab
-    // ============================================================
     let finalActiveKey = activeKey;
     if (window.location.hash === '#proofs' && activeKey === 'bills') {
         finalActiveKey = 'proofs';
@@ -103,14 +111,14 @@ function renderLayout(activeKey, pageTitle, pageSub) {
             label: 'Payments', 
             icon: 'bi-credit-card', 
             href: 'payments.html',
-            permission: 'bills'  // Uses bills permission
+            permission: 'bills'
         },
         { 
             key: 'proofs', 
             label: 'Payment Proofs', 
             icon: 'bi-file-earmark-check', 
             href: 'bills.html#proofs',
-            permission: 'bills'  // Uses bills permission - navigates to bills.html with #proofs hash
+            permission: 'bills'
         },
         { 
             key: 'pgs', 
@@ -142,9 +150,6 @@ function renderLayout(activeKey, pageTitle, pageSub) {
         }
     ];
     
-    // Filter menu based on permissions — strict `=== true` check so a
-    // module with no permission row (undefined) never renders as if
-    // it were granted.
     const hasPermission = (key) => {
         if (key === 'admins') return isSuperAdmin;
         if (isSuperAdmin) return true;
@@ -273,12 +278,6 @@ function renderLayout(activeKey, pageTitle, pageSub) {
             });
     }
     
-    // FIX: previously selected the notif bell via a generic
-    // `document.querySelector('[data-bs-toggle="dropdown"]')`, which
-    // matches ANY dropdown-toggle element in DOM order (the profile
-    // trigger also uses `data-bs-toggle="dropdown"`). It happened to
-    // work because of markup order, but was fragile. Select the bell
-    // by its actual id instead.
     const notifBtn = document.getElementById('notifBell');
     if (notifBtn) {
         notifBtn.addEventListener('click', function() {
@@ -286,19 +285,6 @@ function renderLayout(activeKey, pageTitle, pageSub) {
         });
     }
 
-    // ============================================
-    // NOTIFICATION CLICK -> MARK AS READ + GO TO THE RIGHT EXISTING PAGE
-    //
-    // Event delegation on the (persistent) #notifList container, since
-    // its innerHTML is replaced on every loadNotifications() call but
-    // the container element itself is not recreated.
-    //
-    // On click: mark that notification as read (so the unread badge
-    // reflects reality), refresh the badge count from the server's
-    // response, and only then navigate to the mapped, existing page.
-    // Navigation always happens (via .finally) even if the mark-read
-    // call fails, so the person is never stuck on a dead click.
-    // ============================================
     const notifListEl = document.getElementById('notifList');
     if (notifListEl) {
         notifListEl.addEventListener('click', function(e) {
@@ -309,8 +295,6 @@ function renderLayout(activeKey, pageTitle, pageSub) {
             const id = item.dataset.id;
             const page = item.dataset.page || 'tenants.html';
 
-            // Reflect the click immediately in the UI so the badge
-            // doesn't lag behind while the request is in flight.
             item.style.opacity = '0.6';
 
             API.notifications.markRead(id)
@@ -326,7 +310,6 @@ function renderLayout(activeKey, pageTitle, pageSub) {
         });
     }
 
-    // "Mark all read" link in the dropdown header
     const markAllBtn = document.getElementById('notifMarkAllReadBtn');
     if (markAllBtn) {
         markAllBtn.addEventListener('click', function(e) {
@@ -342,9 +325,6 @@ function renderLayout(activeKey, pageTitle, pageSub) {
         });
     }
 
-    // FIX: the unread badge previously only populated once the
-    // dropdown was opened. Fetch it proactively on page load so the
-    // admin sees an accurate count immediately.
     API.notifications.unreadCount()
         .then(res => {
             if (res && res.success && res.unreadCount !== undefined) {

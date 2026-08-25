@@ -211,6 +211,37 @@
     white-space: nowrap;
   }
 
+  /* User type filter */
+  .user-type-filter-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .user-type-filter-wrapper select {
+    min-width: 160px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    background: var(--surface);
+    color: var(--ink);
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .user-type-filter-wrapper select:focus {
+    border-color: var(--lk-green);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--lk-green-200);
+  }
+  .user-type-filter-wrapper .filter-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
   @media (max-width: 576px) {
     .feedback-card .ratings-grid {
       grid-template-columns: 1fr;
@@ -223,6 +254,13 @@
     }
     .pg-filter-wrapper select {
       min-width: 140px;
+      flex: 1;
+    }
+    .user-type-filter-wrapper {
+      width: 100%;
+    }
+    .user-type-filter-wrapper select {
+      min-width: 120px;
       flex: 1;
     }
   }
@@ -245,6 +283,16 @@
             <p class="text-muted-soft small mb-0">View and manage all tenant feedback and ratings.</p>
           </div>
           <div class="d-flex flex-wrap gap-2 align-items-center">
+            <!-- User Type Filter (NEW) -->
+            <div class="user-type-filter-wrapper">
+              <span class="filter-label"><i class="bi bi-people me-1"></i>Type</span>
+              <select id="userTypeFilter">
+                <option value="all">All Users</option>
+                <option value="tenant">Tenants</option>
+                <option value="guest">Guests</option>
+                <option value="public">Website Visitors</option>
+              </select>
+            </div>
             <!-- PG Filter -->
             <div class="pg-filter-wrapper">
               <span class="filter-label"><i class="bi bi-building me-1"></i>PG</span>
@@ -297,8 +345,11 @@
             <h4 id="detailName" class="mb-0"></h4>
             <div class="text-muted-soft" id="detailMeta"></div>
           </div>
-          <div class="ms-auto">
+          <div class="ms-auto d-flex align-items-center gap-2">
             <span id="detailSentiment" class="sentiment-badge"></span>
+            <button class="btn-icon" style="color:var(--danger);border-color:var(--danger);" id="detailDeleteBtn" title="Delete Feedback">
+              <i class="bi bi-trash3"></i>
+            </button>
           </div>
         </div>
         

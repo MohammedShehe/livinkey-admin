@@ -3,7 +3,7 @@
 
 // ============ CONFIGURATION ============
 const API_CONFIG = {
-    baseURL: 'http://localhost:5000/api',
+    baseURL: 'https://livinkey-backend-e15s.onrender.com/api',
     useMock: false
 };
 
@@ -81,8 +81,6 @@ function getMockResponse(endpoint, method, data) {
 }
 
 // ============ AUTH PAGE DETECTION ============
-// Used both by apiRequest (to decide whether to force-redirect on 401/403)
-// and available for reuse elsewhere.
 function isOnAuthPage() {
     const p = window.location.pathname;
     return p.includes('index.html') ||
@@ -93,28 +91,15 @@ function isOnAuthPage() {
 }
 
 // ============ API REQUEST HELPER ============
-// FIX (session/JWT handling): previously, on a 401/403 the code only
-// cleared sessionStorage. Every request restores the token from
-// localStorage back into sessionStorage whenever sessionStorage is
-// empty, so an expired/invalid token in localStorage kept being
-// resurrected — the app would silently fail every request forever
-// instead of ever sending the user back to log in. This version does
-// a FULL clear (both storages) and redirects to the login page.
 async function apiRequest(endpoint, method, data = null, isFormData = false) {
     if (API_CONFIG.useMock) {
         await new Promise(resolve => setTimeout(resolve, 500));
         return getMockResponse(endpoint, method, data);
     }
 
-    // TRY TO GET TOKEN FROM BOTH STORAGES
+    // FIX: sessionStorage is the ONLY source of truth for the token.
+    // No fallback to localStorage.
     let token = sessionStorage.getItem('lk_token');
-    if (!token) {
-        token = localStorage.getItem('lk_token');
-        // If found in localStorage, restore to sessionStorage
-        if (token) {
-            sessionStorage.setItem('lk_token', token);
-        }
-    }
 
     const headers = {};
 
@@ -146,9 +131,6 @@ async function apiRequest(endpoint, method, data = null, isFormData = false) {
         };
     }
 
-    // Parse the body defensively — some backend endpoints (e.g. payment
-    // receipts) intentionally return raw HTML rather than JSON, and a
-    // failed parse here should never throw an unhandled exception.
     let result;
     try {
         result = await response.json();
@@ -158,18 +140,11 @@ async function apiRequest(endpoint, method, data = null, isFormData = false) {
 
     if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
+            // FIX: Clear sessionStorage on auth failure.
+            // localStorage is also cleared for cleanup of legacy tokens.
+            Auth.clear();
+            Auth.clearLocalStorage();
             if (!isOnAuthPage()) {
-                // Full clear across BOTH storages — this is the fix.
-                sessionStorage.removeItem('lk_token');
-                sessionStorage.removeItem('lk_session');
-                sessionStorage.removeItem('lk_login_pending');
-                sessionStorage.removeItem('lk_reset_pending');
-                localStorage.removeItem('lk_token');
-                localStorage.removeItem('lk_session');
-
-                // Give any in-flight toast a moment to render, then
-                // send the user back to login instead of leaving them
-                // stuck on a page that will now fail every request.
                 setTimeout(() => {
                     window.location.href = 'index.html';
                 }, 1200);
@@ -186,13 +161,10 @@ async function apiRequest(endpoint, method, data = null, isFormData = false) {
 }
 
 // ============ PERMISSION UTILITIES ============
-// Get current admin permissions from session
 function getAdminPermissions() {
     const session = Auth.getSession();
     if (!session) return {};
-    // Super admin has all permissions
     if (session.role === 'super_admin') {
-        // Return all permissions as true for all modules
         const allModules = ['tenants', 'guests', 'bills', 'pgs', 'maintenance', 'documents', 'feedbacks'];
         const perms = {};
         allModules.forEach(m => {
@@ -203,38 +175,30 @@ function getAdminPermissions() {
     return session.permissions || {};
 }
 
-// Check if admin has permission for a module action
 function hasPermission(module, action) {
-    // Super admin check
     const session = Auth.getSession();
     if (session?.role === 'super_admin') return true;
-    
     const permissions = getAdminPermissions();
     if (!permissions[module]) return false;
     return permissions[module][action] === true;
 }
 
-// Check if admin can view a module
 function canView(module) {
     return hasPermission(module, 'view');
 }
 
-// Check if admin can add/create in a module
 function canAdd(module) {
     return hasPermission(module, 'add');
 }
 
-// Check if admin can edit in a module
 function canEdit(module) {
     return hasPermission(module, 'edit');
 }
 
-// Check if admin can delete in a module
 function canDelete(module) {
     return hasPermission(module, 'delete');
 }
 
-// Global permission check function
 window.Permissions = {
     canView,
     canAdd,
@@ -260,7 +224,9 @@ const API = {
         resetPassword: (resetToken, password, confirmPassword) => 
             apiRequest('/auth/reset-password', 'POST', { resetToken, password, confirmPassword }),
         changePassword: (current_password, new_password, confirm_password) => 
-            apiRequest('/auth/change-password', 'POST', { current_password, new_password, confirm_password })
+            apiRequest('/auth/change-password', 'POST', { current_password, new_password, confirm_password }),
+        validateToken: () => 
+            apiRequest('/auth/validate', 'GET')
     },
 
     admins: {
@@ -379,13 +345,6 @@ const API = {
             delete: (id) => 
                 apiRequest(`/guests/notifications/${id}`, 'DELETE')
         },
-        // FIX: These call the admin-scoped /api/guests/admin/* routes,
-        // which are gated server-side by the "guests" permission —
-        // previously guests.js called API.tenants.* instead, which is
-        // gated by the "tenants" permission. That mismatch meant an
-        // admin's granted "guests" permissions had no effect at all
-        // (either blocked when they should've been allowed, or allowed
-        // via "tenants" when they should've been blocked).
         admin: {
             all: (params = {}) => {
                 const qs = new URLSearchParams();
@@ -436,7 +395,6 @@ const API = {
         processDelayed: () => 
             apiRequest('/bills/process-delayed', 'POST'),
         addPayment: (id, data, file) => {
-            // Support both JSON and FormData
             if (file) {
                 const formData = new FormData();
                 Object.keys(data).forEach(k => formData.append(k, data[k]));
@@ -466,11 +424,9 @@ const API = {
         verifyCash: (id, data) => 
             apiRequest(`/bills/${id}/cash-payment/verify`, 'POST', data),
 
-        // Payment Proofs Admin
         paymentProofs: {
             stats: () => 
                 apiRequest('/bills/payment-proofs/stats', 'GET'),
-            
             getAll: (params = {}) => {
                 const qs = new URLSearchParams();
                 Object.keys(params).forEach(k => {
@@ -480,21 +436,31 @@ const API = {
                 });
                 return apiRequest(`/bills/payment-proofs?${qs.toString()}`, 'GET');
             },
-            
             getById: (id) => 
                 apiRequest(`/bills/payment-proofs/${id}`, 'GET'),
-            
-            // FIXED: verify now accepts an object with admin_notes, paid_from, paid_till
             verify: (id, data) => {
-                // data should be: { admin_notes, paid_from, paid_till }
                 return apiRequest(`/bills/payment-proofs/${id}/verify`, 'PUT', data);
             },
-            
             reject: (id, admin_notes = null) => 
                 apiRequest(`/bills/payment-proofs/${id}/reject`, 'PUT', { admin_notes }),
-            
             delete: (id) => 
                 apiRequest(`/bills/payment-proofs/${id}`, 'DELETE')
+        },
+
+        fineAdjustment: {
+            adjust: (billId, data) => 
+                apiRequest(`/bills/${billId}/fine-adjust`, 'PUT', data),
+            getHistory: (billId) => 
+                apiRequest(`/bills/${billId}/fine-adjustments`, 'GET'),
+            getAll: (params = {}) => {
+                const qs = new URLSearchParams();
+                Object.keys(params).forEach(k => {
+                    if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+                        qs.append(k, params[k]);
+                    }
+                });
+                return apiRequest(`/bills/fine-adjustments/all?${qs.toString()}`, 'GET');
+            }
         }
     },
 
@@ -625,6 +591,20 @@ const API = {
             apiRequest('/feedbacks/status', 'GET'),
         publicReviews: () => 
             apiRequest('/feedbacks/public/pg-reviews', 'GET'),
+        guest: {
+            submit: (data) => 
+                apiRequest('/feedbacks/guest/submit', 'POST', data),
+            getMyFeedback: () => 
+                apiRequest('/feedbacks/guest/my-feedback', 'GET'),
+            status: () => 
+                apiRequest('/feedbacks/guest/status', 'GET'),
+        },
+        public: {
+            submit: (data) => 
+                apiRequest('/feedbacks/public/submit', 'POST', data),
+            status: (email, phone) => 
+                apiRequest(`/feedbacks/public/status?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`, 'GET'),
+        },
         admin: {
             stats: () => 
                 apiRequest('/feedbacks/admin/stats', 'GET'),
@@ -636,7 +616,9 @@ const API = {
                     }
                 });
                 return apiRequest(`/feedbacks/admin/all?${qs.toString()}`, 'GET');
-            }
+            },
+            delete: (id) => 
+                apiRequest(`/feedbacks/admin/${id}`, 'DELETE')
         }
     },
 
@@ -679,19 +661,12 @@ const API = {
             apiRequest(`/payments/history/${tenantId}`, 'GET'),
         webhook: (gateway, data) => 
             apiRequest(`/payments/webhook/${gateway}`, 'POST', data),
-        // Admin receipt viewing — returns raw HTML, so these are built
-        // as direct URLs (see receiptUrl/downloadUrl) rather than JSON
-        // fetch helpers. Kept here for discoverability.
         receiptUrl: (type, paymentId) => {
-            const token = (window.Auth && Auth.getTokenFromStorage)
-                ? Auth.getTokenFromStorage()
-                : (sessionStorage.getItem('lk_token') || localStorage.getItem('lk_token'));
+            const token = Auth.getToken();
             return `${API_CONFIG.baseURL}/payments/receipt/${type}/${paymentId}?token=${encodeURIComponent(token || '')}`;
         },
         downloadUrl: (type, paymentId) => {
-            const token = (window.Auth && Auth.getTokenFromStorage)
-                ? Auth.getTokenFromStorage()
-                : (sessionStorage.getItem('lk_token') || localStorage.getItem('lk_token'));
+            const token = Auth.getToken();
             return `${API_CONFIG.baseURL}/payments/receipt/${type}/${paymentId}/download?token=${encodeURIComponent(token || '')}`;
         },
         tenant: {
@@ -798,74 +773,115 @@ function showToast(message, type = 'success') {
 
 // ============ AUTH HELPER ============
 const Auth = {
+    // FIX: sessionStorage is the ONLY source of truth.
+    // No fallback to localStorage.
     getToken: () => {
-        let token = sessionStorage.getItem('lk_token');
-        if (!token) {
-            token = localStorage.getItem('lk_token');
-            if (token) {
-                // Restore to sessionStorage
-                sessionStorage.setItem('lk_token', token);
-            }
-        }
-        return token;
+        return sessionStorage.getItem('lk_token');
     },
+    
     setToken: (token) => {
         sessionStorage.setItem('lk_token', token);
-        localStorage.setItem('lk_token', token);
+        // Do NOT write to localStorage
     },
+    
     getTokenFromStorage: () => {
-        return sessionStorage.getItem('lk_token') || localStorage.getItem('lk_token');
+        // FIX: Only sessionStorage - no fallback
+        return sessionStorage.getItem('lk_token');
     },
+    
     getSession: () => {
         try {
-            let session = sessionStorage.getItem('lk_session');
-            if (!session) {
-                session = localStorage.getItem('lk_session');
-                if (session) {
-                    sessionStorage.setItem('lk_session', session);
-                }
-            }
+            const session = sessionStorage.getItem('lk_session');
             return session ? JSON.parse(session) : null;
         } catch {
             return null;
         }
     },
+    
     setSession: (user) => {
-        // Ensure permissions are stored
         const userData = {
             ...user,
             permissions: user?.permissions || {}
         };
         sessionStorage.setItem('lk_session', JSON.stringify(userData));
-        localStorage.setItem('lk_session', JSON.stringify(userData));
+        // Do NOT write to localStorage
     },
+    
+    // FIX: Clear sessionStorage only (the real session)
     clear: () => {
         sessionStorage.removeItem('lk_token');
         sessionStorage.removeItem('lk_session');
         sessionStorage.removeItem('lk_login_pending');
         sessionStorage.removeItem('lk_reset_pending');
+        sessionStorage.removeItem('lk_change_password_pending');
+    },
+    
+    // FIX: Separate method for localStorage cleanup (legacy tokens only)
+    clearLocalStorage: () => {
         localStorage.removeItem('lk_token');
         localStorage.removeItem('lk_session');
     },
-    isAuthenticated: () => {
-        const token = sessionStorage.getItem('lk_token') || localStorage.getItem('lk_token');
-        return !!token;
-    },
-    logout: () => {
+    
+    // FIX: Clear both (for logout and hard reset)
+    clearAll: () => {
         Auth.clear();
+        Auth.clearLocalStorage();
+    },
+    
+    isAuthenticated: () => {
+        // FIX: sessionStorage is the ONLY check
+        return !!sessionStorage.getItem('lk_token');
+    },
+    
+    // FIX: Verify session with the backend
+    verifySession: async () => {
+        const token = Auth.getToken();
+        if (!token) return false;
+        
+        try {
+            // Try the dedicated validate endpoint first
+            const res = await API.auth.validateToken();
+            if (res.success) {
+                return true;
+            } else {
+                Auth.clear();
+                return false;
+            }
+        } catch (error) {
+            // Fallback: try /admins/dashboard
+            try {
+                const res = await API.admins.dashboard();
+                if (res.success) {
+                    return true;
+                } else {
+                    Auth.clear();
+                    return false;
+                }
+            } catch (fallbackError) {
+                Auth.clear();
+                return false;
+            }
+        }
+    },
+    
+    logout: () => {
+        Auth.clearAll();
         window.location.href = 'index.html';
     },
-    pending(key) {
+    
+    pending: (key) => {
         try {
             return JSON.parse(sessionStorage.getItem(key));
         } catch {
             return null;
         }
     },
-    setPending(key, val) {
+    
+    setPending: (key, val) => {
         sessionStorage.setItem(key, JSON.stringify(val));
     },
-    clearPending(key) {
+    
+    clearPending: (key) => {
         sessionStorage.removeItem(key);
     }
 };

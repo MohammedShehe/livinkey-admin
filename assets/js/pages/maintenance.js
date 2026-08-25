@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 (m.room_number || '').toLowerCase().includes(f) ||
                 (m.tenant_name || '').toLowerCase().includes(f) ||
                 (m.issue_type || '').toLowerCase().includes(f) ||
-                (m.email || '').toLowerCase().includes(f)
+                (m.tenant_email || '').toLowerCase().includes(f)
             );
         }
 
@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <tr>
                 <td><span class="fw-semibold">${m.room_number || '—'}</span></td>
                 <td>${m.tenant_name || '—'}</td>
-                <td>${m.email || '—'}</td>
+                <td>${m.tenant_email || '—'}</td>
                 <td><span class="chip chip-blue">${m.issue_type || '—'}</span></td>
                 <td>${m.service_date ? formatDate(m.service_date) : '—'}</td>
                 <td>${m.free_time || '—'}</td>
@@ -72,6 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="d-flex gap-1 justify-content-end align-items-center">
                         ${getStatusActionButton(m)}
                         ${canDeleteMaintenance ? `<button class="btn-icon" title="Delete" onclick="window.deleteRequest('${m.id}')"><i class="bi bi-trash3"></i></button>` : ''}
+                        ${m.status === 'pending' && canEditMaintenance ? `<button class="btn-icon" title="Forward to WhatsApp" onclick="window.forwardToWhatsApp('${m.id}')" style="color:#25D366;border-color:#25D366;"><i class="bi bi-whatsapp"></i></button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -117,6 +118,119 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================
+    // FORWARD TO WHATSAPP - NEW FEATURE
+    // ============================================
+    window.forwardToWhatsApp = async function(id) {
+        if (!canEditMaintenance) {
+            showToast("You don't have permission to forward maintenance requests.", "warning");
+            return;
+        }
+
+        // Get admin's phone number from session
+        const session = Auth.getSession();
+        if (!session) {
+            showToast("Please login again to access your profile.", "warning");
+            return;
+        }
+
+        // Build phone number - remove ALL non-numeric characters
+        let rawPhone = session.phone;
+        if (!rawPhone) {
+            rawPhone = (session.country_code || '') + (session.phone || '');
+        }
+        
+        // Remove all non-numeric characters (+, -, spaces, etc.)
+        const adminPhone = rawPhone.replace(/[^0-9]/g, '');
+
+        // Validate phone number (at least 10 digits)
+        if (!adminPhone || adminPhone.length < 10) {
+            showToast("Your phone number is not set or invalid in your profile. Please update your profile first.", "warning");
+            return;
+        }
+
+        // Find the maintenance request
+        const numericId = typeof id === 'string' ? parseInt(id) : id;
+        const m = maintenanceData.find(x => x.id === numericId);
+        
+        if (!m) {
+            showToast("Maintenance request not found. Please refresh the page.", "warning");
+            return;
+        }
+
+        if (m.status !== 'pending') {
+            showToast("Only pending requests can be forwarded.", "warning");
+            return;
+        }
+
+        // Build WhatsApp message
+        const message = buildWhatsAppMessage(m);
+        const encodedMessage = encodeURIComponent(message);
+        const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodedMessage}`;
+
+        // Open WhatsApp in new tab
+        window.open(whatsappUrl, '_blank');
+
+        // Update status to in_progress
+        try {
+            const res = await API.maintenance.admin.start(id);
+            if (res.success) {
+                showToast(res.message || "Maintenance forwarded to WhatsApp and status updated to In Progress.", "success");
+                loadMaintenance();
+            } else {
+                showToast(res.message || "Failed to update status after forwarding.", "danger");
+            }
+        } catch (error) {
+            showToast("Error updating status: " + error.message, "danger");
+        }
+    };
+
+    // ============================================
+    // BUILD WHATSAPP MESSAGE - FIXED WITH CORRECT FIELDS
+    // ============================================
+    function buildWhatsAppMessage(m) {
+        // Get email and phone from the maintenance data (backend already provides these)
+        let email = m.tenant_email || 'N/A';
+        let phone = m.tenant_phone || 'N/A';
+        
+        // If still N/A, try to find the tenant in the global tenants list
+        if (email === 'N/A' || phone === 'N/A') {
+            if (window.LK_TENANTS && window.LK_TENANTS.length > 0) {
+                const tenant = window.LK_TENANTS.find(t => 
+                    t.full_name === m.tenant_name || 
+                    t.id === m.tenant_id
+                );
+                if (tenant) {
+                    if (email === 'N/A') email = tenant.email || 'N/A';
+                    if (phone === 'N/A') phone = tenant.phone || 'N/A';
+                }
+            }
+        }
+
+        const lines = [
+            "🏠 *Maintenance Request - Livinkey*",
+            "",
+            `👤 *Tenant:* ${m.tenant_name || 'N/A'}`,
+            `📧 *Email:* ${email}`,
+            `📞 *Phone:* ${phone}`,
+            `🏢 *PG:* ${m.pg_name || 'N/A'}`,
+            `🚪 *Room:* ${m.room_number || 'N/A'}`,
+            "",
+            `🔧 *Issue Type:* ${m.issue_type || 'N/A'}`,
+            `📝 *Description:* ${m.description || 'N/A'}`,
+            `📅 *Service Date:* ${m.service_date ? formatDate(m.service_date) : 'N/A'}`,
+            `⏰ *Free Time:* ${m.free_time || 'N/A'}`,
+            "",
+            `📸 *Image:* ${m.image_url || 'No image attached'}`,
+            "",
+            "---",
+            "⚠️ *This request has been forwarded from the Livinkey Admin Panel.*",
+            "Please take appropriate action."
+        ];
+
+        return lines.join('\n');
+    }
+
+    // ============================================
     // UPDATE STATUS - EXPOSED TO GLOBAL SCOPE
     // ============================================
     window.updateStatus = async function(id, newStatus) {
@@ -125,7 +239,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         
-        // FIX: Convert ID to number since backend returns numbers
         const numericId = typeof id === 'string' ? parseInt(id) : id;
         const m = maintenanceData.find(x => x.id === numericId);
         
@@ -168,7 +281,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const imageModal = new bootstrap.Modal(document.getElementById("imagePreviewModal"));
 
     window.previewImage = function(id) {
-        // FIX: Convert ID to number since backend returns numbers
         const numericId = typeof id === 'string' ? parseInt(id) : id;
         const m = maintenanceData.find(x => x.id === numericId);
         
@@ -196,7 +308,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         
-        // FIX: Convert ID to number since backend returns numbers
         const numericId = typeof id === 'string' ? parseInt(id) : id;
         const m = maintenanceData.find(x => x.id === numericId);
         

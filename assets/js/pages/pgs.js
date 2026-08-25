@@ -735,7 +735,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         
-        console.log("Delete called with ID:", id, "Type:", typeof id);
 
         const p = pgData.find(x => String(x.id) === String(id));
         
@@ -752,9 +751,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const btn = this;
             LOADER.show(btn, 'Deleting...');
             try {
-                console.log("Sending delete request for ID:", deletePgId);
                 const res = await API.pgs.delete(deletePgId);
-                console.log("Delete response:", res);
                 
                 if (res.success) {
                     showToast(res.message || `PG "${p.name}" deleted successfully.`, "success");

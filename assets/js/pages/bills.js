@@ -253,6 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td class="text-end">
                         <button class="btn-icon me-1" title="View" onclick="openBillDetail('${b.id}')"><i class="bi bi-eye"></i></button>
                         ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon me-1" title="Cash Payment" onclick="openCashPayment('${b.id}')"><i class="bi bi-cash"></i></button>` : ''}
+                        ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon me-1" title="Adjust Fine" onclick="openFineAdjust('${b.id}')"><i class="bi bi-coin"></i></button>` : ''}
                         ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon" title="Send Message" onclick="openCustomMessage('${b.id}')"><i class="bi bi-chat-dots"></i></button>` : ''}
                     </td>
                 </tr>
@@ -262,16 +263,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================
-    // MODAL DECLARATIONS - FIXED: Added proofPreviewModal
+    // MODAL DECLARATIONS
     // ============================================
     const detailModal = new bootstrap.Modal(document.getElementById("detailModal"));
     const cashModal = new bootstrap.Modal(document.getElementById("cashPaymentModal"));
     const messageModal = new bootstrap.Modal(document.getElementById("customMessageModal"));
     const createBillModal = new bootstrap.Modal(document.getElementById("createBillModal"));
-    const proofPreviewModal = new bootstrap.Modal(document.getElementById("proofPreviewModal")); // ← FIXED: Added this line
+    const proofPreviewModal = new bootstrap.Modal(document.getElementById("proofPreviewModal"));
+    const fineAdjustModal = new bootstrap.Modal(document.getElementById("fineAdjustModal"));
 
     // ============================================
-    // RENDER PROOF TABLE - UPDATED with better error handling
+    // RENDER PROOF TABLE
     // ============================================
     function renderProofTable() {
         const tbody = document.getElementById("proofsTbody");
@@ -351,7 +353,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================
-    // PROOF PREVIEW - UPDATED with paid_from and paid_till
+    // PROOF PREVIEW
     // ============================================
     window.previewProof = async function(id) {
         try {
@@ -440,9 +442,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const deleteBtn = document.getElementById("proofDeleteBtn");
             const notesInput = document.getElementById("proofAdminNotes");
             
-            // ============================================================
-            // NEW: Show paid_from and paid_till fields for verification
-            // ============================================================
+            // Show paid_from and paid_till fields for verification
             const dateFieldsContainer = document.getElementById("proofDateFieldsContainer");
             if (dateFieldsContainer) {
                 if (p.status === 'pending' && canEditBills && billExists) {
@@ -556,8 +556,18 @@ document.addEventListener("DOMContentLoaded", () => {
                     <button class="btn btn-outline-brand" onclick="openCustomMessage('${b.id}')"><i class="bi bi-chat-dots me-1"></i>Message</button>
                 `;
             }
+
+            // Show fine adjustment button if fine exists
+            if (canEditBills && b.status !== 'paid' && fineAmount > 0) {
+                footerButtons += `
+                    <button class="btn btn-outline-danger" onclick="openFineAdjust('${b.id}')"><i class="bi bi-coin me-1"></i>Adjust Fine</button>
+                `;
+            }
             
             document.getElementById("detailFooter").innerHTML = footerButtons;
+            
+            // Load fine adjustment history
+            await showFineAdjustmentHistory(id);
             
             detailModal.show();
         } catch (error) {
@@ -712,7 +722,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ============================================
-    // VERIFY PROOF - UPDATED with paid_from and paid_till
+    // VERIFY PROOF
     // ============================================
     window.verifyProof = async function(id, admin_notes = null) {
         if (!canEditBills) {
@@ -1034,6 +1044,174 @@ document.addEventListener("DOMContentLoaded", () => {
         LOADER.hide(btn);
         btn.innerHTML = originalText;
     });
+
+    // ============================================
+    // FINE ADJUSTMENT - NEW FEATURE
+    // ============================================
+
+    /**
+     * Open fine adjustment modal for a bill
+     */
+    window.openFineAdjust = async function(billId) {
+        if (!canEditBills) {
+            showToast("You don't have permission to adjust fines.", "warning");
+            return;
+        }
+
+        try {
+            const res = await API.bills.getById(billId);
+            if (!res.success || !res.data) {
+                showToast("Bill not found.", "danger");
+                return;
+            }
+
+            const bill = res.data;
+            const currentFine = parseFloat(bill.fine_amount) || 0;
+
+            if (currentFine <= 0) {
+                showToast("This bill has no fine to adjust.", "warning");
+                return;
+            }
+
+            document.getElementById("fineAdjustBillId").value = bill.id;
+            document.getElementById("fineCurrentAmount").textContent = `₹${currentFine.toFixed(2)}`;
+            document.getElementById("fineNewAmount").value = currentFine;
+            document.getElementById("fineNewAmount").max = currentFine;
+            document.getElementById("fineReason").value = "";
+            document.getElementById("fineAdjustError").classList.add("d-none");
+
+            fineAdjustModal.show();
+        } catch (error) {
+            showToast("Error loading bill: " + error.message, "danger");
+        }
+    };
+
+    // Validate fine amount on input
+    document.getElementById("fineNewAmount")?.addEventListener("input", function() {
+        const max = parseFloat(this.max) || 0;
+        const val = parseFloat(this.value) || 0;
+        const errorEl = document.getElementById("fineAdjustError");
+        
+        if (val < 0) {
+            this.value = 0;
+        }
+        if (val > max) {
+            this.value = max;
+            errorEl.textContent = `Fine amount cannot exceed current fine (₹${max.toFixed(2)})`;
+            errorEl.classList.remove("d-none");
+        } else {
+            errorEl.classList.add("d-none");
+        }
+    });
+
+    // Submit fine adjustment
+    document.getElementById("fineAdjustForm")?.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        const errorEl = document.getElementById("fineAdjustError");
+        errorEl.classList.add("d-none");
+
+        const billId = document.getElementById("fineAdjustBillId").value;
+        const newFine = parseFloat(document.getElementById("fineNewAmount").value) || 0;
+        const currentFine = parseFloat(document.getElementById("fineCurrentAmount").textContent.replace(/[₹,]/g, '')) || 0;
+        const reason = document.getElementById("fineReason").value.trim();
+
+        if (!reason) {
+            errorEl.textContent = "Please provide a reason for this adjustment.";
+            errorEl.classList.remove("d-none");
+            return;
+        }
+
+        if (newFine > currentFine) {
+            errorEl.textContent = `New fine amount cannot exceed current fine (₹${currentFine.toFixed(2)})`;
+            errorEl.classList.remove("d-none");
+            return;
+        }
+
+        if (newFine === currentFine) {
+            errorEl.textContent = "New fine amount is same as current. No adjustment needed.";
+            errorEl.classList.remove("d-none");
+            return;
+        }
+
+        if (!confirm(`Adjust fine from ₹${currentFine.toFixed(2)} to ₹${newFine.toFixed(2)}? This action will be logged and the tenant will be notified.`)) {
+            return;
+        }
+
+        LOADER.show(btn, 'Adjusting...');
+
+        try {
+            const res = await API.bills.fineAdjustment.adjust(billId, {
+                new_fine_amount: newFine,
+                reason: reason
+            });
+
+            if (res.success) {
+                showToast(res.message || "Fine adjusted successfully.", "success");
+                fineAdjustModal.hide();
+                loadData();
+                // Refresh detail view if open
+                if (currentBillId) {
+                    openBillDetail(currentBillId);
+                }
+            } else {
+                showToast(res.message || "Failed to adjust fine.", "danger");
+            }
+        } catch (error) {
+            showToast("Error adjusting fine: " + error.message, "danger");
+        }
+
+        LOADER.hide(btn);
+    });
+
+    /**
+     * Show fine adjustment history in bill detail
+     */
+    async function showFineAdjustmentHistory(billId) {
+        try {
+            const res = await API.bills.fineAdjustment.getHistory(billId);
+            const container = document.getElementById("fineAdjustHistoryContainer");
+            
+            if (!container) return;
+            
+            if (!res.success || !res.data || res.data.length === 0) {
+                container.innerHTML = `<div class="text-muted-soft small">No fine adjustments recorded.</div>`;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Admin</th>
+                                <th>Old Fine</th>
+                                <th>New Fine</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${res.data.map(a => `
+                                <tr>
+                                    <td>${formatDateTime(a.adjusted_at)}</td>
+                                    <td>${a.admin_name || 'Unknown'}</td>
+                                    <td>${fmtINR(a.old_fine_amount)}</td>
+                                    <td>${fmtINR(a.new_fine_amount)}</td>
+                                    <td class="small">${a.reason || '—'}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } catch (error) {
+            const container = document.getElementById("fineAdjustHistoryContainer");
+            if (container) {
+                container.innerHTML = `<div class="text-muted-soft small">Error loading history.</div>`;
+            }
+        }
+    }
 
     // ============================================
     // TAB SWITCHING
