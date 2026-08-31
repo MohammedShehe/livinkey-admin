@@ -350,10 +350,15 @@
         <div class="col-lg-4">
           <div class="section-card fade-in">
             <div class="d-flex justify-content-between align-items-center mb-3">
-              <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>History</h5>
-              <button class="btn btn-sm btn-outline-brand" onclick="loadHistory()">
-                <i class="bi bi-arrow-clockwise"></i>
-              </button>
+                <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>History</h5>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-danger" onclick="clearAllHistory()" title="Clear all history (Super Admin only)">
+                        <i class="bi bi-trash3"></i> Clear All
+                    </button>
+                    <button class="btn btn-sm btn-outline-brand" onclick="loadHistory()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
             </div>
             <div id="historyList">
               <div class="text-center text-muted-soft py-4">

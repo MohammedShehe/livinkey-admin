@@ -649,6 +649,16 @@ const API = {
             });
             return apiRequest(`/admin-notifications/history?${qs.toString()}`, 'GET');
         },
+        // ============================================================
+        // NEW: Delete a notification log by ID
+        // ============================================================
+        delete: (id) => 
+            apiRequest(`/admin-notifications/${id}`, 'DELETE'),
+        // ============================================================
+        // NEW: Delete multiple notification logs
+        // ============================================================
+        deleteMultiple: (ids) => 
+            apiRequest('/admin-notifications', 'DELETE', { ids }),
         pgList: () => 
             apiRequest('/admin-notifications/pg-list', 'GET'),
         tenantsByPG: (pgId) => 

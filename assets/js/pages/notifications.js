@@ -441,7 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     // ============================================
-    // HISTORY
+    // RENDER HISTORY - WITH DELETE BUTTONS
     // ============================================
     function renderHistory() {
         const container = document.getElementById('historyList');
@@ -457,16 +457,24 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         
+        // Get the current admin's ID for permission checking
+        const session = Auth.getSession();
+        const currentAdminId = session?.id || null;
+        const isSuperAdmin = session?.role === 'super_admin';
+        
         container.innerHTML = historyData.slice(0, 20).map(h => {
             const badgeClass = h.recipient_type === 'all' ? 'all' : h.recipient_type === 'pg' ? 'pg' : 'individual';
             const badgeLabel = h.recipient_type === 'all' ? 'All' : h.recipient_type === 'pg' ? 'PG' : 'Individual';
             const pushIcon = h.send_push ? '<i class="bi bi-bell-fill text-success"></i>' : '<i class="bi bi-bell-slash text-muted"></i>';
             const emailIcon = h.send_email ? '<i class="bi bi-envelope-fill text-success"></i>' : '<i class="bi bi-envelope-slash text-muted"></i>';
             
+            // Show delete button only if admin sent this notification OR is super admin
+            const canDelete = isSuperAdmin || h.admin_id === currentAdminId;
+            
             return `
-                <div class="history-item">
+                <div class="history-item" data-id="${h.id}">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div>
+                        <div style="flex:1;min-width:0;">
                             <div class="h-title">${h.title || 'Untitled'}</div>
                             <div class="h-meta">
                                 <span class="h-badge ${badgeClass}">${badgeLabel}</span>
@@ -474,17 +482,121 @@ document.addEventListener("DOMContentLoaded", () => {
                                 <span class="ms-2">${h.recipient_count || 0} recipients</span>
                             </div>
                         </div>
-                        <div class="text-end">
+                        <div class="text-end" style="flex-shrink:0;">
                             <div class="h-meta">${formatDateTime(h.sent_at)}</div>
                             <div class="h-meta">by ${h.admin_name || 'Admin'}</div>
+                            ${canDelete ? `
+                                <button class="btn btn-sm btn-icon history-delete-btn" 
+                                        data-id="${h.id}" 
+                                        style="width:28px;height:28px;border-radius:6px;color:var(--danger);border-color:var(--danger);margin-top:4px;"
+                                        title="Delete this notification log">
+                                    <i class="bi bi-trash3" style="font-size:0.75rem;"></i>
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                     <div class="h-meta mt-1 text-truncate" style="max-width:300px;">${h.message || ''}</div>
                 </div>
             `;
         }).join('');
+        
+        // ============================================================
+        // NEW: Attach delete event listeners to each delete button
+        // ============================================================
+        document.querySelectorAll('.history-delete-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const id = this.dataset.id;
+                deleteNotificationLog(id);
+            });
+        });
     }
 
+    // ============================================================
+    // NEW: Delete a single notification log
+    // ============================================================
+    function deleteNotificationLog(id) {
+        if (!id) return;
+        
+        // Find the history item to show confirmation
+        const item = historyData.find(h => h.id === parseInt(id));
+        if (!item) {
+            showToast("Notification not found.", "warning");
+            return;
+        }
+        
+        if (!confirm(`Delete this notification log?\n\nTitle: "${item.title}"\nSent: ${formatDateTime(item.sent_at)}\nThis action cannot be undone.`)) {
+            return;
+        }
+        
+        const btn = document.querySelector(`.history-delete-btn[data-id="${id}"]`);
+        if (btn) {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;"></span>';
+            btn.disabled = true;
+        }
+        
+        API.adminNotifications.delete(id)
+            .then(res => {
+                if (res.success) {
+                    showToast(res.message || "Notification log deleted.", "success");
+                    // Reload data
+                    loadData();
+                } else {
+                    showToast(res.message || "Failed to delete notification.", "danger");
+                    if (btn) {
+                        btn.innerHTML = originalHTML;
+                        btn.disabled = false;
+                    }
+                }
+            })
+            .catch(error => {
+                showToast("Error deleting notification: " + error.message, "danger");
+                if (btn) {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                }
+            });
+    }
+
+    // ============================================================
+    // NEW: Clear all history (with confirmation) - Only for super admins
+    // ============================================================
+    window.clearAllHistory = function() {
+        const session = Auth.getSession();
+        if (session?.role !== 'super_admin') {
+            showToast("Only Super Admins can clear all history.", "warning");
+            return;
+        }
+        
+        if (historyData.length === 0) {
+            showToast("No history to clear.", "info");
+            return;
+        }
+        
+        if (!confirm(`Delete ALL ${historyData.length} notification logs? This action cannot be undone!`)) {
+            return;
+        }
+        
+        const ids = historyData.map(h => h.id);
+        
+        API.adminNotifications.deleteMultiple(ids)
+            .then(res => {
+                if (res.success) {
+                    showToast(res.message || `${res.deleted_count || ids.length} notification logs deleted.`, "success");
+                    loadData();
+                } else {
+                    showToast(res.message || "Failed to delete notifications.", "danger");
+                }
+            })
+            .catch(error => {
+                showToast("Error deleting notifications: " + error.message, "danger");
+            });
+    };
+
+    // ============================================
+    // LOAD HISTORY
+    // ============================================
     window.loadHistory = function() {
         loadData();
     };

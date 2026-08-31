@@ -220,7 +220,9 @@ function doRender(activeKey, pageTitle, pageSub) {
                     <div class="dropdown-menu dropdown-menu-end p-2" style="width:320px;">
                         <div class="d-flex align-items-center justify-content-between px-2 mb-2">
                             <p class="fw-bold mb-0" style="font-family:'Sora';">Notifications</p>
-                            <button type="button" class="btn btn-link btn-sm p-0 small" id="notifMarkAllReadBtn">Mark all read</button>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-link btn-sm p-0 small" id="notifMarkAllReadBtn">Mark all read</button>
+                            </div>
                         </div>
                         <div id="notifList">
                             <p class="text-muted-soft small text-center py-2">Loading notifications...</p>
@@ -261,7 +263,40 @@ function doRender(activeKey, pageTitle, pageSub) {
             }
         }
     }
+
+    // ============================================================
+    // NEW: Delete notification function
+    // ============================================================
+    function deleteNotification(id) {
+        if (!confirm('Delete this notification?')) return;
+        
+        API.notifications.delete(id)
+            .then(res => {
+                if (res.success) {
+                    // Get updated unread count
+                    API.notifications.unreadCount()
+                        .then(countRes => {
+                            if (countRes && countRes.success && countRes.unreadCount !== undefined) {
+                                updateNotificationBadge(countRes.unreadCount);
+                            }
+                        })
+                        .catch(() => {});
+                    
+                    // Reload the notification list
+                    loadNotifications();
+                    showToast('Notification deleted', 'success');
+                } else {
+                    showToast(res.message || 'Failed to delete notification', 'danger');
+                }
+            })
+            .catch(() => {
+                showToast('Error deleting notification', 'danger');
+            });
+    }
     
+    // ============================================================
+    // FIXED: loadNotifications with delete buttons
+    // ============================================================
     function loadNotifications() {
         const list = document.getElementById('notifList');
         if (!list) return;
@@ -273,14 +308,33 @@ function doRender(activeKey, pageTitle, pageSub) {
                         list.innerHTML = '<p class="text-muted-soft small text-center py-2">No notifications</p>';
                     } else {
                         list.innerHTML = res.data.map(n => `
-                            <a href="#" class="dropdown-item rounded-3 py-2 mb-1 notif-item" data-id="${n.id}" data-page="${resolveNotificationPage(n)}">
-                                <span style="color:${n.color || 'var(--lk-green)'};">
-                                    <i class="bi ${n.icon || 'bi-bell'} me-2"></i>
-                                </span>
-                                ${n.title}
-                                <br><small class="text-muted-soft">${n.message}</small>
-                            </a>
+                            <div class="dropdown-item rounded-3 py-2 mb-1 notif-item-wrapper" data-id="${n.id}">
+                                <div class="d-flex align-items-start gap-2">
+                                    <a href="#" class="flex-grow-1 notif-item" data-id="${n.id}" data-page="${resolveNotificationPage(n)}" style="text-decoration:none;color:inherit;">
+                                        <span style="color:${n.color || 'var(--lk-green)'};">
+                                            <i class="bi ${n.icon || 'bi-bell'} me-2"></i>
+                                        </span>
+                                        ${n.title}
+                                        <br><small class="text-muted-soft">${n.message}</small>
+                                    </a>
+                                    <button class="btn btn-sm btn-icon notif-delete-btn" 
+                                            data-id="${n.id}" 
+                                            style="width:28px;height:28px;flex-shrink:0;border-radius:6px;color:var(--danger);border-color:var(--danger);"
+                                            title="Delete notification">
+                                        <i class="bi bi-x-lg" style="font-size:0.7rem;"></i>
+                                    </button>
+                                </div>
+                            </div>
                         `).join('');
+                        
+                        // Attach delete event listeners
+                        document.querySelectorAll('.notif-delete-btn').forEach(btn => {
+                            btn.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                const id = this.dataset.id;
+                                deleteNotification(id);
+                            });
+                        });
                     }
                 }
                 if (res.unreadCount !== undefined) {
@@ -333,6 +387,7 @@ function doRender(activeKey, pageTitle, pageSub) {
                     if (res && res.success) {
                         updateNotificationBadge(0);
                         loadNotifications();
+                        showToast('All notifications marked as read', 'success');
                     }
                 })
                 .catch(() => { /* non-fatal */ });
