@@ -637,6 +637,33 @@ const API = {
             apiRequest(`/notifications/${id}`, 'DELETE')
     },
 
+    adminNotifications: {
+        send: (data) => 
+            apiRequest('/admin-notifications/send', 'POST', data),
+        history: (params = {}) => {
+            const qs = new URLSearchParams();
+            Object.keys(params).forEach(k => {
+                if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+                    qs.append(k, params[k]);
+                }
+            });
+            return apiRequest(`/admin-notifications/history?${qs.toString()}`, 'GET');
+        },
+        pgList: () => 
+            apiRequest('/admin-notifications/pg-list', 'GET'),
+        tenantsByPG: (pgId) => 
+            apiRequest(`/admin-notifications/tenants-by-pg/${pgId}`, 'GET'),
+        allTenants: (params = {}) => {
+            const qs = new URLSearchParams();
+            Object.keys(params).forEach(k => {
+                if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+                    qs.append(k, params[k]);
+                }
+            });
+            return apiRequest(`/admin-notifications/all-tenants?${qs.toString()}`, 'GET');
+        }
+    },
+
     tenantNotifications: {
         get: (limit = 50, offset = 0) => 
             apiRequest(`/tenant-notifications?limit=${limit}&offset=${offset}`, 'GET'),

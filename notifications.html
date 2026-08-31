@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Send Notifications · Livinkey Admin</title>
+<link rel="icon" href="assets/img/black_logo.png">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="assets/css/style.css" rel="stylesheet">
+<style>
+  .recipient-card {
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--surface);
+  }
+  .recipient-card:hover {
+    border-color: var(--lk-green);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+  .recipient-card.active {
+    border-color: var(--lk-green);
+    background: var(--lk-green-100);
+  }
+  .recipient-card .card-icon {
+    font-size: 2rem;
+    color: var(--lk-green);
+    margin-bottom: 0.5rem;
+  }
+  .recipient-card .card-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+  }
+  .recipient-card .card-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .recipient-card input[type="radio"] {
+    display: none;
+  }
+  .recipient-card.active input[type="radio"] {
+    display: inline-block;
+    margin-right: 0.5rem;
+  }
+  .selection-area {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 1.2rem;
+    min-height: 80px;
+    border: 1px dashed var(--border);
+  }
+  .selection-area .selected-count {
+    font-weight: 700;
+    color: var(--lk-green);
+  }
+  .tenant-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    margin: 0.2rem;
+  }
+  .tenant-tag .remove-tag {
+    cursor: pointer;
+    color: var(--danger);
+    font-weight: 700;
+    margin-left: 0.2rem;
+  }
+  .tenant-tag .remove-tag:hover {
+    color: #b33a32;
+  }
+  .notification-preview {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 1.2rem;
+    border: 1px solid var(--border);
+  }
+  .notification-preview .preview-title {
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .notification-preview .preview-body {
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    margin-top: 0.3rem;
+  }
+  .notification-preview .preview-meta {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+  }
+  .char-count {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: right;
+  }
+  .char-count.warning {
+    color: var(--warning);
+  }
+  .char-count.danger {
+    color: var(--danger);
+  }
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+  }
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #ccc;
+    transition: .3s;
+    border-radius: 26px;
+  }
+  .toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    transition: .3s;
+    border-radius: 50%;
+  }
+  .toggle-switch input:checked + .toggle-slider {
+    background: var(--lk-green);
+  }
+  .toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(22px);
+  }
+  .toggle-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .history-item {
+    border-bottom: 1px solid var(--border);
+    padding: 0.8rem 0;
+  }
+  .history-item:last-child {
+    border-bottom: none;
+  }
+  .history-item .h-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .history-item .h-meta {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .history-item .h-recipients {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+  }
+  .history-item .h-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .h-badge.all { background: var(--info-bg); color: var(--info); }
+  .h-badge.pg { background: var(--warning-bg); color: var(--warning); }
+  .h-badge.individual { background: var(--success-bg); color: var(--success); }
+  
+  @media (max-width: 768px) {
+    .recipient-card {
+      padding: 0.8rem;
+    }
+    .recipient-card .card-icon {
+      font-size: 1.5rem;
+    }
+    .selection-area {
+      padding: 0.8rem;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebarMount"></div>
+  <div class="main-area">
+    <div id="topbarMount"></div>
+    <main class="content-area">
+      <!-- Stats Row -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--lk-green-100);color:var(--lk-green);"><i class="bi bi-send"></i></div>
+            <div><div class="stat-value" id="totalSent">0</div><div class="stat-label">Total Sent</div></div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--info-bg);color:var(--info);"><i class="bi bi-clock-history"></i></div>
+            <div><div class="stat-value" id="recentSent">0</div><div class="stat-label">Last 30 Days</div></div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--success-bg);color:var(--success);"><i class="bi bi-people"></i></div>
+            <div><div class="stat-value" id="totalTenants">0</div><div class="stat-label">Total Tenants</div></div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:var(--warning-bg);color:var(--warning);"><i class="bi bi-building"></i></div>
+            <div><div class="stat-value" id="totalPGs">0</div><div class="stat-label">Total PGs</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <!-- Left Column: Compose -->
+        <div class="col-lg-8">
+          <div class="section-card fade-in">
+            <h5 class="mb-3"><i class="bi bi-send me-2 text-success"></i>Compose Notification</h5>
+            
+            <!-- Recipient Type Selection -->
+            <label class="form-label fw-semibold">Send to</label>
+            <div class="row g-3 mb-4">
+              <div class="col-md-4">
+                <div class="recipient-card active" data-type="all" onclick="selectRecipientType('all')">
+                  <input type="radio" name="recipientType" value="all" checked>
+                  <div class="card-icon"><i class="bi bi-globe2"></i></div>
+                  <div class="card-title">All Tenants</div>
+                  <div class="card-desc">Send to every active tenant</div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="recipient-card" data-type="pg" onclick="selectRecipientType('pg')">
+                  <input type="radio" name="recipientType" value="pg">
+                  <div class="card-icon"><i class="bi bi-building"></i></div>
+                  <div class="card-title">By PG</div>
+                  <div class="card-desc">Select specific PGs</div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="recipient-card" data-type="individual" onclick="selectRecipientType('individual')">
+                  <input type="radio" name="recipientType" value="individual">
+                  <div class="card-icon"><i class="bi bi-person"></i></div>
+                  <div class="card-title">Individual</div>
+                  <div class="card-desc">Select specific tenants</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Selection Area -->
+            <div id="selectionArea" class="selection-area mb-4">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="fw-semibold" id="selectionLabel">All active tenants will receive this notification</span>
+                <span class="selected-count" id="selectedCount">0 tenants</span>
+              </div>
+              <div id="selectedItems" class="d-flex flex-wrap gap-1"></div>
+              <div id="selectionControls" class="d-none">
+                <div class="row g-2 mt-2">
+                  <div class="col-md-8">
+                    <select class="form-select" id="pgSelect" onchange="updatePGSelection()">
+                      <option value="">Select PG...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <button class="btn btn-outline-brand btn-sm w-100" onclick="selectAllPGTenants()">Select All in PG</button>
+                  </div>
+                </div>
+                <div class="mt-2" id="tenantSearchArea">
+                  <input type="text" class="form-control form-control-sm" id="tenantSearch" placeholder="Search tenants by name or room..." oninput="filterTenants()">
+                  <div id="tenantList" class="mt-2" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.5rem;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Message Composition -->
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Notification Title <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="notifTitle" placeholder="e.g., Important Update: Rent Deadline" maxlength="100" oninput="updatePreview()">
+              <div class="char-count" id="titleCount">0/100</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Message <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="notifMessage" rows="4" placeholder="Write your message here..." maxlength="500" oninput="updatePreview()"></textarea>
+              <div class="char-count" id="messageCount">0/500</div>
+            </div>
+
+            <!-- Delivery Options -->
+            <div class="row g-3 mb-4">
+              <div class="col-md-6">
+                <div class="d-flex align-items-center gap-3">
+                  <label class="toggle-label">Push Notification</label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="sendPush" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="text-muted-soft small">Send to mobile app</span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="d-flex align-items-center gap-3">
+                  <label class="toggle-label">Email</label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="sendEmail">
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="text-muted-soft small">Send via email</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Preview -->
+            <div class="notification-preview mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="fw-semibold">Preview</span>
+                <span class="text-muted-soft small"><i class="bi bi-eye"></i> How it will appear to tenants</span>
+              </div>
+              <div id="previewContent">
+                <div class="preview-title" id="previewTitle">Your notification title</div>
+                <div class="preview-body" id="previewBody">Your message will appear here...</div>
+                <div class="preview-meta"><i class="bi bi-clock me-1"></i>Sent by Admin · Just now</div>
+              </div>
+            </div>
+
+            <!-- Send Button -->
+            <button class="btn btn-brand w-100 py-2" id="sendNotifBtn" onclick="sendNotification()">
+              <i class="bi bi-send me-2"></i>Send Notification
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Column: History -->
+        <div class="col-lg-4">
+          <div class="section-card fade-in">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>History</h5>
+              <button class="btn btn-sm btn-outline-brand" onclick="loadHistory()">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+            </div>
+            <div id="historyList">
+              <div class="text-center text-muted-soft py-4">
+                <i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:0.5rem;"></i>
+                No notifications sent yet
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/layout.js"></script>
+<script src="assets/js/pages/notifications.js"></script>
+</body>
+</html>

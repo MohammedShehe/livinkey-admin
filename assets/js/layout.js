@@ -75,7 +75,9 @@ function doRender(activeKey, pageTitle, pageSub) {
         finalActiveKey = 'proofs';
     }
     
-    // Menu items with permission checks
+    // ============================================================
+    // MENU ITEMS - Added "Send Notifications" after admins
+    // ============================================================
     const MENU = [
         { 
             key: 'tenants', 
@@ -98,6 +100,18 @@ function doRender(activeKey, pageTitle, pageSub) {
             href: 'admins.html',
             permission: 'admins',
             superOnly: true
+        },
+        // ============================================================
+        // NEW: Send Notifications menu item
+        // Uses tenants.view permission since notification sending
+        // requires ability to see tenants
+        // ============================================================
+        { 
+            key: 'notifications', 
+            label: 'Send Notifications', 
+            icon: 'bi-megaphone-fill', 
+            href: 'notifications.html',
+            permission: 'tenants'
         },
         { 
             key: 'bills', 
