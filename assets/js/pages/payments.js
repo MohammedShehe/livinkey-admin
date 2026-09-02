@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let tenants = [];
     let selectedTenantId = null;
     let allTransactions = [];
+    let isLoadingAll = false;
 
     // ============================================
     // LOAD TENANTS FOR DROPDOWN
@@ -20,6 +21,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (res.success) {
                 tenants = res.data || [];
                 populateTenantDropdown();
+                // Load all tenants by default
+                await loadAllTenantsPaymentHistory();
             }
         } catch (error) {
             console.error("Error loading tenants:", error);
@@ -34,48 +37,144 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================
-    // LOAD PAYMENT HISTORY - FIXED
+    // LOAD ALL TENANTS PAYMENT HISTORY (NEW)
+    // ============================================
+    async function loadAllTenantsPaymentHistory() {
+        if (isLoadingAll) return;
+        isLoadingAll = true;
+        
+        try {
+            const tenantsRes = await API.tenants.getAll({ role: 'tenant' });
+            if (!tenantsRes.success) {
+                showToast("Failed to load tenants", "danger");
+                isLoadingAll = false;
+                return;
+            }
+            
+            const allTenants = tenantsRes.data || [];
+            let allTxns = [];
+            
+            // Show loading state
+            document.getElementById("paymentHistoryWrap").innerHTML = `
+                <div class="text-center text-muted-soft py-4">
+                    <div class="spinner-border text-brand" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading all transactions...</p>
+                </div>
+            `;
+            
+            // Load payments for each tenant in parallel
+            const promises = allTenants.map(tenant => 
+                API.payments.history(tenant.id)
+                    .then(res => ({ tenant, res }))
+                    .catch(err => ({ tenant, res: null, err }))
+            );
+            
+            const results = await Promise.all(promises);
+            
+            results.forEach(({ tenant, res }) => {
+                if (res && res.success && res.data) {
+                    const online = (res.data.online_payments || []).map(p => ({
+                        ...p,
+                        _type: 'online',
+                        _display_type: 'Online Payment',
+                        _gateway: p.payment_method || 'online',
+                        tenant_name: tenant.full_name,
+                        tenant_id: tenant.id
+                    }));
+                    const cash = (res.data.cash_payments || []).map(p => ({
+                        ...p,
+                        _type: 'cash',
+                        _display_type: 'Cash Payment',
+                        _gateway: 'cash',
+                        tenant_name: tenant.full_name,
+                        tenant_id: tenant.id
+                    }));
+                    const proof = (res.data.payment_proofs || []).map(p => ({
+                        ...p,
+                        _type: 'proof',
+                        _display_type: 'Payment Proof',
+                        _gateway: 'proof',
+                        tenant_name: tenant.full_name,
+                        tenant_id: tenant.id
+                    }));
+                    allTxns = [...allTxns, ...online, ...cash, ...proof];
+                }
+            });
+            
+            allTxns.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            allTransactions = allTxns;
+            
+            // Apply any active filters
+            applyFilters();
+            
+        } catch (error) {
+            console.error("Error loading all payments:", error);
+            showToast("Error loading all payment history", "danger");
+        } finally {
+            isLoadingAll = false;
+        }
+    }
+
+    // ============================================
+    // LOAD PAYMENT HISTORY - SINGLE TENANT
     // ============================================
     async function loadPaymentHistory(tenantId = null) {
         try {
             const id = tenantId || selectedTenantId;
             if (!id) {
-                document.getElementById("paymentHistoryWrap").innerHTML = `
-                    <div class="text-center text-muted-soft py-4">
-                        <i class="bi bi-credit-card" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
-                        Select a tenant to view payment history
-                    </div>
-                `;
-                updateStats([]);
+                // If no tenant selected, load all
+                await loadAllTenantsPaymentHistory();
                 return;
             }
 
+            // Show loading state
+            document.getElementById("paymentHistoryWrap").innerHTML = `
+                <div class="text-center text-muted-soft py-4">
+                    <div class="spinner-border text-brand" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading transactions...</p>
+                </div>
+            `;
+
             const res = await API.payments.history(id);
             if (res.success && res.data) {
+                // Get tenant name for display
+                const tenant = tenants.find(t => t.id === id);
+                const tenantName = tenant ? tenant.full_name : 'N/A';
+                
                 const onlinePayments = (res.data.online_payments || []).map(p => ({
                     ...p,
                     _type: 'online',
                     _display_type: 'Online Payment',
-                    _gateway: p.payment_method || 'online'
+                    _gateway: p.payment_method || 'online',
+                    tenant_name: tenantName,
+                    tenant_id: id
                 }));
                 const cashPayments = (res.data.cash_payments || []).map(p => ({
                     ...p,
                     _type: 'cash',
                     _display_type: 'Cash Payment',
-                    _gateway: 'cash'
+                    _gateway: 'cash',
+                    tenant_name: tenantName,
+                    tenant_id: id
                 }));
                 const paymentProofs = (res.data.payment_proofs || []).map(p => ({
                     ...p,
                     _type: 'proof',
                     _display_type: 'Payment Proof',
-                    _gateway: 'proof'
+                    _gateway: 'proof',
+                    tenant_name: tenantName,
+                    tenant_id: id
                 }));
                 
                 allTransactions = [...onlinePayments, ...cashPayments, ...paymentProofs]
                     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 
-                renderPaymentHistory(allTransactions);
-                updateStats(allTransactions);
+                // Apply any active filters
+                applyFilters();
             } else {
                 showToast(res.message || "Failed to load payment history.", "danger");
             }
@@ -96,9 +195,17 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         empty.classList.add("d-none");
 
+        // Check if we're showing multiple tenants
+        const showTenantColumn = transactions.some(t => {
+            // Check if there are transactions from different tenants
+            const tenantIds = new Set(transactions.map(t => t.tenant_id));
+            return tenantIds.size > 1;
+        });
+
         container.innerHTML = `
         <table class="data-table">
             <thead><tr>
+                ${showTenantColumn ? '<th>Tenant</th>' : ''}
                 <th>Bill ID</th>
                 <th>Type</th>
                 <th>Amount</th>
@@ -111,6 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <tbody>
                 ${transactions.map(t => `
                 <tr>
+                    ${showTenantColumn ? `<td><strong>${t.tenant_name || 'N/A'}</strong></td>` : ''}
                     <td>#${t.bill_id || 'N/A'}</td>
                     <td><span class="chip ${t._type === 'online' ? 'chip-blue' : t._type === 'cash' ? 'chip-amber' : 'chip-gray'}">${t._display_type || 'N/A'}</span></td>
                     <td>${fmtINR(t.amount || t.amount_paid || 0)}</td>
@@ -175,18 +283,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // VIEW RECEIPT
     // ============================================
-    // FIX: this previously called `API.payments.tenant.receipt(type, id)`,
-    // which hits the TENANT-only `/tenant-payments/receipt/...` route
-    // (guarded by tenantAuthMiddleware). An admin's JWT always fails
-    // that role check with 403 "Invalid user role" — so this button
-    // never worked. On top of that, the endpoint returns raw HTML, but
-    // the generic apiRequest() helper always calls response.json(),
-    // which would throw a parse error even if auth passed.
-    //
-    // Fix: use the new admin-scoped receipt endpoint and open it
-    // directly with the token as a query param (same pattern already
-    // used for document downloads elsewhere in this app) — this avoids
-    // both the wrong-role problem and the JSON-parsing problem.
     window.viewReceipt = function(id, type) {
         const token = Auth.getTokenFromStorage();
         if (!token) {
@@ -233,7 +329,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (res.data?.payment_options?.qr_code) {
                     showQRCode(res.data.payment_options.qr_code, res.data.payment_options.total_due);
                 }
-                loadPaymentHistory(tenantId);
+                // Refresh the current view
+                const currentTenant = document.getElementById("paymentTenantFilter").value;
+                if (currentTenant) {
+                    loadPaymentHistory(currentTenant);
+                } else {
+                    loadAllTenantsPaymentHistory();
+                }
             } else {
                 showToast(res.message || "Failed to generate payment link.", "danger");
             }
@@ -257,7 +359,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     document.getElementById("paymentTenantFilter")?.addEventListener("change", function() {
         selectedTenantId = this.value;
-        loadPaymentHistory(this.value);
+        if (!this.value) {
+            // Load all tenants
+            loadAllTenantsPaymentHistory();
+        } else {
+            // Load specific tenant
+            loadPaymentHistory(this.value);
+        }
     });
 
     document.getElementById("paymentStatusFilter")?.addEventListener("change", function() {
@@ -284,18 +392,34 @@ document.addEventListener("DOMContentLoaded", () => {
         if (gatewayFilter) {
             filtered = filtered.filter(t => {
                 const gateway = t._gateway || t.payment_method || 'unknown';
+                // Handle different gateway values
+                if (gatewayFilter === 'online') {
+                    return gateway === 'online' || gateway === 'qr_code';
+                } else if (gatewayFilter === 'cash') {
+                    return gateway === 'cash';
+                } else if (gatewayFilter === 'proof') {
+                    return gateway === 'proof';
+                } else if (gatewayFilter === 'qr_code') {
+                    return gateway === 'qr_code';
+                }
                 return gateway === gatewayFilter;
             });
         }
         
         renderPaymentHistory(filtered);
+        updateStats(filtered);
     }
 
     // ============================================
     // REFRESH
     // ============================================
     document.getElementById("refreshPaymentsBtn")?.addEventListener("click", function() {
-        loadPaymentHistory(selectedTenantId);
+        const currentTenant = document.getElementById("paymentTenantFilter").value;
+        if (currentTenant) {
+            loadPaymentHistory(currentTenant);
+        } else {
+            loadAllTenantsPaymentHistory();
+        }
     });
 
     // ============================================
