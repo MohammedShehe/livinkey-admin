@@ -9,20 +9,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let tenants = [];
     let selectedTenantId = null;
+    let selectedPgId = "all";
     let allTransactions = [];
     let isLoadingAll = false;
+    let allPgs = [];
+
+    // ============================================
+    // LOAD PGS FOR DROPDOWN
+    // ============================================
+    async function loadPgs() {
+        try {
+            const res = await API.pgs.getAll();
+            if (res.success) {
+                allPgs = res.data || [];
+                populatePgFilter();
+            }
+        } catch (error) {
+            console.error("Error loading PGs:", error);
+        }
+    }
+
+    function populatePgFilter() {
+        const select = document.getElementById("paymentPgFilter");
+        if (!select) return;
+        select.innerHTML = `<option value="all">All PGs</option>` +
+            allPgs.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+    }
 
     // ============================================
     // LOAD TENANTS FOR DROPDOWN
     // ============================================
-    async function loadTenants() {
+    async function loadTenants(pgId = null) {
         try {
-            const res = await API.tenants.getAll({ role: 'tenant' });
+            const params = { role: 'tenant' };
+            if (pgId && pgId !== "all") {
+                params.pg_id = pgId;
+            }
+            const res = await API.tenants.getAll(params);
             if (res.success) {
                 tenants = res.data || [];
                 populateTenantDropdown();
                 // Load all tenants by default
-                await loadAllTenantsPaymentHistory();
+                await loadAllTenantsPaymentHistory(pgId);
             }
         } catch (error) {
             console.error("Error loading tenants:", error);
@@ -37,14 +65,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================
-    // LOAD ALL TENANTS PAYMENT HISTORY (NEW)
+    // LOAD ALL TENANTS PAYMENT HISTORY
     // ============================================
-    async function loadAllTenantsPaymentHistory() {
+    async function loadAllTenantsPaymentHistory(pgId = null) {
         if (isLoadingAll) return;
         isLoadingAll = true;
         
         try {
-            const tenantsRes = await API.tenants.getAll({ role: 'tenant' });
+            const params = { role: 'tenant' };
+            if (pgId && pgId !== "all") {
+                params.pg_id = pgId;
+            }
+            
+            const tenantsRes = await API.tenants.getAll(params);
             if (!tenantsRes.success) {
                 showToast("Failed to load tenants", "danger");
                 isLoadingAll = false;
@@ -81,7 +114,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         _display_type: 'Online Payment',
                         _gateway: p.payment_method || 'online',
                         tenant_name: tenant.full_name,
-                        tenant_id: tenant.id
+                        tenant_id: tenant.id,
+                        pg_name: tenant.pg_name || 'N/A',
+                        pg_id: tenant.pg_id
                     }));
                     const cash = (res.data.cash_payments || []).map(p => ({
                         ...p,
@@ -89,7 +124,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         _display_type: 'Cash Payment',
                         _gateway: 'cash',
                         tenant_name: tenant.full_name,
-                        tenant_id: tenant.id
+                        tenant_id: tenant.id,
+                        pg_name: tenant.pg_name || 'N/A',
+                        pg_id: tenant.pg_id
                     }));
                     const proof = (res.data.payment_proofs || []).map(p => ({
                         ...p,
@@ -97,7 +134,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         _display_type: 'Payment Proof',
                         _gateway: 'proof',
                         tenant_name: tenant.full_name,
-                        tenant_id: tenant.id
+                        tenant_id: tenant.id,
+                        pg_name: tenant.pg_name || 'N/A',
+                        pg_id: tenant.pg_id
                     }));
                     allTxns = [...allTxns, ...online, ...cash, ...proof];
                 }
@@ -124,8 +163,8 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const id = tenantId || selectedTenantId;
             if (!id) {
-                // If no tenant selected, load all
-                await loadAllTenantsPaymentHistory();
+                // If no tenant selected, load all with current PG filter
+                await loadAllTenantsPaymentHistory(selectedPgId);
                 return;
             }
 
@@ -144,6 +183,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Get tenant name for display
                 const tenant = tenants.find(t => t.id === id);
                 const tenantName = tenant ? tenant.full_name : 'N/A';
+                const pgName = tenant ? tenant.pg_name : 'N/A';
+                const pgId = tenant ? tenant.pg_id : null;
                 
                 const onlinePayments = (res.data.online_payments || []).map(p => ({
                     ...p,
@@ -151,7 +192,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     _display_type: 'Online Payment',
                     _gateway: p.payment_method || 'online',
                     tenant_name: tenantName,
-                    tenant_id: id
+                    tenant_id: id,
+                    pg_name: pgName,
+                    pg_id: pgId
                 }));
                 const cashPayments = (res.data.cash_payments || []).map(p => ({
                     ...p,
@@ -159,7 +202,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     _display_type: 'Cash Payment',
                     _gateway: 'cash',
                     tenant_name: tenantName,
-                    tenant_id: id
+                    tenant_id: id,
+                    pg_name: pgName,
+                    pg_id: pgId
                 }));
                 const paymentProofs = (res.data.payment_proofs || []).map(p => ({
                     ...p,
@@ -167,7 +212,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     _display_type: 'Payment Proof',
                     _gateway: 'proof',
                     tenant_name: tenantName,
-                    tenant_id: id
+                    tenant_id: id,
+                    pg_name: pgName,
+                    pg_id: pgId
                 }));
                 
                 allTransactions = [...onlinePayments, ...cashPayments, ...paymentProofs]
@@ -197,14 +244,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Check if we're showing multiple tenants
         const showTenantColumn = transactions.some(t => {
-            // Check if there are transactions from different tenants
             const tenantIds = new Set(transactions.map(t => t.tenant_id));
             return tenantIds.size > 1;
+        });
+
+        // Check if we're showing multiple PGs
+        const showPgColumn = transactions.some(t => {
+            const pgIds = new Set(transactions.map(t => t.pg_id));
+            return pgIds.size > 1;
         });
 
         container.innerHTML = `
         <table class="data-table">
             <thead><tr>
+                ${showPgColumn ? '<th>PG</th>' : ''}
                 ${showTenantColumn ? '<th>Tenant</th>' : ''}
                 <th>Bill ID</th>
                 <th>Type</th>
@@ -218,6 +271,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <tbody>
                 ${transactions.map(t => `
                 <tr>
+                    ${showPgColumn ? `<td><strong>${t.pg_name || 'N/A'}</strong></td>` : ''}
                     ${showTenantColumn ? `<td><strong>${t.tenant_name || 'N/A'}</strong></td>` : ''}
                     <td>#${t.bill_id || 'N/A'}</td>
                     <td><span class="chip ${t._type === 'online' ? 'chip-blue' : t._type === 'cash' ? 'chip-amber' : 'chip-gray'}">${t._display_type || 'N/A'}</span></td>
@@ -334,7 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (currentTenant) {
                     loadPaymentHistory(currentTenant);
                 } else {
-                    loadAllTenantsPaymentHistory();
+                    loadAllTenantsPaymentHistory(selectedPgId);
                 }
             } else {
                 showToast(res.message || "Failed to generate payment link.", "danger");
@@ -357,11 +411,21 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // FILTERS
     // ============================================
+    document.getElementById("paymentPgFilter")?.addEventListener("change", function() {
+        selectedPgId = this.value;
+        // Reset tenant filter when PG changes
+        document.getElementById("paymentTenantFilter").value = "";
+        selectedTenantId = null;
+        
+        // Load tenants based on selected PG
+        loadTenants(selectedPgId);
+    });
+
     document.getElementById("paymentTenantFilter")?.addEventListener("change", function() {
         selectedTenantId = this.value;
         if (!this.value) {
-            // Load all tenants
-            loadAllTenantsPaymentHistory();
+            // Load all tenants with current PG filter
+            loadAllTenantsPaymentHistory(selectedPgId);
         } else {
             // Load specific tenant
             loadPaymentHistory(this.value);
@@ -392,7 +456,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (gatewayFilter) {
             filtered = filtered.filter(t => {
                 const gateway = t._gateway || t.payment_method || 'unknown';
-                // Handle different gateway values
                 if (gatewayFilter === 'online') {
                     return gateway === 'online' || gateway === 'qr_code';
                 } else if (gatewayFilter === 'cash') {
@@ -418,12 +481,32 @@ document.addEventListener("DOMContentLoaded", () => {
         if (currentTenant) {
             loadPaymentHistory(currentTenant);
         } else {
-            loadAllTenantsPaymentHistory();
+            loadAllTenantsPaymentHistory(selectedPgId);
+        }
+    });
+
+    // ============================================
+    // PG FILTER CLEAR
+    // ============================================
+    document.getElementById("paymentPgFilterClear")?.addEventListener("click", function() {
+        const select = document.getElementById("paymentPgFilter");
+        if (select) {
+            select.value = "all";
+            selectedPgId = "all";
+            // Reset tenant filter
+            document.getElementById("paymentTenantFilter").value = "";
+            selectedTenantId = null;
+            loadTenants("all");
         }
     });
 
     // ============================================
     // INIT
     // ============================================
-    loadTenants();
+    async function init() {
+        await loadPgs();
+        await loadTenants("all");
+    }
+    
+    init();
 });

@@ -77,6 +77,32 @@
     box-shadow: 0 0 0 4px var(--lk-green-100);
   }
 
+  /* ===== Filter group with clear button ===== */
+  .filter-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .filter-group .filter-select {
+    flex: 1;
+  }
+  .filter-group .btn-clear-filter {
+    padding: 0.6rem 0.85rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--muted);
+    transition: all 0.2s;
+    font-size: 0.92rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .filter-group .btn-clear-filter:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: var(--danger-10);
+  }
+
   /* ===== Status badges ===== */
   .status-badge {
     padding: 0.25rem 0.75rem;
@@ -228,12 +254,25 @@
 
       <!-- Filters -->
       <div class="row g-3 mb-3">
-        <div class="col-md-5">
+        <!-- PG Filter -->
+        <div class="col-md-4">
+          <div class="filter-group">
+            <select class="filter-select w-100" id="paymentPgFilter">
+              <option value="all">All PGs</option>
+            </select>
+            <button class="btn-clear-filter" id="paymentPgFilterClear" title="Clear PG filter">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+        <!-- Tenant Filter -->
+        <div class="col-md-4">
           <select class="filter-select w-100" id="paymentTenantFilter">
             <option value="">All Tenants</option>
           </select>
         </div>
-        <div class="col-md-4">
+        <!-- Status Filter -->
+        <div class="col-md-2">
           <select class="filter-select w-100" id="paymentStatusFilter">
             <option value="">All Statuses</option>
             <option value="pending">Pending</option>
@@ -246,7 +285,8 @@
             <option value="rejected">Rejected</option>
           </select>
         </div>
-        <div class="col-md-3">
+        <!-- Gateway Filter -->
+        <div class="col-md-2">
           <select class="filter-select w-100" id="paymentGatewayFilter">
             <option value="">All Methods</option>
             <option value="online">Online</option>
@@ -262,7 +302,7 @@
         <div id="paymentHistoryWrap" class="table-responsive">
           <div class="text-center text-muted-soft py-4">
             <i class="bi bi-credit-card" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
-            Select a tenant to view payment history
+            Loading transactions...
           </div>
         </div>
         <div id="paymentEmpty" class="empty-state d-none">
