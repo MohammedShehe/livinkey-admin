@@ -509,6 +509,11 @@
             </select>
           </div>
           <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Billing Month</label>
+              <input type="month" class="form-control" id="billBillingMonth" required>
+              <small class="text-muted-soft">One bill per tenant per month. Paid tenants can be billed for a new month.</small>
+            </div>
             <div class="col-6"><label class="form-label">Rent (INR)</label><input type="number" class="form-control" id="billRent" required min="1" step="1"></div>
             <div class="col-6"><label class="form-label">Electricity bill (INR)</label><input type="number" class="form-control" id="billElectricity" value="0" min="0" step="1"></div>
             
@@ -583,6 +588,10 @@
             <div class="col-12">
               <label class="form-label">Meter Images (optional, up to 2 — replaces existing if uploaded)</label>
               <div id="editExistingMeters" class="mb-1"></div>
+              <div class="d-flex gap-3 mb-2">
+                <label class="small"><input type="checkbox" id="editClearMeter1" class="form-check-input me-1"> Clear meter image 1</label>
+                <label class="small"><input type="checkbox" id="editClearMeter2" class="form-check-input me-1"> Clear meter image 2</label>
+              </div>
               <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-brand btn-sm" id="editMeterUploadBtn">
                   <i class="bi bi-camera me-1"></i>Upload New Meter Images

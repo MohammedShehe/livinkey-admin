@@ -296,6 +296,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <table class="data-table">
             <thead><tr>
                 <th>Tenant</th>
+                <th>Period</th>
                 <th>PG</th>
                 <th>Room</th>
                 <th>Total Amount</th>
@@ -312,6 +313,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <span class="name-link" onclick="openBillDetail('${b.id}')">${b.tenant_name || '—'}</span>
                         <div class="small text-muted-soft">${b.tenant_email || '—'}</div>
                     </td>
+                    <td>${b.billing_month || '—'}</td>
                     <td>${b.pg_name || '—'}</td>
                     <td>${b.room_number || '—'}</td>
                     <td>${fmtINR(b.total_amount || 0)}</td>
@@ -325,7 +327,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon me-1" title="Cash Payment" onclick="openCashPayment('${b.id}')"><i class="bi bi-cash"></i></button>` : ''}
                         ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon me-1" title="Adjust Fine" onclick="openFineAdjust('${b.id}')"><i class="bi bi-coin"></i></button>` : ''}
                         ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon me-1" title="Send Message" onclick="openCustomMessage('${b.id}')"><i class="bi bi-chat-dots"></i></button>` : ''}
-                        ${canDeleteBills ? `<button class="btn-icon" title="Delete Bill" onclick="deleteBill('${b.id}')" style="color:var(--danger);"><i class="bi bi-trash"></i></button>` : ''}
+                        ${canDeleteBills && b.status !== 'paid' && !(parseFloat(b.paid_amount) > 0) ? `<button class="btn-icon" title="Delete Bill" onclick="deleteBill('${b.id}')" style="color:var(--danger);"><i class="bi bi-trash"></i></button>` : ''}
                     </td>
                 </tr>
                 `).join("")}
@@ -604,6 +606,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="col-12"><span class="text-muted-soft">Status:</span> ${getStatusBadge(b.status)}</div>
                 <div class="col-12"><span class="text-muted-soft">Valid Until:</span> <strong>${b.valid_until ? formatDateTime(b.valid_until) : '—'}</strong></div>
                 <div class="col-12"><span class="text-muted-soft">QR Status:</span> <span class="chip ${b.qr_status === 'active' ? 'chip-green' : 'chip-gray'}">${b.qr_status || 'N/A'}</span></div>
+                ${b.billing_month ? `<div class="col-6"><span class="text-muted-soft">Billing Month:</span> <strong>${b.billing_month}</strong></div>` : ''}
                 ${(b.electricity_meter_image || b.electricity_meter_image_2) ? `<div class="col-12"><span class="text-muted-soft">Meter Image${(b.electricity_meter_image && b.electricity_meter_image_2) ? 's' : ''}:</span> ${b.electricity_meter_image ? `<a href="${b.electricity_meter_image}" target="_blank" class="text-brand">View 1</a>` : ''}${(b.electricity_meter_image && b.electricity_meter_image_2) ? ' | ' : ''}${b.electricity_meter_image_2 ? `<a href="${b.electricity_meter_image_2}" target="_blank" class="text-brand">View 2</a>` : ''}</div>` : ''}
                 ${b.payment_qr ? `<div class="col-12"><span class="text-muted-soft">Payment QR:</span> <img src="${b.payment_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
                 ${b.admin_qr ? `<div class="col-12"><span class="text-muted-soft">Admin QR:</span> <img src="${b.admin_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
@@ -634,7 +637,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
             }
 
-            if (canDeleteBills) {
+            if (canDeleteBills && b.status !== 'paid' && !(parseFloat(b.paid_amount) > 0)) {
                 footerButtons += `
                     <button class="btn btn-outline-danger" onclick="deleteBill('${b.id}')"><i class="bi bi-trash me-1"></i>Delete</button>
                 `;
@@ -1035,6 +1038,10 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("editMeterUploadInput").value = "";
             document.getElementById("editBillAttachmentStatus").textContent = "No new file attached";
             document.getElementById("editBillAttachInput").value = "";
+            const c1 = document.getElementById("editClearMeter1");
+            const c2 = document.getElementById("editClearMeter2");
+            if (c1) c1.checked = false;
+            if (c2) c2.checked = false;
             // show existing meter links
             const existing = document.getElementById("editExistingMeters");
             let links = [];
@@ -1123,7 +1130,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 rent_amount: Number(document.getElementById("editBillRent").value || 0),
                 electricity_amount: Number(document.getElementById("editBillElectricity").value || 0),
                 maintenance_amount: Number(document.getElementById("editBillMaintenance").value || 0),
-                other_charges: Number(document.getElementById("editBillOther").value || 0)
+                other_charges: Number(document.getElementById("editBillOther").value || 0),
+                clear_meter_1: document.getElementById("editClearMeter1")?.checked ? '1' : '0',
+                clear_meter_2: document.getElementById("editClearMeter2")?.checked ? '1' : '0'
             };
             if (data.rent_amount < 0) {
                 showToast("Rent cannot be negative.", "warning");
@@ -1152,7 +1161,7 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("You don't have permission to delete bills.", "warning");
             return;
         }
-        if (!confirm("Delete this bill permanently? Related payments, proofs and adjustments will also be removed. This cannot be undone.")) {
+        if (!confirm("Remove this bill from active records? Paid bills and bills with payments cannot be deleted. This action is logged.")) {
             return;
         }
         try {
@@ -1188,11 +1197,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (res.success && res.data) {
                 select.innerHTML = `<option value="">Select tenant...</option>` + 
                     res.data.map(t => {
-                        const amountOwed = t.amount_owed || 0;
-                        const statusLabel = amountOwed > 0 
-                            ? ` — Owes ₹${amountOwed.toLocaleString('en-IN')}` 
-                            : ' — Paid Up';
-                        return `<option value="${t.id}">${t.full_name} — ${t.pg_name} Room ${t.room_number}${statusLabel}</option>`;
+                        const last = t.last_billing_month ? ` — Last billed ${t.last_billing_month}` : ' — Never billed';
+                        const ready = ' — Ready for new bill';
+                        return `<option value="${t.id}">${t.full_name} — ${t.pg_name} Room ${t.room_number}${ready}${last}</option>`;
                     }).join("");
             }
         } catch (error) {
@@ -1200,6 +1207,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         billAttachment = null;
         meterImageFiles = [];
+        const monthInput = document.getElementById("billBillingMonth");
+        if (monthInput) {
+            const n = new Date();
+            monthInput.value = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
+        }
         document.getElementById("billAttachmentStatus").textContent = "No file attached";
         document.getElementById("meterUploadStatus").textContent = "No image uploaded";
         const previewEl = document.getElementById("meterPreview");
@@ -1305,12 +1317,20 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
             
+            const billingMonth = document.getElementById("billBillingMonth")?.value || '';
+            if (!billingMonth) {
+                showToast("Please select a billing month.", "warning");
+                LOADER.hide(btn);
+                btn.innerHTML = originalText;
+                return;
+            }
             const data = {
                 tenant_id: tenantId,
                 rent_amount: rent,
                 electricity_amount: electricity,
                 maintenance_amount: maintenance,
-                other_charges: other
+                other_charges: other,
+                billing_month: billingMonth
             };
             
             const files = {};

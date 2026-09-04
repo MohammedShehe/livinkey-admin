@@ -34,14 +34,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     async function loadDocuments() {
         try {
+            // Always load full set for current PG so type menu cards stay visible.
+            // Document-type filtering is applied client-side in getFilteredDocs().
             const params = {};
             if (currentPgFilter !== "all") params.pg_id = currentPgFilter;
-            if (currentFilter !== "all") params.document_type = currentFilter;
 
             const res = await API.documents.admin.getAll(params);
             if (res.success) {
                 allDocs = res.data || [];
-                // Build lookup map
                 docsById = {};
                 allDocs.forEach(d => {
                     docsById[d.id] = d;
@@ -53,6 +53,11 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
             showToast("Error loading documents: " + error.message, "danger");
         }
+    }
+
+    function getFilteredDocs() {
+        if (currentFilter === "all") return allDocs;
+        return allDocs.filter(d => (d.document_type || "other") === currentFilter);
     }
 
     // ============================================
@@ -91,20 +96,19 @@ document.addEventListener("DOMContentLoaded", () => {
             counts[type] = (counts[type] || 0) + 1;
         });
 
+        // Always show All + every known document type so menus never disappear when filtering
         const stats = [
             { key: "all", label: "All Documents", icon: "bi-files", color: "#0B0F0A", count: allDocs.length }
         ];
 
         Object.keys(DOC_TYPES).forEach(key => {
-            if (counts[key] && counts[key] > 0) {
-                stats.push({
-                    key: key,
-                    label: DOC_TYPES[key].label,
-                    icon: DOC_TYPES[key].icon,
-                    color: DOC_TYPES[key].color,
-                    count: counts[key]
-                });
-            }
+            stats.push({
+                key: key,
+                label: DOC_TYPES[key].label,
+                icon: DOC_TYPES[key].icon,
+                color: DOC_TYPES[key].color,
+                count: counts[key] || 0
+            });
         });
 
         document.getElementById("docStats").innerHTML = stats.map(s => `
@@ -125,8 +129,9 @@ document.addEventListener("DOMContentLoaded", () => {
     window.filterByDocType = function(type) {
         currentFilter = type;
         selectedDocs.clear();
-        document.getElementById("selectAllDocs").checked = false;
-        loadDocuments();
+        const sel = document.getElementById("selectAllDocs");
+        if (sel) sel.checked = false;
+        renderGrid();
     };
 
     function filterByPg(pgId) {
@@ -143,18 +148,26 @@ document.addEventListener("DOMContentLoaded", () => {
         const grid = document.getElementById("documentsGrid");
         const empty = document.getElementById("documentsEmpty");
         const totalCount = document.getElementById("totalDocsCount");
+        const filtered = getFilteredDocs();
 
-        if (allDocs.length === 0) {
+        renderStats();
+
+        if (filtered.length === 0) {
             grid.innerHTML = '';
             empty.classList.remove("d-none");
-            if (totalCount) totalCount.textContent = "0 documents";
-            renderStats();
+            if (totalCount) totalCount.textContent = currentFilter === "all"
+                ? "0 documents"
+                : `0 ${DOC_TYPES[currentFilter]?.label || currentFilter}`;
             return;
         }
         empty.classList.add("d-none");
-        if (totalCount) totalCount.textContent = `${allDocs.length} documents`;
+        if (totalCount) {
+            totalCount.textContent = currentFilter === "all"
+                ? `${filtered.length} documents`
+                : `${filtered.length} ${DOC_TYPES[currentFilter]?.label || currentFilter}`;
+        }
 
-        grid.innerHTML = allDocs.map(d => {
+        grid.innerHTML = filtered.map(d => {
             const docLabel = DOC_TYPES[d.document_type]?.label || d.document_type || 'Document';
             const isSelected = selectedDocs.has(d.id);
             return `
