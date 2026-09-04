@@ -321,9 +321,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td>${b.valid_until ? formatDate(b.valid_until) : '—'}</td>
                     <td class="text-end">
                         <button class="btn-icon me-1" title="View" onclick="openBillDetail('${b.id}')"><i class="bi bi-eye"></i></button>
+                        ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon me-1" title="Edit Bill" onclick="openEditBill('${b.id}')"><i class="bi bi-pencil"></i></button>` : ''}
                         ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon me-1" title="Cash Payment" onclick="openCashPayment('${b.id}')"><i class="bi bi-cash"></i></button>` : ''}
                         ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon me-1" title="Adjust Fine" onclick="openFineAdjust('${b.id}')"><i class="bi bi-coin"></i></button>` : ''}
-                        ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon" title="Send Message" onclick="openCustomMessage('${b.id}')"><i class="bi bi-chat-dots"></i></button>` : ''}
+                        ${canEditBills && b.status !== 'paid' ? `<button class="btn-icon me-1" title="Send Message" onclick="openCustomMessage('${b.id}')"><i class="bi bi-chat-dots"></i></button>` : ''}
+                        ${canDeleteBills ? `<button class="btn-icon" title="Delete Bill" onclick="deleteBill('${b.id}')" style="color:var(--danger);"><i class="bi bi-trash"></i></button>` : ''}
                     </td>
                 </tr>
                 `).join("")}
@@ -602,7 +604,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="col-12"><span class="text-muted-soft">Status:</span> ${getStatusBadge(b.status)}</div>
                 <div class="col-12"><span class="text-muted-soft">Valid Until:</span> <strong>${b.valid_until ? formatDateTime(b.valid_until) : '—'}</strong></div>
                 <div class="col-12"><span class="text-muted-soft">QR Status:</span> <span class="chip ${b.qr_status === 'active' ? 'chip-green' : 'chip-gray'}">${b.qr_status || 'N/A'}</span></div>
-                ${b.electricity_meter_image ? `<div class="col-12"><span class="text-muted-soft">Meter Image:</span> <a href="${b.electricity_meter_image}" target="_blank" class="text-brand">View</a></div>` : ''}
+                ${(b.electricity_meter_image || b.electricity_meter_image_2) ? `<div class="col-12"><span class="text-muted-soft">Meter Image${(b.electricity_meter_image && b.electricity_meter_image_2) ? 's' : ''}:</span> ${b.electricity_meter_image ? `<a href="${b.electricity_meter_image}" target="_blank" class="text-brand">View 1</a>` : ''}${(b.electricity_meter_image && b.electricity_meter_image_2) ? ' | ' : ''}${b.electricity_meter_image_2 ? `<a href="${b.electricity_meter_image_2}" target="_blank" class="text-brand">View 2</a>` : ''}</div>` : ''}
                 ${b.payment_qr ? `<div class="col-12"><span class="text-muted-soft">Payment QR:</span> <img src="${b.payment_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
                 ${b.admin_qr ? `<div class="col-12"><span class="text-muted-soft">Admin QR:</span> <img src="${b.admin_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
             </div>`;
@@ -613,6 +615,12 @@ document.addEventListener("DOMContentLoaded", () => {
             let footerButtons = `
                 <button class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
             `;
+
+            if (canEditBills && b.status !== 'paid') {
+                footerButtons += `
+                    <button class="btn btn-outline-brand" onclick="openEditBill('${b.id}')"><i class="bi bi-pencil me-1"></i>Edit</button>
+                `;
+            }
             
             if (canEditBills && totalDue > 0 && b.status !== 'paid') {
                 footerButtons += `
@@ -623,6 +631,12 @@ document.addEventListener("DOMContentLoaded", () => {
             if (canEditBills && b.status !== 'paid') {
                 footerButtons += `
                     <button class="btn btn-outline-brand" onclick="openCustomMessage('${b.id}')"><i class="bi bi-chat-dots me-1"></i>Message</button>
+                `;
+            }
+
+            if (canDeleteBills) {
+                footerButtons += `
+                    <button class="btn btn-outline-danger" onclick="deleteBill('${b.id}')"><i class="bi bi-trash me-1"></i>Delete</button>
                 `;
             }
 
@@ -980,11 +994,186 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.innerHTML = originalText;
     });
 
+
+    // ============================================
+    // EDIT / DELETE BILL
+    // ============================================
+    let editMeterImageFiles = [];
+    let editBillAttachment = null;
+    const editBillModal = document.getElementById("editBillModal")
+        ? new bootstrap.Modal(document.getElementById("editBillModal"))
+        : null;
+
+    window.openEditBill = async function(billId) {
+        if (!canEditBills) {
+            showToast("You don't have permission to edit bills.", "warning");
+            return;
+        }
+        try {
+            const res = await API.bills.getById(billId);
+            if (!res.success || !res.data) {
+                showToast("Bill not found.", "danger");
+                return;
+            }
+            const b = res.data;
+            if (b.status === 'paid') {
+                showToast("Fully paid bills cannot be edited.", "warning");
+                return;
+            }
+            document.getElementById("editBillId").value = b.id;
+            document.getElementById("editBillTenantLabel").textContent =
+                `${b.tenant_name || 'Tenant'} — ${b.pg_name || ''} Room ${b.room_number || ''}`;
+            document.getElementById("editBillRent").value = b.rent_amount || 0;
+            document.getElementById("editBillElectricity").value = b.electricity_amount || 0;
+            document.getElementById("editBillMaintenance").value = b.maintenance_amount || 0;
+            document.getElementById("editBillOther").value = b.other_charges || 0;
+            editMeterImageFiles = [];
+            editBillAttachment = null;
+            document.getElementById("editMeterUploadStatus").textContent = "No new image selected";
+            document.getElementById("editMeterPreview").innerHTML = "";
+            document.getElementById("editMeterPreview").classList.add("d-none");
+            document.getElementById("editMeterUploadInput").value = "";
+            document.getElementById("editBillAttachmentStatus").textContent = "No new file attached";
+            document.getElementById("editBillAttachInput").value = "";
+            // show existing meter links
+            const existing = document.getElementById("editExistingMeters");
+            let links = [];
+            if (b.electricity_meter_image) links.push(`<a href="${b.electricity_meter_image}" target="_blank" class="text-brand">Meter 1</a>`);
+            if (b.electricity_meter_image_2) links.push(`<a href="${b.electricity_meter_image_2}" target="_blank" class="text-brand">Meter 2</a>`);
+            existing.innerHTML = links.length
+                ? `<span class="text-muted-soft small">Current: ${links.join(' | ')} (upload to replace)</span>`
+                : `<span class="text-muted-soft small">No meter images currently attached</span>`;
+            calculateEditTotal();
+            editBillModal?.show();
+        } catch (error) {
+            showToast("Error loading bill: " + error.message, "danger");
+        }
+    };
+
+    function calculateEditTotal() {
+        const rent = Number(document.getElementById("editBillRent")?.value || 0);
+        const elec = Number(document.getElementById("editBillElectricity")?.value || 0);
+        const maint = Number(document.getElementById("editBillMaintenance")?.value || 0);
+        const other = Number(document.getElementById("editBillOther")?.value || 0);
+        const el = document.getElementById("editBillTotalDisplay");
+        if (el) el.textContent = fmtINR(rent + elec + maint + other);
+    }
+
+    ["editBillRent", "editBillElectricity", "editBillMaintenance", "editBillOther"].forEach(id => {
+        document.getElementById(id)?.addEventListener("input", calculateEditTotal);
+    });
+
+    document.getElementById("editMeterUploadBtn")?.addEventListener("click", () => {
+        document.getElementById("editMeterUploadInput").click();
+    });
+
+    document.getElementById("editMeterUploadInput")?.addEventListener("change", function() {
+        if (this.files.length > 0) {
+            const selected = Array.from(this.files).slice(0, 2);
+            editMeterImageFiles = editMeterImageFiles.concat(selected).slice(0, 2);
+            const previewEl = document.getElementById("editMeterPreview");
+            previewEl.innerHTML = "";
+            previewEl.classList.remove("d-none");
+            document.getElementById("editMeterUploadStatus").innerHTML =
+                `<i class="bi bi-check-circle-fill text-success me-1"></i> ${editMeterImageFiles.length} new image(s)`;
+            editMeterImageFiles.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const wrap = document.createElement("div");
+                    wrap.className = "d-inline-flex align-items-start gap-1";
+                    wrap.innerHTML = `
+                        <img src="${e.target.result}" alt="Meter ${index + 1}" style="max-width:160px;max-height:120px;border-radius:8px;border:1px solid var(--border);">
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-idx="${index}"><i class="bi bi-x"></i></button>`;
+                    wrap.querySelector("button").addEventListener("click", function() {
+                        editMeterImageFiles.splice(parseInt(this.getAttribute("data-idx"), 10), 1);
+                        document.getElementById("editMeterUploadInput").dispatchEvent(new Event("change"));
+                        if (editMeterImageFiles.length === 0) {
+                            previewEl.innerHTML = "";
+                            previewEl.classList.add("d-none");
+                            document.getElementById("editMeterUploadStatus").textContent = "No new image selected";
+                        }
+                    });
+                    previewEl.appendChild(wrap);
+                };
+                reader.readAsDataURL(file);
+            });
+            this.value = "";
+        }
+    });
+
+    document.getElementById("editBillAttachBtn")?.addEventListener("click", () => {
+        document.getElementById("editBillAttachInput").click();
+    });
+    document.getElementById("editBillAttachInput")?.addEventListener("change", function() {
+        if (this.files.length > 0) {
+            editBillAttachment = this.files[0];
+            document.getElementById("editBillAttachmentStatus").innerHTML =
+                `<i class="bi bi-paperclip me-1"></i> ${editBillAttachment.name}`;
+        }
+    });
+
+    document.getElementById("editBillForm")?.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        const originalText = btn.innerHTML;
+        LOADER.show(btn, 'Saving...');
+        try {
+            const billId = document.getElementById("editBillId").value;
+            const data = {
+                rent_amount: Number(document.getElementById("editBillRent").value || 0),
+                electricity_amount: Number(document.getElementById("editBillElectricity").value || 0),
+                maintenance_amount: Number(document.getElementById("editBillMaintenance").value || 0),
+                other_charges: Number(document.getElementById("editBillOther").value || 0)
+            };
+            if (data.rent_amount < 0) {
+                showToast("Rent cannot be negative.", "warning");
+                LOADER.hide(btn); btn.innerHTML = originalText; return;
+            }
+            const files = {};
+            if (editMeterImageFiles.length > 0) files.meterImage = editMeterImageFiles;
+            if (editBillAttachment) files.paymentQr = editBillAttachment;
+            const res = await API.bills.update(billId, data, files);
+            if (res.success) {
+                showToast(res.message || "Bill updated successfully.", "success");
+                editBillModal?.hide();
+                loadData();
+            } else {
+                showToast(res.message || "Failed to update bill.", "danger");
+            }
+        } catch (error) {
+            showToast("Error updating bill: " + error.message, "danger");
+        }
+        LOADER.hide(btn);
+        btn.innerHTML = originalText;
+    });
+
+    window.deleteBill = async function(billId) {
+        if (!canDeleteBills) {
+            showToast("You don't have permission to delete bills.", "warning");
+            return;
+        }
+        if (!confirm("Delete this bill permanently? Related payments, proofs and adjustments will also be removed. This cannot be undone.")) {
+            return;
+        }
+        try {
+            const res = await API.bills.delete(billId);
+            if (res.success) {
+                showToast(res.message || "Bill deleted successfully.", "success");
+                try { detailModal.hide(); } catch (e) {}
+                loadData();
+            } else {
+                showToast(res.message || "Failed to delete bill.", "danger");
+            }
+        } catch (error) {
+            showToast("Error deleting bill: " + error.message, "danger");
+        }
+    };
+
     // ============================================
     // CREATE BILL
     // ============================================
     let billAttachment = null;
-    let meterImageFile = null;
+    let meterImageFiles = []; // up to 2 files
 
     document.getElementById("createBillModal")?.addEventListener("show.bs.modal", async function(e) {
         if (!canAddBills) {
@@ -1010,10 +1199,12 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Error loading unpaid tenants.", "danger");
         }
         billAttachment = null;
-        meterImageFile = null;
+        meterImageFiles = [];
         document.getElementById("billAttachmentStatus").textContent = "No file attached";
         document.getElementById("meterUploadStatus").textContent = "No image uploaded";
-        document.getElementById("meterPreview").classList.add("d-none");
+        const previewEl = document.getElementById("meterPreview");
+        previewEl.innerHTML = "";
+        previewEl.classList.add("d-none");
         document.getElementById("meterUploadInput").value = "";
         calculateTotal();
     });
@@ -1047,24 +1238,51 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("meterUploadInput").click();
     });
 
-    document.getElementById("meterUploadInput")?.addEventListener("change", function() {
-        if (this.files.length > 0) {
-            meterImageFile = this.files[0];
+    function renderMeterPreviews() {
+        const previewEl = document.getElementById("meterPreview");
+        previewEl.innerHTML = "";
+        if (meterImageFiles.length === 0) {
+            previewEl.classList.add("d-none");
+            document.getElementById("meterUploadStatus").textContent = "No image uploaded";
+            return;
+        }
+        previewEl.classList.remove("d-none");
+        const names = meterImageFiles.map(f => f.name).join(", ");
+        document.getElementById("meterUploadStatus").innerHTML =
+            `<i class="bi bi-check-circle-fill text-success me-1"></i> ${meterImageFiles.length} image${meterImageFiles.length > 1 ? "s" : ""}: ${names}`;
+
+        meterImageFiles.forEach((file, index) => {
             const reader = new FileReader();
             reader.onload = function(e) {
-                document.getElementById("meterPreviewImage").src = e.target.result;
-                document.getElementById("meterPreview").classList.remove("d-none");
-                document.getElementById("meterUploadStatus").innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i> ${meterImageFile.name}`;
+                const wrap = document.createElement("div");
+                wrap.className = "d-inline-flex align-items-start gap-1";
+                wrap.innerHTML = `
+                    <img src="${e.target.result}" alt="Meter image ${index + 1}" style="max-width:200px;max-height:150px;border-radius:8px;border:1px solid var(--border);">
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-meter-index="${index}" title="Remove"><i class="bi bi-x"></i></button>
+                `;
+                wrap.querySelector("button").addEventListener("click", function() {
+                    const idx = parseInt(this.getAttribute("data-meter-index"), 10);
+                    meterImageFiles.splice(idx, 1);
+                    renderMeterPreviews();
+                });
+                previewEl.appendChild(wrap);
             };
-            reader.readAsDataURL(this.files[0]);
-        }
-    });
+            reader.readAsDataURL(file);
+        });
+    }
 
-    document.getElementById("removeMeterImage")?.addEventListener("click", function() {
-        meterImageFile = null;
-        document.getElementById("meterUploadInput").value = "";
-        document.getElementById("meterPreview").classList.add("d-none");
-        document.getElementById("meterUploadStatus").textContent = "No image uploaded";
+    document.getElementById("meterUploadInput")?.addEventListener("change", function() {
+        if (this.files.length > 0) {
+            const selected = Array.from(this.files).slice(0, 2);
+            // Merge with existing, cap at 2
+            const combined = meterImageFiles.concat(selected).slice(0, 2);
+            meterImageFiles = combined;
+            if (this.files.length > 2 || meterImageFiles.length === 2 && selected.length > 0) {
+                // soft notice if user tried more than 2
+            }
+            renderMeterPreviews();
+            this.value = ""; // allow re-selecting same file later
+        }
     });
 
     document.getElementById("createBillForm")?.addEventListener("submit", async function(e) {
@@ -1096,7 +1314,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
             
             const files = {};
-            if (meterImageFile) files.meterImage = meterImageFile;
+            if (meterImageFiles.length > 0) files.meterImage = meterImageFiles;
             if (billAttachment) files.paymentQr = billAttachment;
             
             const res = await API.bills.create(data, files);

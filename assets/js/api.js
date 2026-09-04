@@ -370,11 +370,28 @@ const API = {
         create: (data, files) => {
             const formData = new FormData();
             Object.keys(data).forEach(k => formData.append(k, data[k]));
-            if (files?.meterImage) formData.append('meterImage', files.meterImage);
+            if (files?.meterImage) {
+                // Support single File or array of Files (up to 2)
+                const meterFiles = Array.isArray(files.meterImage) ? files.meterImage : [files.meterImage];
+                meterFiles.slice(0, 2).forEach(f => formData.append('meterImage', f));
+            }
             if (files?.paymentQr) formData.append('paymentQr', files.paymentQr);
             if (files?.adminQr) formData.append('adminQr', files.adminQr);
             return apiRequest('/bills', 'POST', formData, true);
         },
+        update: (id, data, files) => {
+            const formData = new FormData();
+            Object.keys(data || {}).forEach(k => {
+                if (data[k] !== undefined && data[k] !== null) formData.append(k, data[k]);
+            });
+            if (files?.meterImage) {
+                const meterFiles = Array.isArray(files.meterImage) ? files.meterImage : [files.meterImage];
+                meterFiles.slice(0, 2).forEach(f => formData.append('meterImage', f));
+            }
+            if (files?.paymentQr) formData.append('paymentQr', files.paymentQr);
+            return apiRequest(`/bills/${id}`, 'PUT', formData, true);
+        },
+        delete: (id) => apiRequest(`/bills/${id}`, 'DELETE'),
         getAll: (params = {}) => {
             const qs = new URLSearchParams();
             Object.keys(params).forEach(k => {
