@@ -388,8 +388,16 @@ const API = {
             apiRequest(`/bills/${id}`, 'GET'),
         getByTenant: (tenantId) => 
             apiRequest(`/bills/tenant/${tenantId}`, 'GET'),
-        stats: () => 
-            apiRequest('/bills/stats', 'GET'),
+        stats: (params = {}) => {
+            const qs = new URLSearchParams();
+            Object.keys(params || {}).forEach(k => {
+                if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+                    qs.append(k, params[k]);
+                }
+            });
+            const q = qs.toString();
+            return apiRequest(`/bills/stats${q ? '?' + q : ''}`, 'GET');
+        },
         unpaidTenants: () => 
             apiRequest('/bills/unpaid-tenants', 'GET'),
         processDelayed: () => 
@@ -425,8 +433,16 @@ const API = {
             apiRequest(`/bills/${id}/cash-payment/verify`, 'POST', data),
 
         paymentProofs: {
-            stats: () => 
-                apiRequest('/bills/payment-proofs/stats', 'GET'),
+            stats: (params = {}) => {
+                const qs = new URLSearchParams();
+                Object.keys(params || {}).forEach(k => {
+                    if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+                        qs.append(k, params[k]);
+                    }
+                });
+                const q = qs.toString();
+                return apiRequest(`/bills/payment-proofs/stats${q ? '?' + q : ''}`, 'GET');
+            },
             getAll: (params = {}) => {
                 const qs = new URLSearchParams();
                 Object.keys(params).forEach(k => {

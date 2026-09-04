@@ -24,6 +24,9 @@ document.addEventListener("DOMContentLoaded", () => {
     let proofData = [];
     let selectedProofId = null;
     let currentProofFilter = "all";
+    let allPgs = [];
+    let selectedBillPgId = "all";
+    let selectedProofPgId = "all";
 
     const canAddBills = Permissions.canAdd('bills');
     const canEditBills = Permissions.canEdit('bills');
@@ -33,11 +36,49 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // FETCH DATA
     // ============================================
+    async function loadPgs() {
+        try {
+            const res = await API.pgs.getAll();
+            if (res.success) {
+                allPgs = res.data || [];
+                populateBillPgFilter();
+                populateProofPgFilter();
+            }
+        } catch (error) {
+            console.error("Error loading PGs:", error);
+        }
+    }
+
+    function populateBillPgFilter() {
+        const select = document.getElementById("billPgFilter");
+        if (!select) return;
+        const current = select.value || "all";
+        select.innerHTML = `<option value="all">All PGs</option>` +
+            allPgs.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+        select.value = current;
+    }
+
+    function populateProofPgFilter() {
+        const select = document.getElementById("proofPgFilter");
+        if (!select) return;
+        const current = select.value || "all";
+        select.innerHTML = `<option value="all">All PGs</option>` +
+            allPgs.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+        select.value = current;
+    }
+
     async function loadData() {
         try {
+            const params = {};
+            const statsParams = {};
+            if (selectedBillPgId && selectedBillPgId !== "all") {
+                params.pg_id = selectedBillPgId;
+                statsParams.pg_id = selectedBillPgId;
+            }
+
             const [statsRes, billsRes, unpaidRes] = await Promise.all([
-                API.bills.stats(),
-                API.bills.getAll(),
+                API.bills.stats(statsParams),
+                API.bills.getAll(params),
                 API.bills.unpaidTenants()
             ]);
             
@@ -50,6 +91,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (unpaidRes.success) {
                 unpaidTenants = unpaidRes.data || [];
+                // Client-side PG filter for unpaid tenants list if present
+                if (selectedBillPgId && selectedBillPgId !== "all") {
+                    unpaidTenants = unpaidTenants.filter(t => String(t.pg_id) === String(selectedBillPgId));
+                }
                 window.LK_UNPAID_TENANTS = unpaidTenants;
             }
             
@@ -68,10 +113,15 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadProofs() {
         try {
             const params = {};
+            const statsParams = {};
             if (currentProofFilter !== "all") params.status = currentProofFilter;
+            if (selectedProofPgId && selectedProofPgId !== "all") {
+                params.pg_id = selectedProofPgId;
+                statsParams.pg_id = selectedProofPgId;
+            }
 
             const [statsRes, proofsRes] = await Promise.all([
-                API.bills.paymentProofs.stats(),
+                API.bills.paymentProofs.stats(statsParams),
                 API.bills.paymentProofs.getAll(params)
             ]);
 
@@ -92,6 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // RENDER BILL STATS
     // ============================================
     function renderStats() {
+        const fmt = (n) => (typeof fmtINR === 'function' ? fmtINR(n || 0) : ('₹' + (parseFloat(n) || 0).toFixed(2)));
         const stats = [
             { 
                 label: "Unpaid", 
@@ -127,6 +178,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 icon: "bi-clock-history", 
                 color: "var(--danger)", 
                 key: "overdue" 
+            },
+            {
+                label: "Total Paid",
+                value: fmt(billStats.total_paid_amount),
+                icon: "bi-currency-rupee",
+                color: "var(--success)",
+                key: "paid",
+                isMoney: true
+            },
+            {
+                label: "Total Due",
+                value: fmt(billStats.total_due_amount),
+                icon: "bi-wallet2",
+                color: "var(--warning)",
+                key: "unpaid",
+                isMoney: true
             }
         ];
         
@@ -134,7 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="col-6 col-md-4 col-lg">
                 <div class="stat-card hover-lift" onclick="switchTab('${s.key}')">
                     <div class="stat-icon" style="background:${s.color}22;color:${s.color};"><i class="bi ${s.icon}"></i></div>
-                    <div><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div>
+                    <div><div class="stat-value${s.isMoney ? ' fs-6' : ''}">${s.value}</div><div class="stat-label">${s.label}</div></div>
                 </div>
             </div>
         `).join("");
@@ -144,11 +211,12 @@ document.addEventListener("DOMContentLoaded", () => {
     // RENDER PROOF STATS
     // ============================================
     function renderProofStats(stats) {
+        const fmt = (n) => (typeof fmtINR === 'function' ? fmtINR(n || 0) : ('₹' + (parseFloat(n) || 0).toFixed(2)));
         const statsHtml = [
-            { label: "Total", value: stats.total || 0, icon: "bi-files", color: "var(--info)", filter: "all" },
-            { label: "Pending", value: stats.pending || 0, icon: "bi-clock-history", color: "var(--warning)", filter: "pending" },
-            { label: "Verified", value: stats.verified || 0, icon: "bi-check-circle", color: "var(--success)", filter: "verified" },
-            { label: "Rejected", value: stats.rejected || 0, icon: "bi-x-circle", color: "var(--danger)", filter: "rejected" }
+            { label: "Total", value: stats.total || 0, icon: "bi-files", color: "var(--info)", filter: "all", sub: fmt(stats.total_amount) },
+            { label: "Pending", value: stats.pending || 0, icon: "bi-clock-history", color: "var(--warning)", filter: "pending", sub: fmt(stats.pending_amount) },
+            { label: "Verified", value: stats.verified || 0, icon: "bi-check-circle", color: "var(--success)", filter: "verified", sub: fmt(stats.verified_amount) },
+            { label: "Rejected", value: stats.rejected || 0, icon: "bi-x-circle", color: "var(--danger)", filter: "rejected", sub: fmt(stats.rejected_amount) }
         ];
 
         const container = document.getElementById("proofStats");
@@ -161,6 +229,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div>
                         <div class="stat-value">${s.value}</div>
                         <div class="stat-label">${s.label}</div>
+                        ${s.sub ? `<div class="small text-muted-soft mt-1">${s.sub}</div>` : ''}
                     </div>
                 </div>
             </div>
@@ -1216,13 +1285,16 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // TAB SWITCHING
     // ============================================
-    function switchMainTab(tab) {
+    function switchMainTab(tab, updateHash = true) {
+        activeSubTab = tab;
         document.querySelectorAll('.main-tab-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tab === tab);
         });
         
-        document.getElementById('billsTabContent').style.display = tab === 'bills' ? 'block' : 'none';
-        document.getElementById('proofsTabContent').style.display = tab === 'proofs' ? 'block' : 'none';
+        const billsContent = document.getElementById('billsTabContent');
+        const proofsContent = document.getElementById('proofsTabContent');
+        if (billsContent) billsContent.style.display = tab === 'bills' ? 'block' : 'none';
+        if (proofsContent) proofsContent.style.display = tab === 'proofs' ? 'block' : 'none';
         
         const pageTitleEl = document.querySelector('.page-title');
         const pageSubEl = document.querySelector('.page-sub');
@@ -1230,17 +1302,69 @@ document.addEventListener("DOMContentLoaded", () => {
         if (tab === 'proofs') {
             if (pageTitleEl) pageTitleEl.textContent = 'Payment Proofs';
             if (pageSubEl) pageSubEl.textContent = 'Verify and manage tenant payment submissions';
+            if (updateHash && window.location.hash !== '#proofs') {
+                history.replaceState(null, '', 'bills.html#proofs');
+            }
             loadProofs();
         } else {
             if (pageTitleEl) pageTitleEl.textContent = 'Bills';
             if (pageSubEl) pageSubEl.textContent = 'Track rent status and manage collections across all tenants';
+            if (updateHash && window.location.hash === '#proofs') {
+                history.replaceState(null, '', 'bills.html');
+            }
         }
+
+        // Keep sidebar active state in sync
+        document.querySelectorAll('.side-nav a, .side-nav .nav-link, .sidebar a').forEach(a => {
+            const href = a.getAttribute('href') || '';
+            a.classList.remove('active');
+            if (tab === 'proofs' && href.includes('#proofs')) {
+                a.classList.add('active');
+            } else if (tab === 'bills' && (href === 'bills.html' || href.endsWith('/bills.html'))) {
+                a.classList.add('active');
+            }
+        });
     }
 
     document.querySelectorAll('.main-tab-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            switchMainTab(this.dataset.tab);
+            switchMainTab(this.dataset.tab, true);
         });
+    });
+
+    // Handle menu navigation Bills <-> Payment Proofs without full reload
+    window.addEventListener('hashchange', function() {
+        if (window.location.hash === '#proofs') {
+            switchMainTab('proofs', false);
+        } else {
+            switchMainTab('bills', false);
+        }
+    });
+
+    // Intercept sidebar clicks when already on bills.html so hash changes apply
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('a');
+        if (!link) return;
+        const href = link.getAttribute('href') || '';
+        const isBillsPage = window.location.pathname.endsWith('bills.html') || window.location.pathname.endsWith('/bills');
+        if (!isBillsPage) return;
+
+        if (href === 'bills.html#proofs' || href.endsWith('bills.html#proofs')) {
+            e.preventDefault();
+            if (window.location.hash !== '#proofs') {
+                history.pushState(null, '', 'bills.html#proofs');
+            }
+            switchMainTab('proofs', false);
+            return;
+        }
+        if (href === 'bills.html' || href.endsWith('/bills.html')) {
+            e.preventDefault();
+            if (window.location.hash) {
+                history.pushState(null, '', 'bills.html');
+            }
+            switchMainTab('bills', false);
+            return;
+        }
     });
 
     // ============================================
@@ -1285,19 +1409,35 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ============================================
+    // PG FILTER LISTENERS
+    // ============================================
+    document.getElementById("billPgFilter")?.addEventListener("change", function() {
+        selectedBillPgId = this.value || "all";
+        loadData();
+    });
+
+    document.getElementById("proofPgFilter")?.addEventListener("change", function() {
+        selectedProofPgId = this.value || "all";
+        loadProofs();
+    });
+
+    // ============================================
     // HASH CHECK FOR PROOFS TAB
     // ============================================
     if (window.location.hash === '#proofs') {
         setTimeout(() => {
-            switchMainTab('proofs');
+            switchMainTab('proofs', false);
         }, 100);
     }
 
     // ============================================
     // INIT - Load bills tab by default
     // ============================================
-    loadData();
-    if (window.location.hash !== '#proofs') {
-        switchMainTab('bills');
-    }
+    (async function init() {
+        await loadPgs();
+        await loadData();
+        if (window.location.hash !== '#proofs') {
+            switchMainTab('bills', false);
+        }
+    })();
 });

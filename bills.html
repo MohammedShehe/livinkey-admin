@@ -265,8 +265,13 @@
       <div id="billsTabContent">
         <!-- Search and Filters -->
         <div class="row g-3 mb-3">
-          <div class="col-md-12">
+          <div class="col-md-8">
               <input type="text" class="form-control" id="billSearch" placeholder="Search by tenant, PG, room..." style="border-radius:var(--radius-md);">
+          </div>
+          <div class="col-md-4">
+              <select class="form-select" id="billPgFilter" style="border-radius:var(--radius-md);">
+                <option value="all">All PGs</option>
+              </select>
           </div>
         </div>
 
@@ -294,8 +299,13 @@
 
         <!-- Search -->
         <div class="row g-3 mb-3">
-          <div class="col-md-12">
+          <div class="col-md-8">
             <input type="text" class="form-control" id="proofSearch" placeholder="Search by tenant name, email or transaction ID..." style="border-radius:var(--radius-md);">
+          </div>
+          <div class="col-md-4">
+              <select class="form-select" id="proofPgFilter" style="border-radius:var(--radius-md);">
+                <option value="all">All PGs</option>
+              </select>
           </div>
         </div>
 

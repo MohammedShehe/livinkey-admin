@@ -289,20 +289,51 @@ document.addEventListener("DOMContentLoaded", () => {
         </table>`;
     }
 
+    function isSuccessStatus(status, type) {
+        const s = status || 'pending';
+        if (type === 'proof' || type === 'cash') {
+            return s === 'verified' || s === 'success' || s === 'completed' || s === 'paid';
+        }
+        return s === 'verified' || s === 'success' || s === 'completed' || s === 'paid';
+    }
+
+    function isPendingStatus(status) {
+        const s = status || 'pending';
+        return s === 'pending' || s === 'processing';
+    }
+
+    function isFailedStatus(status) {
+        const s = status || 'pending';
+        return s === 'failed' || s === 'rejected' || s === 'cancelled';
+    }
+
+    function getTxnAmount(t) {
+        const raw = t.amount ?? t.amount_paid ?? 0;
+        const n = parseFloat(raw);
+        return Number.isFinite(n) ? n : 0;
+    }
+
     function updateStats(transactions) {
         const total = transactions.length;
         let success = 0;
         let pending = 0;
         let failed = 0;
+        let amountPaid = 0;
+        let amountPending = 0;
+        let amountFailed = 0;
         
         transactions.forEach(t => {
             const status = t.status || 'pending';
-            if (status === 'verified' || status === 'success' || status === 'completed' || status === 'paid') {
+            const amt = getTxnAmount(t);
+            if (isSuccessStatus(status, t._type)) {
                 success++;
-            } else if (status === 'pending' || status === 'processing') {
+                amountPaid += amt;
+            } else if (isPendingStatus(status)) {
                 pending++;
-            } else if (status === 'failed' || status === 'rejected' || status === 'cancelled') {
+                amountPending += amt;
+            } else if (isFailedStatus(status)) {
                 failed++;
+                amountFailed += amt;
             }
         });
         
@@ -310,6 +341,13 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("statSuccess").textContent = success;
         document.getElementById("statPending").textContent = pending;
         document.getElementById("statFailed").textContent = failed;
+
+        const paidEl = document.getElementById("statAmountPaid");
+        const pendEl = document.getElementById("statAmountPending");
+        const failEl = document.getElementById("statAmountFailed");
+        if (paidEl) paidEl.textContent = typeof fmtINR === 'function' ? fmtINR(amountPaid) : ('₹' + amountPaid.toFixed(2));
+        if (pendEl) pendEl.textContent = typeof fmtINR === 'function' ? fmtINR(amountPending) : ('₹' + amountPending.toFixed(2));
+        if (failEl) failEl.textContent = typeof fmtINR === 'function' ? fmtINR(amountFailed) : ('₹' + amountFailed.toFixed(2));
     }
 
     function getPaymentStatusBadge(status, type) {
