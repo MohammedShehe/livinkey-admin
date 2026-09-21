@@ -25,30 +25,64 @@ function resolveNotificationPage(n) {
     return 'tenants.html';
 }
 
-function renderLayout(activeKey, pageTitle, pageSub) {
-    // FIX: Validate token with backend before rendering layout
-    if (!Auth.isAuthenticated()) {
-        // Check for legacy localStorage token - clean it up
-        const localToken = localStorage.getItem('lk_token');
-        if (localToken) {
-            Auth.clearLocalStorage();
-        }
-        window.location.href = 'index.html';
-        return;
+// Fast navigation helpers. Menu rendering is never blocked by an API round-trip.
+const SESSION_VERIFY_KEY = 'lk_session_verified_at';
+const SESSION_VERIFY_TTL = 30000;
+
+function warmInternalPages(hrefs) {
+    const unique = [...new Set(hrefs)].filter(Boolean);
+    const warm = () => {
+        unique.forEach(href => {
+            if (href.startsWith('#')) return;
+            if (document.querySelector(`link[data-lk-prefetch="${href}"]`)) return;
+            const link = document.createElement('link');
+            link.rel = 'prefetch';
+            link.as = 'document';
+            link.href = href;
+            link.dataset.lkPrefetch = href;
+            document.head.appendChild(link);
+        });
+    };
+
+    if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(warm, { timeout: 1200 });
+    } else {
+        setTimeout(warm, 150);
     }
-    
-    // FIX: Verify the session with the backend
+}
+
+function verifySessionInBackground() {
+    const now = Date.now();
+    const lastVerified = Number(sessionStorage.getItem(SESSION_VERIFY_KEY) || 0);
+
+    if (now - lastVerified < SESSION_VERIFY_TTL) return;
+
+    // Avoid a validation request on every single menu click.
+    sessionStorage.setItem(SESSION_VERIFY_KEY, String(now));
+
     Auth.verifySession().then(isValid => {
         if (!isValid) {
-            // Token was invalid - redirect to login
-            window.location.href = 'index.html';
-            return;
+            window.location.replace('index.html');
+        } else {
+            sessionStorage.setItem(SESSION_VERIFY_KEY, String(Date.now()));
         }
-        // Token is valid - proceed with rendering
-        doRender(activeKey, pageTitle, pageSub);
     }).catch(() => {
-        window.location.href = 'index.html';
+        // Do not block navigation because of a temporary network failure.
     });
+}
+
+function renderLayout(activeKey, pageTitle, pageSub) {
+    // Local session state is enough to render the shell immediately.
+    // Backend validation happens in the background.
+    if (!Auth.isAuthenticated()) {
+        const localToken = localStorage.getItem('lk_token');
+        if (localToken) Auth.clearLocalStorage();
+        window.location.replace('index.html');
+        return;
+    }
+
+    doRender(activeKey, pageTitle, pageSub);
+    verifySessionInBackground();
 }
 
 function doRender(activeKey, pageTitle, pageSub) {
@@ -418,6 +452,12 @@ function doRender(activeKey, pageTitle, pageSub) {
         document.getElementById('sidebarEl').classList.remove('show');
         document.getElementById('sidebarBackdrop').classList.remove('show');
     });
+
+    // Warm the browser cache for menu destinations after the current UI is ready.
+    warmInternalPages(
+        Array.from(document.querySelectorAll('.side-nav .side-link'))
+            .map(link => link.getAttribute('href'))
+    );
 }
 
 // ============ HELPERS ============
