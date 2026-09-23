@@ -157,6 +157,17 @@ async function apiRequest(endpoint, method, data = null, isFormData = false) {
         };
     }
 
+    // Consistent audit attribution in the admin console: every successful
+    // state-changing request tells the current operator who performed it.
+    if (!isOnAuthPage() && ['POST','PUT','PATCH','DELETE'].includes(method) && result?.success) {
+        const session = Auth.getSession?.();
+        const admin = session?.admin || session?.user || session || {};
+        const position = session?.role === 'super_admin' ? 'Super Admin' : 'Admin';
+        if (admin?.name && typeof window.showToast === 'function') {
+            window.showToast(`Done by ${admin.name}, ${position}`, 'info');
+        }
+    }
+
     return result;
 }
 
@@ -165,7 +176,7 @@ function getAdminPermissions() {
     const session = Auth.getSession();
     if (!session) return {};
     if (session.role === 'super_admin') {
-        const allModules = ['tenants', 'guests', 'bills', 'pgs', 'maintenance', 'documents', 'feedbacks'];
+        const allModules = ['tenants', 'guests', 'bills', 'pgs', 'maintenance', 'documents', 'feedbacks', 'activity_logs'];
         const perms = {};
         allModules.forEach(m => {
             perms[m] = { view: true, add: true, edit: true, delete: true };
@@ -331,7 +342,10 @@ const API = {
             apiRequest('/guests/change-password', 'POST', { current_password, new_password, confirm_password }),
         dashboard: () => 
             apiRequest('/guests/dashboard', 'GET'),
-        notifications: {
+
+
+
+    notifications: {
             get: (limit = 50, offset = 0) => 
                 apiRequest(`/guests/notifications?limit=${limit}&offset=${offset}`, 'GET'),
             unread: (limit = 20) => 
@@ -363,6 +377,29 @@ const API = {
                 apiRequest(`/guests/admin/${id}`, 'DELETE'),
             sendMessage: (id, message, subject) => 
                 apiRequest(`/guests/admin/${id}/send-message`, 'POST', { message, subject })
+        }
+    },
+
+
+    activityLogs: {
+        users: (params = {}) => {
+            const qs = new URLSearchParams();
+            Object.keys(params).forEach(k => { if (params[k] !== undefined && params[k] !== null && params[k] !== '') qs.append(k, params[k]); });
+            return apiRequest(`/activity-logs/users?${qs.toString()}`, 'GET');
+        },
+        list: (params = {}) => {
+            const qs = new URLSearchParams();
+            Object.keys(params).forEach(k => { if (params[k] !== undefined && params[k] !== null && params[k] !== '') qs.append(k, params[k]); });
+            return apiRequest(`/activity-logs?${qs.toString()}`, 'GET');
+        },
+        stats: () => apiRequest('/activity-logs/stats', 'GET'),
+        sendMessage: (id, title, message, subject = '') =>
+            apiRequest(`/activity-logs/${id}/message`, 'POST', { title, message, subject }),
+        export: (params = {}) => {
+            const qs = new URLSearchParams();
+            Object.keys(params).forEach(k => { if (params[k] !== undefined && params[k] !== null && params[k] !== '') qs.append(k, params[k]); });
+            const token = sessionStorage.getItem('lk_token') || '';
+            window.open(`${API_CONFIG.baseURL}/activity-logs/export?${qs.toString()}${qs.toString() ? '&' : ''}token=${encodeURIComponent(token)}`, '_blank');
         }
     },
 

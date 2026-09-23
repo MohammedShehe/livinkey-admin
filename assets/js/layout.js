@@ -195,6 +195,13 @@ function doRender(activeKey, pageTitle, pageSub) {
             icon: 'bi-chat-dots-fill', 
             href: 'feedbacks.html',
             permission: 'feedbacks'
+        },
+        { 
+            key: 'activity_logs', 
+            label: 'Activity Tracking', 
+            icon: 'bi-activity', 
+            href: 'activity.html',
+            permission: 'activity_logs'
         }
     ];
     

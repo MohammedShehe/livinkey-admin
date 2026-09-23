@@ -868,3 +868,25 @@ a:hover{color:var(--lk-green-dark);}
     padding: 0.75rem;
   }
 }
+/* ---------- Activity Tracking ---------- */
+.filter-label{
+  display:block;
+  margin:0 0 .4rem;
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.activity-stat{min-height:108px;}
+.activity-stat .stat-icon{width:48px;height:48px;border-radius:13px;font-size:1.15rem;}
+.stat-icon-green{background:var(--lk-green-100);color:var(--lk-green-darker);}
+.stat-icon-blue{background:var(--info-bg);color:var(--info);}
+.stat-icon-amber{background:var(--warning-bg);color:var(--warning);}
+#activityFilters .input-group-text,
+.input-group-text{background:var(--surface);border:1.5px solid var(--border);color:var(--muted);}
+#activityFilters .input-group .form-control{border-left:0;}
+.activity-table{min-width:1050px;}
+@media (max-width: 991px){
+  .activity-stat{min-height:96px;}
+}

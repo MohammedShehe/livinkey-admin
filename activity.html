@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Activity Tracking · Livinkey Admin</title>
+<link rel="icon" href="assets/img/black_logo.png">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+<div id="sidebarMount"></div>
+<div class="main-area">
+  <div id="topbarMount"></div>
+  <main class="content-area">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+      <div>
+        <h2 class="h4 mb-1">Activity Tracking</h2>
+        <p class="text-muted-soft mb-0">App adoption, tenant/guest activity and an immutable admin audit trail.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-brand" id="exportBtn"><i class="bi bi-download me-1"></i>Export CSV</button>
+        <button class="btn btn-brand" id="refreshBtn"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4" id="statsRow">
+      <div class="col-xl-4 col-md-6"><div class="stat-card activity-stat"><div class="stat-icon stat-icon-green"><i class="bi bi-phone"></i></div><div><div class="small text-muted-soft">App installed</div><div class="h3 mb-0" id="installedPct">—</div><div class="small text-muted-soft" id="installedCount">Loading...</div></div></div></div>
+      <div class="col-xl-4 col-md-6"><div class="stat-card activity-stat"><div class="stat-icon stat-icon-blue"><i class="bi bi-activity"></i></div><div><div class="small text-muted-soft">Activities · 30 days</div><div class="h3 mb-0" id="activityCount">—</div><div class="small text-muted-soft">Tenant and guest activity</div></div></div></div>
+      <div class="col-xl-4 col-md-6"><div class="stat-card activity-stat"><div class="stat-icon stat-icon-amber"><i class="bi bi-people"></i></div><div><div class="small text-muted-soft">Active profiles · 30 days</div><div class="h3 mb-0" id="profileCount">—</div><div class="small text-muted-soft">Unique users with activity</div></div></div></div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4" id="activityFilters">
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-xl-4 col-lg-6"><label class="filter-label">Search</label><div class="input-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" id="searchInput" placeholder="Search tenant or guest"></div></div>
+          <div class="col-xl-2 col-lg-3"><label class="filter-label">User type</label><select class="form-select" id="roleFilter"><option value="">All users</option><option value="tenant">Tenants</option><option value="guest">Guests</option></select></div>
+          <div class="col-xl-2 col-lg-3"><label class="filter-label">PG</label><select class="form-select" id="pgFilter"><option value="">All PGs</option></select></div>
+          <div class="col-xl-2 col-lg-3"><label class="filter-label">Module</label><select class="form-select" id="moduleFilter"><option value="">All modules</option><option value="auth">Auth</option><option value="documents">Documents</option><option value="bills">Bills</option><option value="payments">Payments</option><option value="maintenance">Maintenance</option><option value="feedbacks">Feedback</option><option value="notifications">Notifications</option><option value="profile">Profile</option><option value="messaging">Messaging</option><option value="admins">Admins</option><option value="pgs">PGs</option></select></div>
+          <div class="col-xl-2 col-lg-3"><label class="filter-label">Action</label><select class="form-select" id="actionFilter"><option value="">All actions</option><option value="login">Login</option><option value="login_failed">Failed login</option><option value="created">Created</option><option value="updated">Updated</option><option value="deleted">Deleted</option><option value="viewed">Viewed</option><option value="device_registered">Device registered</option><option value="device_deactivated">Device deactivated</option><option value="admin_message_sent">Admin message</option></select></div>
+          <div class="col-xl-2 col-lg-3"><label class="filter-label">App status</label><select class="form-select" id="statusFilter"><option value="">All statuses</option><option value="installed">Installed</option><option value="not_installed">Not Installed</option></select></div>
+          <div class="col-xl-4 col-lg-6"><label class="filter-label">Date range</label><div class="d-flex gap-2"><input type="date" class="form-control" id="fromDate" aria-label="From date"><input type="date" class="form-control" id="toDate" aria-label="To date"></div></div>
+          <div class="col-xl-2 col-lg-3 d-flex align-items-end"><button class="btn btn-light border w-100" id="clearFilters"><i class="bi bi-x-circle me-1"></i>Clear filters</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2"><h6 class="mb-0">App Adoption by PG</h6><span class="small text-muted-soft">Installed users / active users</span></div>
+        <div class="table-responsive"><table class="data-table mb-0"><thead><tr><th>PG</th><th>Active users</th><th>Installed</th><th>Adoption</th></tr></thead><tbody id="pgAdoptionTbody"><tr><td colspan="4" class="text-center text-muted-soft py-3">Loading...</td></tr></tbody></table></div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="table-responsive">
+        <table class="data-table activity-table mb-0">
+          <thead><tr><th>User</th><th>Position</th><th>PG</th><th>App Status</th><th>Last App Activity</th><th>Recent Activity</th><th>Performed By</th><th class="text-end">Action</th></tr></thead>
+          <tbody id="usersTbody"><tr><td colspan="8" class="text-center py-5 text-muted-soft">Loading...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="d-flex justify-content-between align-items-center p-3 border-top">
+        <div class="small text-muted-soft" id="pageInfo">Page 1</div>
+        <div class="d-flex gap-2"><button class="btn btn-sm btn-outline-brand" id="prevPage">Previous</button><button class="btn btn-sm btn-outline-brand" id="nextPage">Next</button></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal fade" id="timelineModal" tabindex="-1">
+ <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+  <div class="modal-header"><div><h5 class="modal-title" id="timelineTitle">Activity</h5><div class="small text-muted-soft" id="timelineMeta"></div></div><button class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body"><div id="timelineBody"></div></div>
+ </div></div>
+</div>
+
+<div class="modal fade" id="messageModal" tabindex="-1">
+ <div class="modal-dialog"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title">Message <span id="messageRecipient"></span></h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+  <form id="messageForm"><div class="modal-body">
+    <div class="mb-3"><label class="form-label">Title</label><input id="msgTitle" class="form-control" maxlength="160" required></div>
+    <div class="mb-3"><label class="form-label">Email subject <span class="text-muted-soft">(optional)</span></label><input id="msgSubject" class="form-control" maxlength="200"></div>
+    <div class="mb-3"><label class="form-label">Message</label><textarea id="msgBody" class="form-control" rows="6" maxlength="5000" required></textarea></div>
+    <div class="small text-muted-soft">This sends an in-app notification, push notification when the device is registered and email when an email address is available.</div>
+  </div><div class="modal-footer"><button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button><button class="btn btn-brand" type="submit">Send message</button></div></form>
+ </div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/layout.js"></script>
+<script src="assets/js/pages/activity.js"></script>
+</body>
+</html>

@@ -10,7 +10,8 @@ document.addEventListener("DOMContentLoaded", () => {
         { key: "pgs", label: "PGs Management" },
         { key: "maintenance", label: "Maintenance" },
         { key: "documents", label: "Documents" },
-        { key: "feedbacks", label: "Feedbacks" }  // ← ADDED: Feedbacks module
+        { key: "feedbacks", label: "Feedbacks" },
+        { key: "activity_logs", label: "Activity Tracking" }
     ];
 
     let adminData = [];
@@ -480,26 +481,24 @@ document.addEventListener("DOMContentLoaded", () => {
             const permissions = a.permissions || {};
 
             document.getElementById("accessTbody").innerHTML = MODULES.map(m => {
-                const perm = permissions[m.key] || { view: false, add: false, edit: false, delete: false };
-                // ============================================================
-                // FIXED: Show all checkboxes including delete for feedbacks
-                // Only disable add/edit for feedbacks (read-only + delete only)
-                // ============================================================
+                const perm = permissions[m.key] || { view: false, add: false, edit: false, delete: false, message: false, export: false };
+                const actions = ["view", "add", "edit", "delete", "message", "export"];
                 return `
                 <tr>
                     <td class="fw-semibold">${m.label}</td>
-                    ${["view", "add", "edit", "delete"].map(p => {
-                        // For feedbacks: disable add and edit, enable view and delete
-                        const isDisabled = m.key === "feedbacks" && (p === "add" || p === "edit");
+                    ${actions.map(p => {
+                        const isActivity = m.key === "activity_logs";
+                        const isDisabled =
+                            (m.key === "feedbacks" && (p === "add" || p === "edit" || p === "message" || p === "export")) ||
+                            (isActivity && (p === "add" || p === "edit" || p === "delete"));
                         return `
                         <td>
-                            <input type="checkbox" 
-                                class="form-check-input access-cb" 
-                                data-module="${m.key}" 
-                                data-perm="${p}" 
+                            <input type="checkbox"
+                                class="form-check-input access-cb"
+                                data-module="${m.key}"
+                                data-perm="${p}"
                                 ${perm[p] ? "checked" : ""}
-                                ${isDisabled ? "disabled" : ""}
-                            >
+                                ${isDisabled ? "disabled" : ""}>
                         </td>`;
                     }).join("")}
                 </tr>`;
