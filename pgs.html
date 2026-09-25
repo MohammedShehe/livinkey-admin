@@ -610,6 +610,19 @@
             </div>
           </div>
 
+          <!-- Payment Details -->
+          <div class="mb-4 p-3 border rounded-3" style="background:var(--bg);">
+            <div class="fw-semibold mb-1">Payment Details <span class="text-danger">*</span></div>
+            <div class="text-muted-soft small mb-3">Required bank details are copied onto new bills. UPI ID and payment QR are optional.</div>
+            <div class="row g-3">
+              <div class="col-md-6"><label class="form-label">Bank Name *</label><input class="form-control" id="pPaymentBankName" required placeholder="e.g. HDFC Bank"></div>
+              <div class="col-md-6"><label class="form-label">Account Holder Name *</label><input class="form-control" id="pPaymentHolderName" required placeholder="Account holder name"></div>
+              <div class="col-md-6"><label class="form-label">Account Number *</label><input class="form-control" id="pPaymentAccountNumber" required placeholder="Bank account number"></div>
+              <div class="col-md-6"><label class="form-label">IFSC Code *</label><input class="form-control" id="pPaymentIfsc" required placeholder="e.g. HDFC0001234"></div>
+              <div class="col-md-6"><label class="form-label">UPI ID</label><input class="form-control" id="pPaymentUpi" placeholder="example@upi"></div>
+            </div>
+          </div>
+
           <!-- QR Code Upload -->
           <div class="row g-3 mb-4 align-items-end">
             <div class="col-md-8">

@@ -302,9 +302,14 @@
           <div class="col-md-8">
             <input type="text" class="form-control" id="proofSearch" placeholder="Search by tenant name, email or transaction ID..." style="border-radius:var(--radius-md);">
           </div>
-          <div class="col-md-4">
+          <div class="col-md-2">
               <select class="form-select" id="proofPgFilter" style="border-radius:var(--radius-md);">
                 <option value="all">All PGs</option>
+              </select>
+          </div>
+          <div class="col-md-2">
+              <select class="form-select" id="proofRoomFilter" style="border-radius:var(--radius-md);">
+                <option value="all">All Rooms</option>
               </select>
           </div>
         </div>
@@ -503,11 +508,57 @@
       <form id="createBillForm">
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label">Tenant (unpaid)</label>
-            <select class="form-select" id="billTenant" required>
-              <option value="">Select tenant...</option>
+            <label class="form-label">1. Select PG <span class="text-danger">*</span></label>
+            <select class="form-select" id="billCreatePg" required>
+              <option value="">Select PG...</option>
+            </select>
+            <small class="text-muted-soft">Choose the PG first. Rooms and tenants will be limited to this PG.</small>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">2. Select Room <span class="text-danger">*</span></label>
+            <select class="form-select" id="billCreateRoom" disabled>
+              <option value="">Select a PG first...</option>
             </select>
           </div>
+
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label mb-0">3. Select Tenant(s) <span class="text-danger">*</span></label>
+              <span class="small text-muted-soft" id="billTenantCount">0 selected</span>
+            </div>
+            <div class="d-flex gap-2 mb-2">
+              <button type="button" class="btn btn-outline-brand btn-sm" id="billSelectAllTenants">Select All</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="billClearTenants">Clear</button>
+              <input type="search" class="form-control form-control-sm ms-auto" style="max-width:280px" id="billTenantSearch" placeholder="Search tenant...">
+            </div>
+            <div id="billTenantList" class="border rounded-3 p-2" style="max-height:220px;overflow:auto;">
+              <div class="text-muted-soft small p-2">Select a PG first.</div>
+            </div>
+            <!-- Kept as the submission contract expected by the existing API. -->
+            <select id="billTenant" multiple class="d-none" aria-hidden="true"></select>
+          </div>
+          <div class="mb-3 mt-3 p-3 border rounded-3" id="billCreationModeWrap">
+            <label class="form-label fw-bold">4. Billing Mode</label>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="border rounded-3 p-3 d-block h-100" style="cursor:pointer;">
+                  <input class="form-check-input me-2" type="radio" name="billCreationMode" value="individual" checked>
+                  <strong>Individual Bills</strong>
+                  <small class="d-block text-muted-soft mt-1">Create a separate bill for every selected tenant.</small>
+                </label>
+              </div>
+              <div class="col-md-6">
+                <label class="border rounded-3 p-3 d-block h-100" style="cursor:pointer;">
+                  <input class="form-check-input me-2" type="radio" name="billCreationMode" value="group">
+                  <strong>Group Bill</strong>
+                  <small class="d-block text-muted-soft mt-1">One financial bill shared by all selected tenants. Payment by any one tenant settles the group.</small>
+                </label>
+              </div>
+            </div>
+            <div id="groupBillNotice" class="alert alert-info mt-2 mb-0 d-none small">A single bill will be created and sent individually to all selected tenants. The bill is shared; it is not duplicated.</div>
+          </div>
+
           <div class="row g-3">
             <div class="col-12">
               <label class="form-label">Billing Month</label>
@@ -539,7 +590,24 @@
           </div>
           
           <div class="mt-3 pt-3 border-top">
-            <div class="row g-2">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Payment Details for this Bill *</label>
+                <select class="form-select" id="billPaymentDetailsSource">
+                  <option value="pg">Use the selected PG's payment details</option>
+                  <option value="manual">Enter manual payment details for this bill</option>
+                </select>
+                <small class="text-muted-soft">For a group or individual bill, PG mode snapshots the selected PG payment details onto the bill.</small>
+              </div>
+              <div id="manualPaymentDetailsWrap" class="col-12 d-none">
+                <div class="row g-3 p-3 border rounded-3" style="background:var(--bg);">
+                  <div class="col-md-6"><label class="form-label">Bank Name *</label><input class="form-control" id="billPaymentBankName"></div>
+                  <div class="col-md-6"><label class="form-label">Account Holder Name *</label><input class="form-control" id="billPaymentHolderName"></div>
+                  <div class="col-md-6"><label class="form-label">Account Number *</label><input class="form-control" id="billPaymentAccountNumber"></div>
+                  <div class="col-md-6"><label class="form-label">IFSC Code *</label><input class="form-control" id="billPaymentIfsc"></div>
+                  <div class="col-md-6"><label class="form-label">UPI ID (optional)</label><input class="form-control" id="billPaymentUpi"></div>
+                </div>
+              </div>
               <div class="col-12">
                 <label class="form-label">Attach QR Code (optional)</label>
                 <div class="d-flex gap-2">

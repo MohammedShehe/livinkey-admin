@@ -49,6 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (res.success) {
                 tenants = res.data || [];
                 populateTenantDropdown();
+                populatePaymentRoomFilter();
                 // Load all tenants by default
                 await loadAllTenantsPaymentHistory(pgId);
             }
@@ -62,6 +63,17 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!select) return;
         select.innerHTML = `<option value="">All Tenants</option>` +
             tenants.map(t => `<option value="${t.id}">${t.full_name} — ${t.pg_name || 'N/A'} Room ${t.room_number || 'N/A'}</option>`).join("");
+    }
+
+    function populatePaymentRoomFilter() {
+        const select = document.getElementById("paymentRoomFilter");
+        if (!select) return;
+        const current = select.value || "";
+        const rooms = [...new Set(tenants.map(t => t.room_number).filter(Boolean))]
+            .sort((a,b) => String(a).localeCompare(String(b)));
+        select.innerHTML = `<option value="">All Rooms</option>` +
+            rooms.map(r => `<option value="${String(r)}">Room ${String(r)}</option>`).join("");
+        select.value = current;
     }
 
     // ============================================
@@ -116,7 +128,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         tenant_name: tenant.full_name,
                         tenant_id: tenant.id,
                         pg_name: tenant.pg_name || 'N/A',
-                        pg_id: tenant.pg_id
+                        pg_id: tenant.pg_id,
+                        room_number: tenant.room_number || 'N/A'
                     }));
                     const cash = (res.data.cash_payments || []).map(p => ({
                         ...p,
@@ -126,7 +139,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         tenant_name: tenant.full_name,
                         tenant_id: tenant.id,
                         pg_name: tenant.pg_name || 'N/A',
-                        pg_id: tenant.pg_id
+                        pg_id: tenant.pg_id,
+                        room_number: tenant.room_number || 'N/A'
                     }));
                     const proof = (res.data.payment_proofs || []).map(p => ({
                         ...p,
@@ -136,7 +150,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         tenant_name: tenant.full_name,
                         tenant_id: tenant.id,
                         pg_name: tenant.pg_name || 'N/A',
-                        pg_id: tenant.pg_id
+                        pg_id: tenant.pg_id,
+                        room_number: tenant.room_number || 'N/A'
                     }));
                     allTxns = [...allTxns, ...online, ...cash, ...proof];
                 }
@@ -194,7 +209,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     tenant_name: tenantName,
                     tenant_id: id,
                     pg_name: pgName,
-                    pg_id: pgId
+                    pg_id: pgId,
+                    room_number: tenant ? tenant.room_number : 'N/A'
                 }));
                 const cashPayments = (res.data.cash_payments || []).map(p => ({
                     ...p,
@@ -204,7 +220,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     tenant_name: tenantName,
                     tenant_id: id,
                     pg_name: pgName,
-                    pg_id: pgId
+                    pg_id: pgId,
+                    room_number: tenant ? tenant.room_number : 'N/A'
                 }));
                 const paymentProofs = (res.data.payment_proofs || []).map(p => ({
                     ...p,
@@ -214,7 +231,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     tenant_name: tenantName,
                     tenant_id: id,
                     pg_name: pgName,
-                    pg_id: pgId
+                    pg_id: pgId,
+                    room_number: tenant ? tenant.room_number : 'N/A'
                 }));
                 
                 allTransactions = [...onlinePayments, ...cashPayments, ...paymentProofs]
@@ -242,11 +260,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         empty.classList.add("d-none");
 
-        // Check if we're showing multiple tenants
-        const showTenantColumn = transactions.some(t => {
-            const tenantIds = new Set(transactions.map(t => t.tenant_id));
-            return tenantIds.size > 1;
-        });
+        // Tenant identity is essential on the Payments page.
+        // Always show it, even when the current filter contains only one tenant.
+        const showTenantColumn = true;
 
         // Check if we're showing multiple PGs
         const showPgColumn = transactions.some(t => {
@@ -259,6 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <thead><tr>
                 ${showPgColumn ? '<th>PG</th>' : ''}
                 ${showTenantColumn ? '<th>Tenant</th>' : ''}
+                <th>Room</th>
                 <th>Bill ID</th>
                 <th>Type</th>
                 <th>Amount</th>
@@ -272,7 +289,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${transactions.map(t => `
                 <tr>
                     ${showPgColumn ? `<td><strong>${t.pg_name || 'N/A'}</strong></td>` : ''}
-                    ${showTenantColumn ? `<td><strong>${t.tenant_name || 'N/A'}</strong></td>` : ''}
+                    ${showTenantColumn ? `<td><strong>${t.tenant_name || 'N/A'}</strong><div class="small text-muted-soft">ID: ${t.tenant_id || 'N/A'}</div></td>` : ''}
+                    <td>${t.room_number ? `Room ${t.room_number}` : 'N/A'}</td>
                     <td>#${t.bill_id || 'N/A'}</td>
                     <td><span class="chip ${t._type === 'online' ? 'chip-blue' : t._type === 'cash' ? 'chip-amber' : 'chip-gray'}">${t._display_type || 'N/A'}</span></td>
                     <td>${fmtINR(t.amount || t.amount_paid || 0)}</td>
@@ -478,12 +496,21 @@ document.addEventListener("DOMContentLoaded", () => {
         applyFilters();
     });
 
+    document.getElementById("paymentRoomFilter")?.addEventListener("change", function() {
+        applyFilters();
+    });
+
     function applyFilters() {
         const statusFilter = document.getElementById("paymentStatusFilter").value;
         const gatewayFilter = document.getElementById("paymentGatewayFilter").value;
+        const roomFilter = document.getElementById("paymentRoomFilter")?.value || "";
         
         let filtered = [...allTransactions];
         
+        if (roomFilter) {
+            filtered = filtered.filter(t => String(t.room_number || "") === String(roomFilter));
+        }
+
         if (statusFilter) {
             filtered = filtered.filter(t => {
                 const status = t.status || 'pending';

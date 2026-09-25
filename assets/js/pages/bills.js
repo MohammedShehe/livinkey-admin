@@ -58,6 +58,18 @@ document.addEventListener("DOMContentLoaded", () => {
         select.value = current;
     }
 
+    function populateBillRoomFilter() {
+        const select = document.getElementById("billRoomFilter");
+        if (!select) return;
+        const current = select.value || "all";
+        const rooms = [...new Map(billData.filter(b => b.room_number).map(b => [
+            String(b.room_id || b.room_number), b
+        ])).values()].sort((a,b) => String(a.room_number).localeCompare(String(b.room_number)));
+        select.innerHTML = `<option value="all">All Rooms</option>` +
+            rooms.map(r => `<option value="${String(r.room_id || r.room_number)}">${r.pg_name || 'PG'} — Room ${r.room_number}</option>`).join("");
+        select.value = current;
+    }
+
     function populateProofPgFilter() {
         const select = document.getElementById("proofPgFilter");
         if (!select) return;
@@ -88,6 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (billsRes.success) {
                 billData = billsRes.data || [];
                 window.LK_BILLS = billData;
+                populateBillRoomFilter();
             }
             if (unpaidRes.success) {
                 unpaidTenants = unpaidRes.data || [];
@@ -131,6 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (proofsRes.success) {
                 proofData = proofsRes.data || [];
+                populateProofRoomFilter();
                 renderProofTable();
             }
         } catch (error) {
@@ -587,12 +601,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const paidAmount = parseFloat(b.paid_amount) || 0;
             const fineAmount = parseFloat(b.fine_amount) || 0;
             const cashPaid = parseFloat(b.total_cash_paid) || 0;
-            const totalDue = totalAmount + fineAmount - paidAmount - cashPaid;
+            const totalDue = Math.max(totalAmount + fineAmount - paidAmount, 0);
             
             let bodyHtml = `
             <div class="row g-2 small">
                 <div class="col-6"><span class="text-muted-soft">PG:</span> <strong>${b.pg_name || '—'}</strong></div>
                 <div class="col-6"><span class="text-muted-soft">Room:</span> <strong>${b.room_number || '—'}</strong></div>
+                ${b.is_group_bill ? `<div class="col-12"><span class="text-muted-soft">Billing Type:</span> <span class="badge bg-info-subtle text-info-emphasis">Group Bill · ${Number(b.group_member_count || b.group_members?.length || 0)} tenants</span></div>` : ''}
                 <div class="col-6"><span class="text-muted-soft">Rent:</span> <strong>${fmtINR(parseFloat(b.rent_amount) || 0)}</strong></div>
                 <div class="col-6"><span class="text-muted-soft">Electricity:</span> <strong>${fmtINR(parseFloat(b.electricity_amount) || 0)}</strong></div>
                 <div class="col-6"><span class="text-muted-soft">Maintenance:</span> <strong>${fmtINR(parseFloat(b.maintenance_amount) || 0)}</strong></div>
@@ -600,15 +615,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="col-6"><span class="text-muted-soft">Fine:</span> <strong class="text-danger">${fmtINR(fineAmount)}</strong></div>
                 <div class="col-6"><span class="text-muted-soft">Total:</span> <strong>${fmtINR(totalAmount)}</strong></div>
                 <div class="col-12"><hr></div>
-                <div class="col-4"><span class="text-muted-soft">Paid (Online):</span> <strong>${fmtINR(paidAmount)}</strong></div>
-                <div class="col-4"><span class="text-muted-soft">Paid (Cash):</span> <strong>${fmtINR(cashPaid)}</strong></div>
+                <div class="col-4"><span class="text-muted-soft">Paid (Online):</span> <strong>${fmtINR(parseFloat(b.ledger_online_paid ?? (paidAmount - cashPaid)) || 0)}</strong></div>
+                <div class="col-4"><span class="text-muted-soft">Paid (Cash):</span> <strong>${fmtINR(parseFloat(b.ledger_cash_paid ?? cashPaid) || 0)}</strong></div>
                 <div class="col-4"><span class="text-muted-soft">Due:</span> <strong class="${totalDue > 0 ? 'text-danger' : 'text-success'}">${fmtINR(totalDue)}</strong></div>
+                ${b.admin_note ? `<div class="col-12"><span class="text-muted-soft">Admin Note${b.admin_note_by ? ` (${b.admin_note_by})` : ''}:</span> <div class="mt-1 p-2 border rounded-2 bg-light">${b.admin_note}</div></div>` : ''}
                 <div class="col-12"><span class="text-muted-soft">Status:</span> ${getStatusBadge(b.status)}</div>
                 <div class="col-12"><span class="text-muted-soft">Valid Until:</span> <strong>${b.valid_until ? formatDateTime(b.valid_until) : '—'}</strong></div>
                 <div class="col-12"><span class="text-muted-soft">QR Status:</span> <span class="chip ${b.qr_status === 'active' ? 'chip-green' : 'chip-gray'}">${b.qr_status || 'N/A'}</span></div>
                 ${b.billing_month ? `<div class="col-6"><span class="text-muted-soft">Billing Month:</span> <strong>${b.billing_month}</strong></div>` : ''}
                 ${(b.electricity_meter_image || b.electricity_meter_image_2) ? `<div class="col-12"><span class="text-muted-soft">Meter Image${(b.electricity_meter_image && b.electricity_meter_image_2) ? 's' : ''}:</span> ${b.electricity_meter_image ? `<a href="${b.electricity_meter_image}" target="_blank" class="text-brand">View 1</a>` : ''}${(b.electricity_meter_image && b.electricity_meter_image_2) ? ' | ' : ''}${b.electricity_meter_image_2 ? `<a href="${b.electricity_meter_image_2}" target="_blank" class="text-brand">View 2</a>` : ''}</div>` : ''}
-                ${b.payment_qr ? `<div class="col-12"><span class="text-muted-soft">Payment QR:</span> <img src="${b.payment_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
+                ${(b.payment_bank_name || b.payment_account_holder_name || b.payment_account_number || b.payment_ifsc_code || b.payment_upi_id) ? `<div class="col-12 mt-2 p-2 border rounded-2" style="background:var(--bg);"><div class="fw-semibold mb-1">Payment Details</div><div class="row g-1"><div class="col-md-6">Bank: <strong>${b.payment_bank_name || '—'}</strong></div><div class="col-md-6">Holder: <strong>${b.payment_account_holder_name || '—'}</strong></div><div class="col-md-6">Account: <strong>${b.payment_account_number || '—'}</strong></div><div class="col-md-6">IFSC: <strong>${b.payment_ifsc_code || '—'}</strong></div><div class="col-md-6">UPI: <strong>${b.payment_upi_id || '—'}</strong></div></div>${b.payment_details_qr ? `<div class="mt-2">QR: <img src="${b.payment_details_qr}" style="height:90px;width:90px;object-fit:contain;border:1px solid var(--border);border-radius:4px;background:#fff;"></div>` : ''}</div>` : ''}
+                ${b.is_group_bill && Array.isArray(b.group_members) ? `<div class="col-12 mt-2 p-2 border rounded-2"><div class="fw-semibold mb-1">Shared With</div>${b.group_members.map(m => `<div class="small py-1">${m.full_name || 'Tenant'}${m.email ? ` <span class="text-muted-soft">· ${m.email}</span>` : ''}</div>`).join('')}</div>` : ''}
+                ${b.payment_qr ? `<div class="col-12"><span class="text-muted-soft">Generated Payment QR:</span> <img src="${b.payment_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
                 ${b.admin_qr ? `<div class="col-12"><span class="text-muted-soft">Admin QR:</span> <img src="${b.admin_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
             </div>`;
             
@@ -1183,6 +1201,101 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     let billAttachment = null;
     let meterImageFiles = []; // up to 2 files
+    let billEligibleTenants = [];
+
+    function getBillSelectedTenantIds() {
+        return [...document.querySelectorAll('#billTenantList input[name="billTenantChoice"]:checked')]
+            .map(el => String(el.value));
+    }
+
+    function syncBillTenantSelect() {
+        const select = document.getElementById("billTenant");
+        const ids = new Set(getBillSelectedTenantIds());
+        if (select) {
+            select.innerHTML = billEligibleTenants.map(t =>
+                `<option value="${t.id}" ${ids.has(String(t.id)) ? "selected" : ""}>${t.full_name || "Tenant"}</option>`
+            ).join("");
+        }
+        const count = document.getElementById("billTenantCount");
+        if (count) count.textContent = `${ids.size} selected`;
+        updateBillModeNotice?.();
+    }
+
+    function renderBillTenantList() {
+        const pgId = String(document.getElementById("billCreatePg")?.value || "");
+        const roomId = String(document.getElementById("billCreateRoom")?.value || "");
+        const term = String(document.getElementById("billTenantSearch")?.value || "").trim().toLowerCase();
+        const list = document.getElementById("billTenantList");
+        if (!list) return;
+
+        const eligible = billEligibleTenants.filter(t => {
+            if (pgId && String(t.pg_id) !== pgId) return false;
+            if (roomId && roomId !== "all" && String(t.room_id) !== roomId) return false;
+            if (!term) return true;
+            return [t.full_name, t.email, t.phone, t.pg_name, t.room_number]
+                .some(v => String(v || "").toLowerCase().includes(term));
+        });
+
+        if (!eligible.length) {
+            list.innerHTML = `<div class="text-muted-soft small p-2">No unpaid tenants match the selected PG/room.</div>`;
+            syncBillTenantSelect();
+            return;
+        }
+
+        const selected = new Set(getBillSelectedTenantIds());
+        list.innerHTML = eligible.map(t => {
+            const last = t.last_billing_month ? `Last billed ${t.last_billing_month}` : "Never billed";
+            return `
+              <label class="d-flex align-items-center gap-2 p-2 rounded-2 bill-tenant-option" style="cursor:pointer;">
+                <input class="form-check-input mt-0" type="checkbox" name="billTenantChoice"
+                       value="${t.id}" ${selected.has(String(t.id)) ? "checked" : ""}>
+                <span class="flex-grow-1">
+                  <span class="fw-semibold">${t.full_name || "Tenant"}</span>
+                  <span class="text-muted-soft small d-block">${t.pg_name || "PG"} · Room ${t.room_number || "—"} · ${last}</span>
+                </span>
+              </label>`;
+        }).join("");
+
+        list.querySelectorAll('input[name="billTenantChoice"]').forEach(cb => {
+            cb.addEventListener("change", syncBillTenantSelect);
+        });
+        syncBillTenantSelect();
+    }
+
+    function populateBillCreatePgs() {
+        const select = document.getElementById("billCreatePg");
+        if (!select) return;
+        // IMPORTANT: the PG selector must show ALL active/available PGs.
+        // Eligibility is applied only after the admin selects a PG, when
+        // rooms and tenants are populated. A PG must not disappear merely
+        // because it currently has no eligible/unpaid tenants.
+        const pgs = (allPgs || [])
+            .filter(p => p && (p.is_active === undefined || p.is_active === null || Number(p.is_active) !== 0))
+            .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+
+        select.innerHTML = `<option value="">Select PG...</option>` +
+            pgs.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+    }
+
+    function populateBillCreateRooms() {
+        const pgId = String(document.getElementById("billCreatePg")?.value || "");
+        const roomSelect = document.getElementById("billCreateRoom");
+        if (!roomSelect) return;
+
+        const rooms = [...new Map(
+            billEligibleTenants
+                .filter(t => pgId && String(t.pg_id) === pgId && t.room_id)
+                .map(t => [String(t.room_id), t])
+        ).values()].sort((a, b) => String(a.room_number || "").localeCompare(String(b.room_number || ""), undefined, {numeric:true}));
+
+        roomSelect.disabled = !pgId;
+        roomSelect.innerHTML = pgId
+            ? `<option value="">All rooms in this PG</option>` +
+              rooms.map(r => `<option value="${r.room_id}">Room ${r.room_number || "—"}</option>`).join("")
+            : `<option value="">Select a PG first...</option>`;
+
+        roomSelect.value = "";
+    }
 
     document.getElementById("createBillModal")?.addEventListener("show.bs.modal", async function(e) {
         if (!canAddBills) {
@@ -1190,21 +1303,29 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("You don't have permission to create bills.", "warning");
             return;
         }
-        
+
         try {
             const res = await API.bills.unpaidTenants();
-            const select = document.getElementById("billTenant");
-            if (res.success && res.data) {
-                select.innerHTML = `<option value="">Select tenant...</option>` + 
-                    res.data.map(t => {
-                        const last = t.last_billing_month ? ` — Last billed ${t.last_billing_month}` : ' — Never billed';
-                        const ready = ' — Ready for new bill';
-                        return `<option value="${t.id}">${t.full_name} — ${t.pg_name} Room ${t.room_number}${ready}${last}</option>`;
-                    }).join("");
+            billEligibleTenants = (res.success && Array.isArray(res.data)) ? res.data : [];
+
+            populateBillCreatePgs();
+            const pgSelect = document.getElementById("billCreatePg");
+            const roomSelect = document.getElementById("billCreateRoom");
+            if (pgSelect) pgSelect.value = "";
+            if (roomSelect) {
+                roomSelect.disabled = true;
+                roomSelect.innerHTML = `<option value="">Select a PG first...</option>`;
             }
+            document.querySelector('input[name="billCreationMode"][value="individual"]').checked = true;
+            document.getElementById("groupBillNotice")?.classList.add("d-none");
+            document.getElementById("billTenantSearch").value = "";
+            document.getElementById("billTenantList").innerHTML =
+                `<div class="text-muted-soft small p-2">Select a PG first.</div>`;
+            syncBillTenantSelect();
         } catch (error) {
             showToast("Error loading unpaid tenants.", "danger");
         }
+
         billAttachment = null;
         meterImageFiles = [];
         const monthInput = document.getElementById("billBillingMonth");
@@ -1212,6 +1333,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const n = new Date();
             monthInput.value = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
         }
+        document.getElementById("billPaymentDetailsSource").value = "pg";
+        document.getElementById("manualPaymentDetailsWrap").classList.add("d-none");
+        document.getElementById("billPaymentBankName").value = "";
+        document.getElementById("billPaymentHolderName").value = "";
+        document.getElementById("billPaymentAccountNumber").value = "";
+        document.getElementById("billPaymentIfsc").value = "";
+        document.getElementById("billPaymentUpi").value = "";
         document.getElementById("billAttachmentStatus").textContent = "No file attached";
         document.getElementById("meterUploadStatus").textContent = "No image uploaded";
         const previewEl = document.getElementById("meterPreview");
@@ -1219,6 +1347,51 @@ document.addEventListener("DOMContentLoaded", () => {
         previewEl.classList.add("d-none");
         document.getElementById("meterUploadInput").value = "";
         calculateTotal();
+    });
+
+    document.getElementById("billCreatePg")?.addEventListener("change", function() {
+        populateBillCreateRooms();
+        // Selecting a PG resets the tenant selection to only this PG.
+        document.querySelectorAll('#billTenantList input[name="billTenantChoice"]').forEach(cb => cb.checked = false);
+        syncBillTenantSelect();
+        renderBillTenantList();
+    });
+
+    document.getElementById("billCreateRoom")?.addEventListener("change", function() {
+        // Room selection is a filter; Select All controls the actual tenant selection.
+        document.querySelectorAll('#billTenantList input[name="billTenantChoice"]').forEach(cb => cb.checked = false);
+        syncBillTenantSelect();
+        renderBillTenantList();
+    });
+
+    document.querySelectorAll('input[name="billCreationMode"]').forEach(radio => {
+        radio.addEventListener("change", function() {
+            const notice = document.getElementById("groupBillNotice");
+            const selectedCount = getBillSelectedTenantIds().length;
+            if (notice) notice.classList.toggle("d-none", this.value !== "group" || selectedCount < 2);
+        });
+    });
+
+    function updateBillModeNotice() {
+        const mode = document.querySelector('input[name="billCreationMode"]:checked')?.value || "individual";
+        const notice = document.getElementById("groupBillNotice");
+        if (notice) notice.classList.toggle("d-none", mode !== "group" || getBillSelectedTenantIds().length < 2);
+    }
+
+    document.getElementById("billTenantSearch")?.addEventListener("input", renderBillTenantList);
+
+    document.getElementById("billSelectAllTenants")?.addEventListener("click", function() {
+        document.querySelectorAll('#billTenantList input[name="billTenantChoice"]').forEach(cb => cb.checked = true);
+        syncBillTenantSelect();
+    });
+
+    document.getElementById("billClearTenants")?.addEventListener("click", function() {
+        document.querySelectorAll('#billTenantList input[name="billTenantChoice"]').forEach(cb => cb.checked = false);
+        syncBillTenantSelect();
+    });
+
+    document.getElementById("billPaymentDetailsSource")?.addEventListener("change", function() {
+        document.getElementById("manualPaymentDetailsWrap")?.classList.toggle("d-none", this.value !== "manual");
     });
 
     function calculateTotal() {
@@ -1304,33 +1477,79 @@ document.addEventListener("DOMContentLoaded", () => {
         LOADER.show(btn, 'Sending bill...');
         
         try {
-            const tenantId = document.getElementById("billTenant").value;
+            const selectedPgId = String(document.getElementById("billCreatePg")?.value || "");
+            const selectedRoomId = String(document.getElementById("billCreateRoom")?.value || "");
+            const tenantSelect = document.getElementById("billTenant");
+            const tenantIds = [...(tenantSelect?.selectedOptions || [])].map(o => o.value).filter(Boolean);
             const rent = Number(document.getElementById("billRent").value || 0);
             const electricity = Number(document.getElementById("billElectricity").value || 0);
             const maintenance = Number(document.getElementById("billMaintenance").value || 0);
             const other = Number(document.getElementById("billOther").value || 0);
             
-            if (!tenantId || rent <= 0) {
-                showToast("Please select a tenant and enter rent amount.", "warning");
+            if (!selectedPgId) {
+                showToast("Please select a PG first.", "warning");
+                LOADER.hide(btn);
+                btn.innerHTML = originalText;
+                return;
+            }
+            if (!selectedRoomId) {
+                showToast("Please select a room (or All rooms) for the selected PG.", "warning");
+                LOADER.hide(btn);
+                btn.innerHTML = originalText;
+                return;
+            }
+            if (!tenantIds.length || rent <= 0) {
+                showToast("Please select at least one tenant and enter rent amount.", "warning");
                 LOADER.hide(btn);
                 btn.innerHTML = originalText;
                 return;
             }
             
             const billingMonth = document.getElementById("billBillingMonth")?.value || '';
+            const billMode = document.querySelector('input[name="billCreationMode"]:checked')?.value || "individual";
+            if (tenantIds.length > 1 && !billMode) {
+                showToast("Please choose how the selected tenants should be billed.", "warning");
+                LOADER.hide(btn); btn.innerHTML = originalText; return;
+            }
+            if (tenantIds.length <= 1 && billMode === "group") {
+                showToast("Group billing requires at least two selected tenants.", "warning");
+                LOADER.hide(btn); btn.innerHTML = originalText; return;
+            }
             if (!billingMonth) {
                 showToast("Please select a billing month.", "warning");
                 LOADER.hide(btn);
                 btn.innerHTML = originalText;
                 return;
             }
+            const paymentDetailsSource = document.getElementById("billPaymentDetailsSource")?.value || "pg";
+            const paymentBankName = document.getElementById("billPaymentBankName")?.value.trim() || "";
+            const paymentHolderName = document.getElementById("billPaymentHolderName")?.value.trim() || "";
+            const paymentAccountNumber = document.getElementById("billPaymentAccountNumber")?.value.trim() || "";
+            const paymentIfsc = document.getElementById("billPaymentIfsc")?.value.trim().toUpperCase() || "";
+            const paymentUpi = document.getElementById("billPaymentUpi")?.value.trim() || "";
+            if (paymentDetailsSource === "manual" && (!paymentBankName || !paymentHolderName || !paymentAccountNumber || !paymentIfsc)) {
+                showToast("Complete Bank Name, Account Holder Name, Account Number and IFSC are required for manual payment details.", "warning");
+                LOADER.hide(btn); btn.innerHTML = originalText; return;
+            }
+            if (billMode === "group" && tenantIds.length > 1) {
+                const confirmed = confirm(`Create ONE shared group bill for ${tenantIds.length} selected tenants?\n\nAny one of these tenants can pay it, and that payment will settle the bill for the entire group.`);
+                if (!confirmed) { LOADER.hide(btn); btn.innerHTML = originalText; return; }
+            }
+
             const data = {
-                tenant_id: tenantId,
+                tenant_ids: JSON.stringify(tenantIds),
                 rent_amount: rent,
                 electricity_amount: electricity,
                 maintenance_amount: maintenance,
                 other_charges: other,
-                billing_month: billingMonth
+                billing_month: billingMonth,
+                payment_details_source: paymentDetailsSource,
+                payment_bank_name: paymentBankName,
+                payment_account_holder_name: paymentHolderName,
+                payment_account_number: paymentAccountNumber,
+                payment_ifsc_code: paymentIfsc,
+                payment_upi_id: paymentUpi,
+                bill_mode: billMode
             };
             
             const files = {};
@@ -1626,6 +1845,17 @@ document.addEventListener("DOMContentLoaded", () => {
         billData = temp;
     });
 
+    function populateProofRoomFilter() {
+        const select = document.getElementById("proofRoomFilter");
+        if (!select) return;
+        const current = select.value || "all";
+        const rooms = [...new Set(proofData.map(p => p.room_number).filter(Boolean))]
+            .sort((a,b) => String(a).localeCompare(String(b)));
+        select.innerHTML = `<option value="all">All Rooms</option>` +
+            rooms.map(r => `<option value="${String(r)}">Room ${String(r)}</option>`).join("");
+        select.value = current;
+    }
+
     // ============================================
     // PROOF SEARCH
     // ============================================
@@ -1652,6 +1882,28 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("billPgFilter")?.addEventListener("change", function() {
         selectedBillPgId = this.value || "all";
         loadData();
+    });
+
+    document.getElementById("billRoomFilter")?.addEventListener("change", function() {
+        const room = this.value || "all";
+        const filtered = room === "all" ? billData : billData.filter(b =>
+            String(b.room_id || b.room_number) === String(room)
+        );
+        const temp = billData;
+        billData = filtered;
+        renderTable();
+        billData = temp;
+    });
+
+    document.getElementById("proofRoomFilter")?.addEventListener("change", function() {
+        const room = this.value || "all";
+        const filtered = room === "all" ? proofData : proofData.filter(p =>
+            String(p.room_number || "") === String(room)
+        );
+        const temp = proofData;
+        proofData = filtered;
+        renderProofTable();
+        proofData = temp;
     });
 
     document.getElementById("proofPgFilter")?.addEventListener("change", function() {

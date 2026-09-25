@@ -194,9 +194,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 html += `<div class="text-muted-soft text-center py-3">No images uploaded for this PG.</div>`;
             }
             
-            if (p.payment_qr) {
-                html += `<div class="mb-3"><img src="${p.payment_qr}" style="max-width:120px;max-height:120px;border:1px solid var(--border);border-radius:8px;padding:4px;" alt="Payment QR"></div>`;
-            }
+            html += `<div class="mb-3 p-3 border rounded-3" style="background:var(--bg);">
+                <div class="fw-semibold mb-2">Payment Details</div>
+                <div class="row g-2 small">
+                  <div class="col-md-6"><span class="text-muted-soft">Bank:</span> <strong>${p.payment_bank_name || '—'}</strong></div>
+                  <div class="col-md-6"><span class="text-muted-soft">Holder:</span> <strong>${p.payment_account_holder_name || '—'}</strong></div>
+                  <div class="col-md-6"><span class="text-muted-soft">Account:</span> <strong>${p.payment_account_number || '—'}</strong></div>
+                  <div class="col-md-6"><span class="text-muted-soft">IFSC:</span> <strong>${p.payment_ifsc_code || '—'}</strong></div>
+                  <div class="col-md-6"><span class="text-muted-soft">UPI ID:</span> <strong>${p.payment_upi_id || '—'}</strong></div>
+                </div>
+                ${p.payment_qr ? `<div class="mt-3"><span class="text-muted-soft d-block mb-1">Payment QR:</span><img src="${p.payment_qr}" style="max-width:140px;max-height:140px;border:1px solid var(--border);border-radius:8px;padding:4px;background:#fff;" alt="Payment QR"></div>` : '<div class="text-muted-soft small mt-2">No payment QR uploaded.</div>'}
+            </div>`;
             
             if (p.floors && p.floors.length > 0) {
                 p.floors.forEach(floor => {
@@ -551,6 +559,11 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("pFloors").value = 1;
         document.getElementById("pRent").value = "";
         document.getElementById("pSecurityFee").value = "";
+        document.getElementById("pPaymentBankName").value = "";
+        document.getElementById("pPaymentHolderName").value = "";
+        document.getElementById("pPaymentAccountNumber").value = "";
+        document.getElementById("pPaymentIfsc").value = "";
+        document.getElementById("pPaymentUpi").value = "";
         tempQrDataUrl = null;
         document.getElementById('qrPreviewContainer').classList.add('d-none');
         document.getElementById('qrUpload').value = '';
@@ -578,6 +591,11 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("pFloors").value = p.number_of_floors || 1;
             document.getElementById("pRent").value = p.rent || '';
             document.getElementById("pSecurityFee").value = p.security_fee || '';
+            document.getElementById("pPaymentBankName").value = p.payment_bank_name || '';
+            document.getElementById("pPaymentHolderName").value = p.payment_account_holder_name || '';
+            document.getElementById("pPaymentAccountNumber").value = p.payment_account_number || '';
+            document.getElementById("pPaymentIfsc").value = p.payment_ifsc_code || '';
+            document.getElementById("pPaymentUpi").value = p.payment_upi_id || '';
             
             if (p.payment_qr) {
                 tempQrDataUrl = p.payment_qr;
@@ -637,6 +655,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const floors = Number(document.getElementById("pFloors").value);
             const rent = Number(document.getElementById("pRent").value) || 0;
             const securityFee = Number(document.getElementById("pSecurityFee").value) || 0;
+            const paymentBankName = document.getElementById("pPaymentBankName").value.trim();
+            const paymentHolderName = document.getElementById("pPaymentHolderName").value.trim();
+            const paymentAccountNumber = document.getElementById("pPaymentAccountNumber").value.trim();
+            const paymentIfsc = document.getElementById("pPaymentIfsc").value.trim().toUpperCase();
+            const paymentUpi = document.getElementById("pPaymentUpi").value.trim();
 
             if (!name || !location) {
                 showToast("Please enter PG name and location.", "warning");
@@ -645,6 +668,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (rent <= 0) {
                 showToast("Please enter a valid base rent amount.", "warning");
+                LOADER.hide(btn);
+                return;
+            }
+            if (!paymentBankName || !paymentHolderName || !paymentAccountNumber || !paymentIfsc) {
+                showToast("Bank Name, Account Holder Name, Account Number and IFSC are required.", "warning");
                 LOADER.hide(btn);
                 return;
             }
@@ -685,6 +713,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 number_of_floors: floors,
                 rent: rent,
                 security_fee: securityFee,
+                payment_bank_name: paymentBankName,
+                payment_account_holder_name: paymentHolderName,
+                payment_account_number: paymentAccountNumber,
+                payment_ifsc_code: paymentIfsc,
+                payment_upi_id: paymentUpi || null,
                 amenities: selectedAmenities.map(a => ({ 
                     name: a, 
                     is_custom: !['Free WiFi', '24×7 Assistance', '24×7 Power Backup', '43 Inch LED', 'Ventilated Rooms', 'Free Housekeeping', 'CCTV', 'AC'].includes(a) 
