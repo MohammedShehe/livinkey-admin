@@ -157,6 +157,41 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
             
+            // Cash payments may also have a CASH-<cash_payment_id> ledger row.
+            // The cash record is the canonical payment lifecycle record, so hide
+            // that accounting mirror from the Payments Management list.
+            const allCashIds = new Set(allTxns.filter(t => t._type === 'cash').map(t => String(t.id)));
+            allTxns = allTxns.filter(t => !(
+                t._type === 'online' &&
+                t.transaction_id &&
+                String(t.transaction_id).startsWith('CASH-') &&
+                allCashIds.has(String(t.transaction_id).slice(5))
+            ));
+
+            // A verified payment proof also creates a bill_payments ledger row.
+            // The proof is the lifecycle record (pending -> verified), so don't show
+            // the ledger row as a second payment in Payments Management.
+            const proofKeys = new Set(
+                allTxns
+                    .filter(t => t._type === 'proof' && t.transaction_id)
+                    .map(t => `${t.bill_id}:${t.transaction_id}`)
+            );
+            allTxns = allTxns.filter(t => !(
+                t._type === 'online' &&
+                t.transaction_id &&
+                proofKeys.has(`${t.bill_id}:${t.transaction_id}`)
+            ));
+
+            // The same group-shared proof/cash/bill-payment row is returned for
+            // every tenant in the group. Keep exactly one UI record per DB row.
+            const seenPaymentRows = new Set();
+            allTxns = allTxns.filter(t => {
+                const key = `${t._type}:${t.id}`;
+                if (seenPaymentRows.has(key)) return false;
+                seenPaymentRows.add(key);
+                return true;
+            });
+
             allTxns.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             allTransactions = allTxns;
             
@@ -235,8 +270,34 @@ document.addEventListener("DOMContentLoaded", () => {
                     room_number: tenant ? tenant.room_number : 'N/A'
                 }));
                 
-                allTransactions = [...onlinePayments, ...cashPayments, ...paymentProofs]
-                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                let combined = [...onlinePayments, ...cashPayments, ...paymentProofs];
+                const proofKeys = new Set(
+                    paymentProofs
+                        .filter(t => t.transaction_id)
+                        .map(t => `${t.bill_id}:${t.transaction_id}`)
+                );
+                combined = combined.filter(t => !(
+                    t._type === 'online' &&
+                    t.transaction_id &&
+                    proofKeys.has(`${t.bill_id}:${t.transaction_id}`)
+                ));
+
+                const cashIds = new Set(combined.filter(t => t._type === 'cash').map(t => String(t.id)));
+                combined = combined.filter(t => !(
+                    t._type === 'online' &&
+                    t.transaction_id &&
+                    String(t.transaction_id).startsWith('CASH-') &&
+                    cashIds.has(String(t.transaction_id).slice(5))
+                ));
+                const seenPaymentRows = new Set();
+                combined = combined.filter(t => {
+                    const key = `${t._type}:${t.id}`;
+                    if (seenPaymentRows.has(key)) return false;
+                    seenPaymentRows.add(key);
+                    return true;
+                });
+
+                allTransactions = combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 
                 // Apply any active filters
                 applyFilters();
