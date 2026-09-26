@@ -24,6 +24,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // with permissionMiddleware("guests", ...).
     // ============================================
     async function loadGuests() {
+        PAGE_LOADER.grid(document.getElementById("guestsGrid"), "Loading guests...");
+        PAGE_LOADER.hideEmpty("guestsEmpty");
+        PAGE_LOADER.element(document.getElementById("guestStats"), "Loading stats...");
+        PAGE_LOADER.element(document.getElementById("newGuestsRow"), "Loading...");
         try {
             const params = {};
             if (searchTerm) params.search = searchTerm;
@@ -38,6 +42,8 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (error) {
             console.error("Load guests error:", error);
+            const grid = document.getElementById("guestsGrid");
+            if (grid) grid.innerHTML = `<div class="col-12 text-center py-5 text-danger">Failed to load guests. Please try again.</div>`;
             showToast("Error loading guests: " + error.message, "danger");
         }
     }

@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function loadUsers() {
         const tbody=document.getElementById("usersTbody");
-        tbody.innerHTML='<tr><td colspan="7" class="text-center py-5 text-muted-soft">Loading...</td></tr>';
+        PAGE_LOADER.table(tbody, 8, 'Loading activity...');
         try {
             const r=await API.activityLogs.users(params());
             users=r.data||[];
@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.openTimeline=async function(id,name,role){
         document.getElementById("timelineTitle").textContent=name;
         document.getElementById("timelineMeta").textContent=role==="guest"?"Guest":"Tenant";
-        document.getElementById("timelineBody").innerHTML='<div class="text-center py-4 text-muted-soft">Loading...</div>';
+        PAGE_LOADER.element(document.getElementById("timelineBody"), "Loading timeline...");
         timelineModal.show();
         try{
             const r=await API.activityLogs.list(role==="tenant"?{tenant_id:id,limit:100}:{guest_id:id,limit:100});

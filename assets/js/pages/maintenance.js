@@ -18,6 +18,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // FETCH MAINTENANCE REQUESTS
     // ============================================
     async function loadMaintenance() {
+        PAGE_LOADER.table(document.getElementById("maintenanceTbody"), 11, "Loading maintenance requests...");
+        PAGE_LOADER.hideEmpty("maintenanceEmpty");
         try {
             const params = {};
             if (searchTerm) params.search = searchTerm;
@@ -29,6 +31,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast(res.message || "Failed to load maintenance requests", "danger");
             }
         } catch (error) {
+            const tbody = document.getElementById("maintenanceTbody");
+            if (tbody) tbody.innerHTML = `<tr><td colspan="11" class="text-center py-5 text-danger">Failed to load maintenance requests. Please try again.</td></tr>`;
             showToast("Error loading maintenance: " + error.message, "danger");
         }
     }

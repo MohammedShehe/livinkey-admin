@@ -584,6 +584,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // FETCH TENANTS
     // ============================================
     async function loadTenants() {
+        const tbody = document.getElementById("tenantsTbody");
+        PAGE_LOADER.table(tbody, 12, "Loading tenants...");
+        PAGE_LOADER.hideEmpty("tenantsEmpty");
         try {
             const params = {};
             if (currentPgFilter !== "all") params.pg_id = currentPgFilter;
@@ -610,6 +613,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast(response.message || "Failed to load tenants", "danger");
             }
         } catch (error) {
+            const tbody = document.getElementById("tenantsTbody");
+            if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center py-5 text-danger">Failed to load tenants. Please try again.</td></tr>`;
             showToast("Error loading tenants: " + error.message, "danger");
         }
     }

@@ -26,6 +26,10 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("You don't have permission to view feedbacks.", "warning");
             return;
         }
+
+        PAGE_LOADER.element(document.getElementById("feedbacksContainer"), "Loading feedbacks...");
+        PAGE_LOADER.hideEmpty("feedbacksEmpty");
+        PAGE_LOADER.element(document.getElementById("feedbackStats"), "Loading stats...");
         
         try {
             const params = {};
@@ -62,6 +66,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast(res.message || "Failed to load feedbacks", "danger");
             }
         } catch (error) {
+            const container = document.getElementById("feedbacksContainer");
+            if (container) container.innerHTML = `<div class="text-center py-5 text-danger">Failed to load feedbacks. Please try again.</div>`;
             showToast("Error loading feedbacks: " + error.message, "danger");
         }
     }

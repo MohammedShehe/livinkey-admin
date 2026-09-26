@@ -80,6 +80,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function loadData() {
+        const wrap = document.getElementById("billTableWrap");
+        if (wrap) wrap.innerHTML = PAGE_LOADER.spinnerHtml("Loading bills...");
+        PAGE_LOADER.hideEmpty("billEmpty");
         try {
             const params = {};
             const statsParams = {};
@@ -116,6 +119,8 @@ document.addEventListener("DOMContentLoaded", () => {
             renderTable();
             renderActionButtons();
         } catch (error) {
+            const wrap = document.getElementById("billTableWrap");
+            if (wrap) wrap.innerHTML = `<div class="text-center py-5 text-danger">Failed to load bills. Please try again.</div>`;
             showToast("Error loading bills data: " + error.message, "danger");
         }
     }
@@ -124,6 +129,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // FETCH PROOFS DATA
     // ============================================
     async function loadProofs() {
+        PAGE_LOADER.table(document.getElementById("proofsTbody"), 8, "Loading payment proofs...");
+        PAGE_LOADER.hideEmpty("proofsEmpty");
         try {
             const params = {};
             const statsParams = {};

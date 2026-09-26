@@ -29,6 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // LOAD DATA
     // ============================================
     async function loadData() {
+        PAGE_LOADER.element(document.getElementById("historyList"), "Loading notification history...");
         try {
             const [tenantsRes, pgsRes, historyRes] = await Promise.all([
                 API.tenants.getAll({ role: 'tenant' }),
@@ -64,6 +65,8 @@ document.addEventListener("DOMContentLoaded", () => {
             updateSelectedCount();
             updateSelectedItems();
         } catch (error) {
+            const hist = document.getElementById("historyList");
+            if (hist) hist.innerHTML = `<div class="text-center py-4 text-danger">Failed to load notification history.</div>`;
             showToast("Error loading data: " + error.message, "danger");
         }
     }

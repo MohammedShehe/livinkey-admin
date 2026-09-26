@@ -23,6 +23,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // FETCH AND RENDER PGs
     // ============================================
     async function loadPGs() {
+        PAGE_LOADER.grid(document.getElementById("pgsGrid"), "Loading PGs...");
+        PAGE_LOADER.hideEmpty("pgsEmpty");
+        PAGE_LOADER.element(document.getElementById("pgStats"), "Loading stats...");
         try {
             const res = await API.pgs.getAll();
             if (res.success) {
@@ -33,6 +36,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast(res.message || "Failed to load PGs", "danger");
             }
         } catch (error) {
+            const grid = document.getElementById("pgsGrid");
+            if (grid) grid.innerHTML = `<div class="col-12 text-center py-5 text-danger">Failed to load PGs. Please try again.</div>`;
             showToast("Error loading PGs: " + error.message, "danger");
         }
     }

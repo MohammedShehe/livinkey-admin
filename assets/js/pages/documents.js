@@ -33,6 +33,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // FETCH DOCUMENTS
     // ============================================
     async function loadDocuments() {
+        PAGE_LOADER.grid(document.getElementById("documentsGrid"), "Loading documents...");
+        PAGE_LOADER.hideEmpty("documentsEmpty");
+        PAGE_LOADER.element(document.getElementById("docStats"), "Loading stats...");
         try {
             // Always load full set for current PG so type menu cards stay visible.
             // Document-type filtering is applied client-side in getFilteredDocs().
@@ -51,6 +54,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast(res.message || "Failed to load documents", "danger");
             }
         } catch (error) {
+            const grid = document.getElementById("documentsGrid");
+            if (grid) grid.innerHTML = `<div class="col-12 text-center py-5 text-danger">Failed to load documents. Please try again.</div>`;
             showToast("Error loading documents: " + error.message, "danger");
         }
     }

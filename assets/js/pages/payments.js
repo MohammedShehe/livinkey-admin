@@ -100,14 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
             let allTxns = [];
             
             // Show loading state
-            document.getElementById("paymentHistoryWrap").innerHTML = `
-                <div class="text-center text-muted-soft py-4">
-                    <div class="spinner-border text-brand" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2">Loading all transactions...</p>
-                </div>
-            `;
+            PAGE_LOADER.element(document.getElementById("paymentHistoryWrap"), "Loading all transactions...");
             
             // Load payments for each tenant in parallel
             const promises = allTenants.map(tenant => 
@@ -219,14 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             // Show loading state
-            document.getElementById("paymentHistoryWrap").innerHTML = `
-                <div class="text-center text-muted-soft py-4">
-                    <div class="spinner-border text-brand" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2">Loading transactions...</p>
-                </div>
-            `;
+            PAGE_LOADER.element(document.getElementById("paymentHistoryWrap"), "Loading transactions...");
 
             const res = await API.payments.history(id);
             if (res.success && res.data) {

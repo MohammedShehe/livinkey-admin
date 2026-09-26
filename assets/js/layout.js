@@ -506,3 +506,36 @@ function getStatusBadge(status) {
     const label = labels[status] || status;
     return `<span class="status-badge ${cls}">${label}</span>`;
 }
+// ============ PAGE DATA LOADING STATES ============
+// Shared loading UI for tables, grids, and content panels across all admin pages.
+if (typeof window.PAGE_LOADER === 'undefined') {
+    window.PAGE_LOADER = {
+        spinnerHtml(message = 'Loading...') {
+            return `<div class="page-loading-state" role="status" aria-live="polite">
+                <div class="spinner-border text-brand spinner-border-sm" role="status" aria-hidden="true"></div>
+                <span>${message}</span>
+            </div>`;
+        },
+        table(tbody, colspan = 6, message = 'Loading...') {
+            if (!tbody) return;
+            const emptyId = tbody.id ? tbody.id.replace(/Tbody$/, 'Empty').replace(/tbody$/i, 'Empty') : null;
+            if (emptyId) {
+                const emptyEl = document.getElementById(emptyId);
+                if (emptyEl) emptyEl.classList.add('d-none');
+            }
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="text-center py-5">${this.spinnerHtml(message)}</td></tr>`;
+        },
+        element(el, message = 'Loading...') {
+            if (!el) return;
+            el.innerHTML = this.spinnerHtml(message);
+        },
+        grid(el, message = 'Loading...') {
+            if (!el) return;
+            el.innerHTML = `<div class="col-12">${this.spinnerHtml(message)}</div>`;
+        },
+        hideEmpty(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('d-none');
+        }
+    };
+}

@@ -21,6 +21,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // FETCH ADMINS
     // ============================================
     async function loadAdmins() {
+        PAGE_LOADER.table(document.getElementById("adminsTbody"), 5, "Loading admins...");
+        PAGE_LOADER.hideEmpty("adminsEmpty");
         try {
             const res = await API.admins.getAll();
             if (res.success) {
@@ -30,6 +32,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast(res.message || "Failed to load admins", "danger");
             }
         } catch (error) {
+            const tbody = document.getElementById("adminsTbody");
+            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center py-5 text-danger">Failed to load admins. Please try again.</td></tr>`;
             showToast("Error loading admins: " + error.message, "danger");
         }
     }

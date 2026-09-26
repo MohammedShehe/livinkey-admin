@@ -890,3 +890,27 @@ a:hover{color:var(--lk-green-dark);}
 @media (max-width: 991px){
   .activity-stat{min-height:96px;}
 }
+
+/* ============ PAGE DATA LOADING STATES ============ */
+.page-loading-state {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    color: var(--muted-soft, #6c757d);
+    font-size: 0.92rem;
+    font-weight: 500;
+    padding: 0.5rem 0;
+    min-height: 2.5rem;
+}
+.page-loading-state .spinner-border {
+    width: 1.15rem;
+    height: 1.15rem;
+    border-width: 0.15em;
+}
+.text-brand {
+    color: var(--lk-green, #92C24A) !important;
+}
+.page-loading-state .spinner-border.text-brand {
+    color: var(--lk-green, #92C24A) !important;
+}
