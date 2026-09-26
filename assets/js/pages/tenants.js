@@ -624,27 +624,28 @@ document.addEventListener("DOMContentLoaded", () => {
         const male = tenants.filter(t => t.gender === 'male').length;
         const female = tenants.filter(t => t.gender === 'female').length;
 
-        // Calculate paid status using paid_till date as source of truth
-        const paid = tenants.filter(t => {
-            if (!t.paid_from || !t.paid_till) return false;
-            const today = new Date();
-            const paidTill = new Date(t.paid_till);
-            return paidTill >= today;
-        }).length;
+        // BILL STATUS is the source of truth for this column.
+        // This is especially important for grouped bills: one verified payment
+        // settles the shared bill for every member of the group, even though
+        // only one member may have submitted the payment.
+        const getBillStatus = (tenant) => {
+            const status = String(tenant?.bill_status || '').toLowerCase().trim();
+            if (status === 'paid' || status === 'partially_paid' || status === 'unpaid' || status === 'delayed' || status === 'overdue') {
+                return status;
+            }
+            // Backward-compatible fallback only when the API does not provide bill_status.
+            if (tenant?.paid_from && tenant?.paid_till) {
+                const today = new Date();
+                const paidTill = new Date(tenant.paid_till);
+                if (paidTill >= today) return 'paid';
+                if (Number(tenant?.total_paid_amount || 0) > 0) return 'partially_paid';
+            }
+            return 'unpaid';
+        };
 
-        const partiallyPaid = tenants.filter(t => {
-            if (!t.paid_from || !t.paid_till) return false;
-            const today = new Date();
-            const paidTill = new Date(t.paid_till);
-            return paidTill < today && (t.total_paid_amount || 0) > 0;
-        }).length;
-
-        const unpaid = tenants.filter(t => {
-            if (!t.paid_from || !t.paid_till) return true;
-            const today = new Date();
-            const paidTill = new Date(t.paid_till);
-            return paidTill < today && !(t.total_paid_amount || 0) > 0;
-        }).length;
+        const paid = tenants.filter(t => getBillStatus(t) === 'paid').length;
+        const partiallyPaid = tenants.filter(t => getBillStatus(t) === 'partially_paid').length;
+        const unpaid = tenants.filter(t => ['unpaid', 'delayed', 'overdue'].includes(getBillStatus(t))).length;
 
         const expiringEFRRO = tenants.filter(t => {
             if (t.residency !== 'international' || !t.efrro_till) return false;
@@ -758,27 +759,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 tenants = tenants.filter(t => t.residency === 'international');
             }
         } else if (currentFilterType === "status") {
+            const getBillStatus = (tenant) => {
+                const status = String(tenant?.bill_status || '').toLowerCase().trim();
+                if (status === 'paid' || status === 'partially_paid' || status === 'unpaid' || status === 'delayed' || status === 'overdue') {
+                    return status;
+                }
+                if (tenant?.paid_from && tenant?.paid_till) {
+                    const today = new Date();
+                    const paidTill = new Date(tenant.paid_till);
+                    if (paidTill >= today) return 'paid';
+                    if (Number(tenant?.total_paid_amount || 0) > 0) return 'partially_paid';
+                }
+                return 'unpaid';
+            };
             if (currentFilter === "status:paid") {
-                tenants = tenants.filter(t => {
-                    if (!t.paid_from || !t.paid_till) return false;
-                    const today = new Date();
-                    const paidTill = new Date(t.paid_till);
-                    return paidTill >= today;
-                });
+                tenants = tenants.filter(t => getBillStatus(t) === 'paid');
             } else if (currentFilter === "status:partially_paid") {
-                tenants = tenants.filter(t => {
-                    if (!t.paid_from || !t.paid_till) return false;
-                    const today = new Date();
-                    const paidTill = new Date(t.paid_till);
-                    return paidTill < today && (t.total_paid_amount || 0) > 0;
-                });
+                tenants = tenants.filter(t => getBillStatus(t) === 'partially_paid');
             } else if (currentFilter === "status:unpaid") {
-                tenants = tenants.filter(t => {
-                    if (!t.paid_from || !t.paid_till) return true;
-                    const today = new Date();
-                    const paidTill = new Date(t.paid_till);
-                    return paidTill < today && !(t.total_paid_amount || 0) > 0;
-                });
+                tenants = tenants.filter(t => ['unpaid', 'delayed', 'overdue'].includes(getBillStatus(t)));
             }
         } else if (currentFilterType === "efrro") {
             tenants = tenants.filter(t => {
@@ -815,26 +814,11 @@ document.addEventListener("DOMContentLoaded", () => {
             } else if (searchVal === "gender:female") {
                 tenants = tenants.filter(t => t.gender === 'female');
             } else if (searchVal === "status:paid") {
-                tenants = tenants.filter(t => {
-                    if (!t.paid_from || !t.paid_till) return false;
-                    const today = new Date();
-                    const paidTill = new Date(t.paid_till);
-                    return paidTill >= today;
-                });
+                tenants = tenants.filter(t => String(t.bill_status || '').toLowerCase() === 'paid');
             } else if (searchVal === "status:partially_paid") {
-                tenants = tenants.filter(t => {
-                    if (!t.paid_from || !t.paid_till) return false;
-                    const today = new Date();
-                    const paidTill = new Date(t.paid_till);
-                    return paidTill < today && (t.total_paid_amount || 0) > 0;
-                });
+                tenants = tenants.filter(t => String(t.bill_status || '').toLowerCase() === 'partially_paid');
             } else if (searchVal === "status:unpaid") {
-                tenants = tenants.filter(t => {
-                    if (!t.paid_from || !t.paid_till) return true;
-                    const today = new Date();
-                    const paidTill = new Date(t.paid_till);
-                    return paidTill < today && !(t.total_paid_amount || 0) > 0;
-                });
+                tenants = tenants.filter(t => ['unpaid', 'delayed', 'overdue'].includes(String(t.bill_status || '').toLowerCase()));
             } else {
                 tenants = tenants.filter(t =>
                     t.full_name?.toLowerCase().includes(searchVal) ||
@@ -858,27 +842,22 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("tenantsEmpty").classList.add("d-none");
 
         tbody.innerHTML = tenants.map(t => {
-            // ============================================================
-            // FIXED: Determine status using paid_till as source of truth
-            // ============================================================
-            let status = 'unpaid';
-            let statusLabel = 'Unpaid';
-            let statusChip = 'chip-red';
-            
-            if (t.paid_from && t.paid_till) {
-                const today = new Date();
-                const paidTill = new Date(t.paid_till);
-                
-                if (paidTill >= today) {
-                    status = 'paid';
-                    statusLabel = 'Paid';
-                    statusChip = 'chip-green';
-                } else if ((t.total_paid_amount || 0) > 0) {
-                    status = 'partially_paid';
-                    statusLabel = 'Partial';
-                    statusChip = 'chip-amber';
+            // BILL STATUS comes from the backend bill/group calculation.
+            // Never derive the Bill Status badge from tenant payment dates:
+            // payment dates are tenant-level metadata, while a grouped bill is
+            // shared by every member.
+            let status = String(t.bill_status || '').toLowerCase().trim();
+            if (!['paid', 'partially_paid', 'unpaid', 'delayed', 'overdue'].includes(status)) {
+                if (t.paid_from && t.paid_till) {
+                    const today = new Date();
+                    const paidTill = new Date(t.paid_till);
+                    status = paidTill >= today ? 'paid' : (Number(t.total_paid_amount || 0) > 0 ? 'partially_paid' : 'unpaid');
+                } else {
+                    status = 'unpaid';
                 }
             }
+            let statusLabel = status === 'paid' ? 'Paid' : status === 'partially_paid' ? 'Partial' : 'Unpaid';
+            let statusChip = status === 'paid' ? 'chip-green' : status === 'partially_paid' ? 'chip-amber' : 'chip-red';
             
             const efrroStatus = getEFRROStatus(t);
             const arrivalDate = t.arrival_date ? formatDate(t.arrival_date) : "—";
