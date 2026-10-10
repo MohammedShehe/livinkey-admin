@@ -15,7 +15,11 @@ document.addEventListener("DOMContentLoaded", () => {
     
     renderLayout("bills", pageTitle, pageSub);
 
-    let activeTab = "unpaid";
+    // Support sidebar submenu deep-links (?tab=unpaid|unfinished|paid|...)
+    const _billTabQs = new URLSearchParams(window.location.search).get('tab');
+    let activeTab = (_billTabQs && ['unpaid','unfinished','partially_paid','paid','delayed','overdue'].includes(_billTabQs))
+        ? (_billTabQs === 'partially_paid' ? 'unfinished' : _billTabQs)
+        : "unpaid";
     let activeSubTab = "bills"; // "bills" or "proofs"
     let billStats = {};
     let billData = [];
@@ -323,6 +327,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <th>Total Amount</th>
                 <th>Paid</th>
                 <th>Due</th>
+                <th>Tenant Outstanding</th>
                 <th>Status</th>
                 <th>Valid Until</th>
                 <th class="text-end">Actions</th>
@@ -340,6 +345,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td>${fmtINR(b.total_amount || 0)}</td>
                     <td>${fmtINR(b.paid_amount || 0)}</td>
                     <td>${fmtINR((b.due_amount || 0) > 0 ? b.due_amount : 0)}</td>
+                    <td class="fw-semibold">${fmtINR((b.tenant_outstanding_amount || 0) > 0 ? b.tenant_outstanding_amount : 0)}</td>
                     <td>${getStatusBadge(b.status)}</td>
                     <td>${b.valid_until ? formatDate(b.valid_until) : '—'}</td>
                     <td class="text-end">
@@ -494,6 +500,32 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div><span class="status-badge ${p.status === 'pending' ? 'status-pending' : p.status === 'verified' ? 'status-success' : 'status-failed'}">${p.status || '—'}</span></div>
                     </div>
                     <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Payment Scope</div>
+                        <div>${p.payment_scope === 'outstanding'
+                            ? '<span class="badge bg-warning-subtle text-warning-emphasis">Total Outstanding</span>'
+                            : '<span class="badge bg-info-subtle text-info-emphasis">Selected Bill</span>'}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="fw-bold small text-muted-soft">Due Before Payment</div>
+                        <div class="fw-semibold">₹${(parseFloat(p.due_before_payment) || 0).toLocaleString('en-IN')}</div>
+                    </div>
+                    ${Array.isArray(p.allocation_preview) && p.allocation_preview.length ? `
+                    <div class="col-12">
+                        <div class="fw-bold small text-muted-soft mb-2">Payment Allocation Preview</div>
+                        <div class="border rounded-3 overflow-hidden">
+                            ${p.allocation_preview.map(a => `
+                                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                                    <div>
+                                        <strong>Bill #${a.bill_id}</strong>
+                                        ${a.is_partial ? '<span class="badge bg-warning-subtle text-warning-emphasis ms-2">Partial</span>' : '<span class="badge bg-success-subtle text-success-emphasis ms-2">Settled</span>'}
+                                    </div>
+                                    <strong>₹${(parseFloat(a.amount) || 0).toLocaleString('en-IN')}</strong>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    <div class="col-md-6">
                         <div class="fw-bold small text-muted-soft">Transaction ID</div>
                         <div><code>${p.transaction_id || '—'}</code></div>
                     </div>
@@ -583,7 +615,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     function renderActionButtons() {
-        const createBtn = document.querySelector('.btn-fab[data-bs-target="#createBillModal"]');
+        const createBtn = document.querySelector('.btn-create-bill[data-bs-target="#createBillModal"]');
         if (createBtn) {
             createBtn.style.display = canAddBills ? '' : 'none';
         }
@@ -609,6 +641,23 @@ document.addEventListener("DOMContentLoaded", () => {
             const fineAmount = parseFloat(b.fine_amount) || 0;
             const cashPaid = parseFloat(b.total_cash_paid) || 0;
             const totalDue = Math.max(totalAmount + fineAmount - paidAmount, 0);
+            const previousOutstanding = parseFloat(b.previous_outstanding_amount) || 0;
+            const totalOutstanding = parseFloat(b.total_outstanding_amount);
+            const tenantOutstanding = Number.isFinite(totalOutstanding)
+                ? Math.max(totalOutstanding, 0)
+                : previousOutstanding + totalDue;
+            const previousBills = Array.isArray(b.previous_outstanding_bills) ? b.previous_outstanding_bills : [];
+
+            const previousBillsHtml = previousBills.length
+                ? `<div class="mt-2">${previousBills.map(pb => `
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <div>
+                            <strong>Bill #${pb.id}</strong>
+                            <span class="text-muted-soft ms-2">${pb.billing_month || 'Previous bill'}</span>
+                        </div>
+                        <strong class="text-danger">${fmtINR(parseFloat(pb.due_amount) || 0)}</strong>
+                    </div>`).join('')}</div>`
+                : `<div class="text-muted-soft small mt-2">No previous unpaid bill.</div>`;
             
             let bodyHtml = `
             <div class="row g-2 small">
@@ -624,7 +673,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="col-12"><hr></div>
                 <div class="col-4"><span class="text-muted-soft">Paid (Online):</span> <strong>${fmtINR(parseFloat(b.ledger_online_paid ?? (paidAmount - cashPaid)) || 0)}</strong></div>
                 <div class="col-4"><span class="text-muted-soft">Paid (Cash):</span> <strong>${fmtINR(parseFloat(b.ledger_cash_paid ?? cashPaid) || 0)}</strong></div>
-                <div class="col-4"><span class="text-muted-soft">Due:</span> <strong class="${totalDue > 0 ? 'text-danger' : 'text-success'}">${fmtINR(totalDue)}</strong></div>
+                <div class="col-4"><span class="text-muted-soft">Current Due:</span> <strong class="${totalDue > 0 ? 'text-danger' : 'text-success'}">${fmtINR(totalDue)}</strong></div>
+                <div class="col-12 mt-2">
+                    <div class="p-3 rounded-3 border" style="background:var(--bg);">
+                        <div class="fw-semibold mb-2">Tenant Outstanding Balance</div>
+                        <div class="row g-2">
+                            <div class="col-md-4"><span class="text-muted-soft">Previous Due:</span> <strong class="${previousOutstanding > 0 ? 'text-danger' : 'text-success'}">${fmtINR(previousOutstanding)}</strong></div>
+                            <div class="col-md-4"><span class="text-muted-soft">This Bill Due:</span> <strong>${fmtINR(totalDue)}</strong></div>
+                            <div class="col-md-4"><span class="text-muted-soft">Total Outstanding:</span> <strong class="${tenantOutstanding > 0 ? 'text-danger' : 'text-success'}">${fmtINR(tenantOutstanding)}</strong></div>
+                        </div>
+                        ${previousBills.length ? `<details class="mt-3"><summary class="fw-semibold" style="cursor:pointer;">View previous unpaid bills (${previousBills.length})</summary>${previousBillsHtml}</details>` : previousBillsHtml}
+                    </div>
+                </div>
                 ${b.admin_note ? `<div class="col-12"><span class="text-muted-soft">Admin Note${b.admin_note_by ? ` (${b.admin_note_by})` : ''}:</span> <div class="mt-1 p-2 border rounded-2 bg-light">${b.admin_note}</div></div>` : ''}
                 <div class="col-12"><span class="text-muted-soft">Status:</span> ${getStatusBadge(b.status)}</div>
                 <div class="col-12"><span class="text-muted-soft">Valid Until:</span> <strong>${b.valid_until ? formatDateTime(b.valid_until) : '—'}</strong></div>
@@ -1244,12 +1304,17 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         if (!eligible.length) {
-            list.innerHTML = `<div class="text-muted-soft small p-2">No unpaid tenants match the selected PG/room.</div>`;
+            list.innerHTML = `<div class="text-muted-soft small p-2">No active tenants match the selected PG/room.</div>`;
             syncBillTenantSelect();
             return;
         }
 
         const selected = new Set(getBillSelectedTenantIds());
+        // Billing is room-based: every active tenant in the selected room is
+        // automatically included. The backend enforces the same rule.
+        if (roomId && roomId !== "all") {
+            eligible.forEach(t => selected.add(String(t.id)));
+        }
         list.innerHTML = eligible.map(t => {
             const last = t.last_billing_month ? `Last billed ${t.last_billing_month}` : "Never billed";
             return `
@@ -1297,7 +1362,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         roomSelect.disabled = !pgId;
         roomSelect.innerHTML = pgId
-            ? `<option value="">All rooms in this PG</option>` +
+            ? `<option value="">Select room...</option>` +
               rooms.map(r => `<option value="${r.room_id}">Room ${r.room_number || "—"}</option>`).join("")
             : `<option value="">Select a PG first...</option>`;
 
@@ -1323,7 +1388,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 roomSelect.disabled = true;
                 roomSelect.innerHTML = `<option value="">Select a PG first...</option>`;
             }
-            document.querySelector('input[name="billCreationMode"][value="individual"]').checked = true;
+            document.querySelector('input[name="billCreationMode"][value="split"]').checked = true;
+            document.getElementById("billCreationModeWrap")?.classList.add("d-none");
             document.getElementById("groupBillNotice")?.classList.add("d-none");
             document.getElementById("billTenantSearch").value = "";
             document.getElementById("billTenantList").innerHTML =
@@ -1362,6 +1428,8 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll('#billTenantList input[name="billTenantChoice"]').forEach(cb => cb.checked = false);
         syncBillTenantSelect();
         renderBillTenantList();
+        calculateRoomRent();
+        updateBillingTypeVisibility();
     });
 
     document.getElementById("billCreateRoom")?.addEventListener("change", function() {
@@ -1369,20 +1437,35 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll('#billTenantList input[name="billTenantChoice"]').forEach(cb => cb.checked = false);
         syncBillTenantSelect();
         renderBillTenantList();
+        calculateRoomRent();
     });
+
+    function updateBillingTypeVisibility() {
+        const wrap = document.getElementById("billCreationModeWrap");
+        const notice = document.getElementById("groupBillNotice");
+        const tenants = getSelectedRoomTenants();
+        const isSharedRoom = tenants.length > 1;
+
+        if (wrap) wrap.classList.toggle("d-none", !isSharedRoom);
+        if (!isSharedRoom) {
+            const splitRadio = document.querySelector('input[name="billCreationMode"][value="split"]');
+            if (splitRadio) splitRadio.checked = true;
+            if (notice) notice.classList.add("d-none");
+        }
+
+        const helper = document.getElementById("billSplitHelper");
+        if (helper) helper.classList.toggle("d-none", !isSharedRoom);
+    }
 
     document.querySelectorAll('input[name="billCreationMode"]').forEach(radio => {
         radio.addEventListener("change", function() {
-            const notice = document.getElementById("groupBillNotice");
-            const selectedCount = getBillSelectedTenantIds().length;
-            if (notice) notice.classList.toggle("d-none", this.value !== "group" || selectedCount < 2);
+            updateBillingTypeVisibility();
+            calculateRoomRent();
         });
     });
 
     function updateBillModeNotice() {
-        const mode = document.querySelector('input[name="billCreationMode"]:checked')?.value || "individual";
-        const notice = document.getElementById("groupBillNotice");
-        if (notice) notice.classList.toggle("d-none", mode !== "group" || getBillSelectedTenantIds().length < 2);
+        updateBillingTypeVisibility();
     }
 
     document.getElementById("billTenantSearch")?.addEventListener("input", renderBillTenantList);
@@ -1401,19 +1484,88 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("manualPaymentDetailsWrap")?.classList.toggle("d-none", this.value !== "manual");
     });
 
+    function getSelectedRoomTenants() {
+        const pgId = String(document.getElementById("billCreatePg")?.value || "");
+        const roomId = String(document.getElementById("billCreateRoom")?.value || "");
+        return billEligibleTenants.filter(t =>
+            pgId && roomId && String(t.pg_id) === pgId && String(t.room_id) === roomId
+        );
+    }
+
+    function getBillMode() {
+        const tenants = getSelectedRoomTenants();
+        if (tenants.length <= 1) return "individual";
+        return document.querySelector('input[name="billCreationMode"]:checked')?.value === "full" ? "full" : "split";
+    }
+
+    function calculateRoomRent() {
+        const tenants = getSelectedRoomTenants();
+        const mode = getBillMode();
+        const rentEl = document.getElementById("billRent");
+        const notice = document.getElementById("groupBillNotice");
+
+        updateBillingTypeVisibility();
+
+        if (!tenants.length) {
+            rentEl.value = "";
+            if (notice) notice.classList.add("d-none");
+            calculateTotal();
+            return;
+        }
+
+        const recordedTotal = tenants.reduce((sum, t) => sum + Number(t.rent || 0), 0);
+        const roomRent = Number(tenants[0].room_rent || 0) > 0 ? Number(tenants[0].room_rent) : recordedTotal;
+        const rent = mode === "split" ? (roomRent / tenants.length) : roomRent;
+        rentEl.value = rent.toFixed(2);
+
+        const electricity = Number(document.getElementById("billElectricity")?.value || 0);
+        const maintenance = Number(document.getElementById("billMaintenance")?.value || 0);
+        const other = Number(document.getElementById("billOther")?.value || 0);
+        const roomTotal = roomRent + electricity + maintenance + other;
+        const perTenantTotal = roomTotal / tenants.length;
+
+        if (notice && tenants.length > 1) {
+            notice.classList.remove("d-none");
+            notice.textContent = mode === "full"
+                ? `Full room bill: ${fmtINR(roomTotal)}. Any one tenant's verified payment settles the shared bill for all ${tenants.length} tenants.`
+                : `Split room bill: ${fmtINR(roomTotal)} ÷ ${tenants.length} tenants ≈ ${fmtINR(perTenantTotal)} each. Rent, electricity, maintenance and other charges are all split.`;
+        } else if (notice) {
+            notice.classList.add("d-none");
+        }
+
+        const elecLabel = document.getElementById("billElectricityLabel");
+        const maintLabel = document.getElementById("billMaintenanceLabel");
+        const otherLabel = document.getElementById("billOtherLabel");
+        const suffix = tenants.length > 1 ? " (room total)" : "";
+        if (elecLabel) elecLabel.textContent = `Electricity bill (INR)${suffix}`;
+        if (maintLabel) maintLabel.textContent = `Maintenance fee (INR)${suffix}`;
+        if (otherLabel) otherLabel.textContent = `Other charges (INR)${suffix}`;
+
+        calculateTotal();
+    }
+
     function calculateTotal() {
-        const rent = Number(document.getElementById("billRent").value || 0);
-        const elec = Number(document.getElementById("billElectricity").value || 0);
-        const maint = Number(document.getElementById("billMaintenance").value || 0);
-        const other = Number(document.getElementById("billOther").value || 0);
-        const total = rent + elec + maint + other;
+        const tenants = getSelectedRoomTenants();
+        const mode = getBillMode();
+        const rent = Number(document.getElementById("billRent")?.value || 0);
+        const elec = Number(document.getElementById("billElectricity")?.value || 0);
+        const maint = Number(document.getElementById("billMaintenance")?.value || 0);
+        const other = Number(document.getElementById("billOther")?.value || 0);
+
+        // The form fields are room-level amounts for a shared room. In Split
+        // mode the preview must match the actual per-tenant bill, not only split rent.
+        let total = rent + elec + maint + other;
+        if (mode === "split" && tenants.length > 1) {
+            const recordedTotal = tenants.reduce((sum, t) => sum + Number(t.rent || 0), 0);
+            const roomRent = Number(tenants[0].room_rent || 0) > 0 ? Number(tenants[0].room_rent) : recordedTotal;
+            total = (roomRent + elec + maint + other) / tenants.length;
+        }
         document.getElementById("billTotalDisplay").textContent = fmtINR(total);
     }
 
-    document.getElementById("billRent")?.addEventListener("input", calculateTotal);
-    document.getElementById("billElectricity")?.addEventListener("input", calculateTotal);
-    document.getElementById("billMaintenance")?.addEventListener("input", calculateTotal);
-    document.getElementById("billOther")?.addEventListener("input", calculateTotal);
+    document.getElementById("billElectricity")?.addEventListener("input", calculateRoomRent);
+    document.getElementById("billMaintenance")?.addEventListener("input", calculateRoomRent);
+    document.getElementById("billOther")?.addEventListener("input", calculateRoomRent);
 
     document.getElementById("billAttachBtn")?.addEventListener("click", () => {
         document.getElementById("billAttachInput").click();
@@ -1500,26 +1652,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
             if (!selectedRoomId) {
-                showToast("Please select a room (or All rooms) for the selected PG.", "warning");
+                showToast("Please select a room for the selected PG.", "warning");
                 LOADER.hide(btn);
                 btn.innerHTML = originalText;
                 return;
             }
             if (!tenantIds.length || rent <= 0) {
-                showToast("Please select at least one tenant and enter rent amount.", "warning");
+                showToast("Please select a room with active tenants. Rent is calculated automatically.", "warning");
                 LOADER.hide(btn);
                 btn.innerHTML = originalText;
                 return;
             }
             
             const billingMonth = document.getElementById("billBillingMonth")?.value || '';
-            const billMode = document.querySelector('input[name="billCreationMode"]:checked')?.value || "individual";
-            if (tenantIds.length > 1 && !billMode) {
-                showToast("Please choose how the selected tenants should be billed.", "warning");
-                LOADER.hide(btn); btn.innerHTML = originalText; return;
-            }
-            if (tenantIds.length <= 1 && billMode === "group") {
-                showToast("Group billing requires at least two selected tenants.", "warning");
+            const roomTenants = getSelectedRoomTenants();
+            const billMode = roomTenants.length > 1 ? (document.querySelector('input[name="billCreationMode"]:checked')?.value || "split") : "split";
+            if (!roomTenants.length || tenantIds.length !== roomTenants.length) {
+                showToast("All active tenants in the selected room must be included.", "warning");
                 LOADER.hide(btn); btn.innerHTML = originalText; return;
             }
             if (!billingMonth) {
@@ -1538,13 +1687,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast("Complete Bank Name, Account Holder Name, Account Number and IFSC are required for manual payment details.", "warning");
                 LOADER.hide(btn); btn.innerHTML = originalText; return;
             }
-            if (billMode === "group" && tenantIds.length > 1) {
+            if (billMode === "full" && tenantIds.length > 1) {
                 const confirmed = confirm(`Create ONE shared group bill for ${tenantIds.length} selected tenants?\n\nAny one of these tenants can pay it, and that payment will settle the bill for the entire group.`);
                 if (!confirmed) { LOADER.hide(btn); btn.innerHTML = originalText; return; }
             }
 
             const data = {
                 tenant_ids: JSON.stringify(tenantIds),
+                pg_id: selectedPgId,
+                room_id: selectedRoomId,
                 rent_amount: rent,
                 electricity_amount: electricity,
                 maintenance_amount: maintenance,
@@ -1556,7 +1707,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 payment_account_number: paymentAccountNumber,
                 payment_ifsc_code: paymentIfsc,
                 payment_upi_id: paymentUpi,
-                bill_mode: billMode
+                bill_mode: billMode === "full" ? "group" : "split"
             };
             
             const files = {};

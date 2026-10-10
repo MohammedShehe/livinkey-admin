@@ -167,12 +167,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const proofKeys = new Set(
                 allTxns
                     .filter(t => t._type === 'proof' && t.transaction_id)
-                    .map(t => `${t.bill_id}:${t.transaction_id}`)
+                    .map(t => String(t.transaction_id))
             );
             allTxns = allTxns.filter(t => !(
                 t._type === 'online' &&
                 t.transaction_id &&
-                proofKeys.has(`${t.bill_id}:${t.transaction_id}`)
+                proofKeys.has(String(t.transaction_id))
             ));
 
             // The same group-shared proof/cash/bill-payment row is returned for
@@ -260,12 +260,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 const proofKeys = new Set(
                     paymentProofs
                         .filter(t => t.transaction_id)
-                        .map(t => `${t.bill_id}:${t.transaction_id}`)
+                        .map(t => String(t.transaction_id))
                 );
                 combined = combined.filter(t => !(
                     t._type === 'online' &&
                     t.transaction_id &&
-                    proofKeys.has(`${t.bill_id}:${t.transaction_id}`)
+                    proofKeys.has(String(t.transaction_id))
                 ));
 
                 const cashIds = new Set(combined.filter(t => t._type === 'cash').map(t => String(t.id)));

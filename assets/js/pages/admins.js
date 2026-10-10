@@ -11,7 +11,10 @@ document.addEventListener("DOMContentLoaded", () => {
         { key: "maintenance", label: "Maintenance" },
         { key: "documents", label: "Documents" },
         { key: "feedbacks", label: "Feedbacks" },
-        { key: "activity_logs", label: "Activity Tracking" }
+        { key: "activity_logs", label: "Activity Tracking" },
+        { key: "conversations", label: "Conversations (WhatsApp)" },
+        { key: "ads", label: "Advertisements" },
+        { key: "about_livinkey", label: "About Livinkey / Notices" }
     ];
 
     let adminData = [];

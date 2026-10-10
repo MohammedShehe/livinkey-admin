@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const DOC_TYPES = {
         passport_photo: { label: "Photos", icon: "bi-person", color: "#3E7CB1" },
+        signature: { label: "Signatures", icon: "bi-pen", color: "#7C5CFC" },
         tenant_aadhaar: { label: "Aadhar Cards", icon: "bi-card-text", color: "#4F8F2E" },
         parent_aadhaar: { label: "Parent Aadhar", icon: "bi-card-text", color: "#6FA030" },
         passport: { label: "Passports", icon: "bi-passport", color: "#E2A238" },

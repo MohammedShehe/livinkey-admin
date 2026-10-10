@@ -99,28 +99,27 @@
     background: #f8d7da;
     color: #721c24;
   }
-  .btn-fab {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
+  .btn-create-bill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
     background: var(--lk-green);
     color: #fff;
     border: none;
-    font-size: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     transition: all 0.2s;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
-  .btn-fab:hover {
+  .btn-create-bill:hover {
     background: var(--lk-green-darker);
-    transform: scale(1.05);
     color: #fff;
+  }
+  .btn-create-bill i {
+    font-size: 1.05rem;
   }
   .filter-pill {
     padding: 6px 16px;
@@ -264,14 +263,20 @@
       <!-- ============================================ -->
       <div id="billsTabContent">
         <!-- Search and Filters -->
-        <div class="row g-3 mb-3">
-          <div class="col-md-8">
+        <div class="row g-3 mb-3 align-items-center">
+          <div class="col-md-6 col-lg-7">
               <input type="text" class="form-control" id="billSearch" placeholder="Search by tenant, PG, room..." style="border-radius:var(--radius-md);">
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3 col-lg-3">
               <select class="form-select" id="billPgFilter" style="border-radius:var(--radius-md);">
                 <option value="all">All PGs</option>
               </select>
+          </div>
+          <div class="col-md-3 col-lg-2 d-flex justify-content-md-end">
+            <button type="button" class="btn-create-bill w-100 w-md-auto" title="Create a bill" data-bs-toggle="modal" data-bs-target="#createBillModal">
+              <i class="bi bi-plus-lg"></i>
+              <span>Create Bill</span>
+            </button>
           </div>
         </div>
 
@@ -279,7 +284,6 @@
         <div class="section-card fade-in">
           <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
             <div class="d-flex gap-2 flex-wrap" id="billTabs"></div>
-            <button class="btn-fab" title="Create a bill" data-bs-toggle="modal" data-bs-target="#createBillModal"><i class="bi bi-plus-lg"></i></button>
           </div>
           <div id="billTableWrap" class="table-responsive"></div>
           <div id="billEmpty" class="empty-state d-none">
@@ -538,35 +542,36 @@
             <!-- Kept as the submission contract expected by the existing API. -->
             <select id="billTenant" multiple class="d-none" aria-hidden="true"></select>
           </div>
-          <div class="mb-3 mt-3 p-3 border rounded-3" id="billCreationModeWrap">
-            <label class="form-label fw-bold">4. Billing Mode</label>
+          <div class="mb-3 mt-3 p-3 border rounded-3 d-none" id="billCreationModeWrap">
+            <label class="form-label fw-bold">4. Billing Type</label>
             <div class="row g-2">
               <div class="col-md-6">
                 <label class="border rounded-3 p-3 d-block h-100" style="cursor:pointer;">
-                  <input class="form-check-input me-2" type="radio" name="billCreationMode" value="individual" checked>
-                  <strong>Individual Bills</strong>
-                  <small class="d-block text-muted-soft mt-1">Create a separate bill for every selected tenant.</small>
+                  <input class="form-check-input me-2" type="radio" name="billCreationMode" value="split" checked>
+                  <strong>Split Bill (Equal Split)</strong>
+                  <small class="d-block text-muted-soft mt-1">Creates a separate bill for every tenant. Rent, electricity, maintenance and other charges are all divided equally.</small>
                 </label>
               </div>
               <div class="col-md-6">
                 <label class="border rounded-3 p-3 d-block h-100" style="cursor:pointer;">
-                  <input class="form-check-input me-2" type="radio" name="billCreationMode" value="group">
-                  <strong>Group Bill</strong>
-                  <small class="d-block text-muted-soft mt-1">One financial bill shared by all selected tenants. Payment by any one tenant settles the group.</small>
+                  <input class="form-check-input me-2" type="radio" name="billCreationMode" value="full">
+                  <strong>Full Bill (Group Bill)</strong>
+                  <small class="d-block text-muted-soft mt-1">Creates one shared bill for the whole room. Payment by any one tenant settles it for everyone.</small>
                 </label>
               </div>
             </div>
-            <div id="groupBillNotice" class="alert alert-info mt-2 mb-0 d-none small">A single bill will be created and sent individually to all selected tenants. The bill is shared; it is not duplicated.</div>
+            <div id="groupBillNotice" class="alert alert-info mt-2 mb-0 d-none small"></div>
           </div>
 
           <div class="row g-3">
             <div class="col-12">
               <label class="form-label">Billing Month</label>
               <input type="month" class="form-control" id="billBillingMonth" required>
-              <small class="text-muted-soft">One bill per tenant per month. Paid tenants can be billed for a new month.</small>
+              <small class="text-muted-soft">Multiple bills are allowed. Previous unpaid bills remain outstanding and are added to the tenant's total balance.</small>
             </div>
-            <div class="col-6"><label class="form-label">Rent (INR)</label><input type="number" class="form-control" id="billRent" required min="1" step="1"></div>
-            <div class="col-6"><label class="form-label">Electricity bill (INR)</label><input type="number" class="form-control" id="billElectricity" value="0" min="0" step="1"></div>
+            <div class="col-6"><label class="form-label">Rent (INR)</label><input type="number" class="form-control" id="billRent" required min="1" step="0.01" readonly>
+                <small class="text-muted-soft">Automatically calculated from the selected room's recorded rent.</small></div>
+            <div class="col-6"><label class="form-label" id="billElectricityLabel">Electricity bill (INR)</label><input type="number" class="form-control" id="billElectricity" value="0" min="0" step="1"></div>
             
             <div class="col-12">
               <label class="form-label">Meter Images (optional, up to 2)</label>
@@ -583,8 +588,8 @@
               <small class="text-muted-soft d-block mt-1">Upload 1 or 2 photos of the electricity meter reading</small>
             </div>
             
-            <div class="col-6"><label class="form-label">Maintenance fee (INR)</label><input type="number" class="form-control" id="billMaintenance" value="0" min="0" step="1"></div>
-            <div class="col-6"><label class="form-label">Other charges (INR)</label><input type="number" class="form-control" id="billOther" value="0" min="0" step="1"></div>
+            <div class="col-6"><label class="form-label" id="billMaintenanceLabel">Maintenance fee (INR)</label><input type="number" class="form-control" id="billMaintenance" value="0" min="0" step="1"></div>
+            <div class="col-6"><label class="form-label" id="billOtherLabel">Other charges (INR)</label><input type="number" class="form-control" id="billOther" value="0" min="0" step="1"></div>
             <div class="col-12"><hr></div>
             <div class="col-12"><label class="form-label fw-bold">Total Amount: <span id="billTotalDisplay">₹0</span></label></div>
           </div>
@@ -597,7 +602,7 @@
                   <option value="pg">Use the selected PG's payment details</option>
                   <option value="manual">Enter manual payment details for this bill</option>
                 </select>
-                <small class="text-muted-soft">For a group or individual bill, PG mode snapshots the selected PG payment details onto the bill.</small>
+                <small class="text-muted-soft">Payment details are snapshotted from the selected PG onto the bill.</small>
               </div>
               <div id="manualPaymentDetailsWrap" class="col-12 d-none">
                 <div class="row g-3 p-3 border rounded-3" style="background:var(--bg);">

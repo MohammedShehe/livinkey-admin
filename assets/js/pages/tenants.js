@@ -26,11 +26,35 @@ document.addEventListener("DOMContentLoaded", () => {
     let isEditMode = false;
     let editingTenantId = null;
     let allTenants = [];
+    // App adoption map from existing activity-logs/users endpoint (no new API)
+    let appActivityByTenantId = {};
     
     // Document status cache
     let documentStatusCache = {};
     let isDocumentCacheLoading = false;
     let documentCacheLoadComplete = false;
+
+    // Apply URL query filters from sidebar submenus (existing filter keys only)
+    (function applyUrlFilters() {
+        const qs = new URLSearchParams(window.location.search);
+        const f = qs.get('filter');
+        const pg = qs.get('pg');
+        if (pg) currentPgFilter = String(pg);
+        if (!f) return;
+        if (f === 'paid' || f === 'partially_paid' || f === 'unpaid') {
+            currentFilter = 'status:' + f;
+            currentFilterType = 'status';
+        } else if (f === 'residency:national' || f === 'residency:international') {
+            currentFilter = f;
+            currentFilterType = 'residency';
+        } else if (f === 'gender:male' || f === 'gender:female') {
+            currentFilter = f;
+            currentFilterType = 'gender';
+        } else if (f === 'efrro-expiring') {
+            currentFilter = '__EFRRO_EXPIRING__';
+            currentFilterType = 'efrro';
+        }
+    })();
 
     const NATIONALITIES = [
         "Afghan", "Albanian", "Algerian", "Andorran", "Angolan", "Argentinian", "Armenian", "Australian",
@@ -135,9 +159,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     function getRequiredDocumentTypes(residency) {
         if (residency === 'national') {
-            return ['passport_photo', 'tenant_aadhaar', 'parent_aadhaar', 'university_id'];
+            return ['passport_photo', 'signature', 'tenant_aadhaar', 'parent_aadhaar', 'university_id'];
         } else {
-            return ['passport_photo', 'passport', 'visa', 'arrival_stamp', 'c_form', 'efrro', 'university_id'];
+            return ['passport_photo', 'signature', 'passport', 'visa', 'arrival_stamp', 'c_form', 'efrro', 'university_id'];
         }
     }
 
@@ -583,20 +607,54 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // FETCH TENANTS
     // ============================================
+    async function loadAppActivityMap() {
+        // Reuse existing activity-logs/users endpoint — no new API
+        try {
+            if (!API.activityLogs || typeof API.activityLogs.users !== 'function') return;
+            const r = await API.activityLogs.users({ role: 'tenant' });
+            const list = r?.data || [];
+            const map = {};
+            list.forEach(u => {
+                if (u && u.id != null) {
+                    map[String(u.id)] = {
+                        installed: !!u.installed,
+                        last_app_activity: u.last_app_activity || null
+                    };
+                }
+            });
+            appActivityByTenantId = map;
+        } catch (_) {
+            // Non-fatal — App Status columns simply stay as unknown
+        }
+    }
+
     async function loadTenants() {
         const tbody = document.getElementById("tenantsTbody");
-        PAGE_LOADER.table(tbody, 12, "Loading tenants...");
+        PAGE_LOADER.table(tbody, 16, "Loading tenants...");
         PAGE_LOADER.hideEmpty("tenantsEmpty");
         try {
             const params = {};
             if (currentPgFilter !== "all") params.pg_id = currentPgFilter;
-            if (currentFilter && currentFilter !== "__EFRRO_EXPIRING__") {
+            // Don't send status/gender/residency filters as search — applied client-side
+            if (currentFilter && currentFilter !== "__EFRRO_EXPIRING__" && currentFilterType === "text") {
                 params.search = currentFilter;
             }
 
-            const response = await API.tenants.getAll(params);
+            // Parallel: tenants + app activity (existing endpoints only)
+            const [response] = await Promise.all([
+                API.tenants.getAll(params),
+                loadAppActivityMap()
+            ]);
             if (response.success) {
                 allTenants = (response.data || []).filter(t => t.role !== 'guest');
+                // Merge app status for first-look observations in Tenants Management
+                allTenants.forEach(t => {
+                    const a = appActivityByTenantId[String(t.id)];
+                    if (a) {
+                        t._app_installed = a.installed;
+                        t._last_app_activity = a.last_app_activity;
+                    }
+                });
                 window.LK_TENANTS = allTenants;
                 
                 // Reset document cache when tenants are reloaded
@@ -605,6 +663,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 // Preload document status in background
                 preloadDocumentStatus(allTenants);
+
+                // Sync search input with URL/filter state for visible feedback
+                const searchInput = document.getElementById("tenantSearch");
+                if (searchInput && currentFilter && currentFilterType !== "text") {
+                    if (currentFilter === "__EFRRO_EXPIRING__") searchInput.value = "__EFRRO_EXPIRING__";
+                    else searchInput.value = currentFilter;
+                }
                 
                 renderTable();
                 renderStats();
@@ -614,7 +679,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (error) {
             const tbody = document.getElementById("tenantsTbody");
-            if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center py-5 text-danger">Failed to load tenants. Please try again.</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="16" class="text-center py-5 text-danger">Failed to load tenants. Please try again.</td></tr>`;
             showToast("Error loading tenants: " + error.message, "danger");
         }
     }
@@ -742,6 +807,42 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // RENDER TABLE - FIXED: Uses paid_till as source of truth
     // ============================================
+    // ============================================
+    // FILTER HEADING (display only - reflects existing filter state)
+    // ============================================
+    function updateFilterHeading(count) {
+        const box = document.getElementById("tenantFilterHeading");
+        if (!box) return;
+        const esc = (v) => String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const tags = [];
+        if (currentPgFilter !== "all") {
+            const sel = document.getElementById("pgFilter");
+            const name = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "Selected";
+            tags.push({ icon: "bi-building", text: "PG: " + name, cls: "" });
+        }
+        const map = {
+            "gender:male": ["bi-gender-male", "Male", "tag-info"],
+            "gender:female": ["bi-gender-female", "Female", "tag-info"],
+            "residency:national": ["bi-flag-fill", "National", "tag-info"],
+            "residency:international": ["bi-globe2", "International", "tag-info"],
+            "status:paid": ["bi-check-circle", "Status: Paid", "tag-green"],
+            "status:partially_paid": ["bi-hourglass-split", "Status: Partially Paid", "tag-amber"],
+            "status:unpaid": ["bi-exclamation-circle", "Status: Unpaid", "tag-red"]
+        };
+        if (currentFilterType === "efrro") tags.push({ icon: "bi-clock-history", text: "e-FRRO Expiring", cls: "tag-red" });
+        else if (map[currentFilter]) tags.push({ icon: map[currentFilter][0], text: map[currentFilter][1], cls: map[currentFilter][2] });
+        else if (currentDocFilter === "pending") tags.push({ icon: "bi-file-earmark-text", text: "Pending Docs", cls: "tag-amber" });
+        else {
+            const q = document.getElementById("tenantSearch")?.value?.trim();
+            if (q) tags.push({ icon: "bi-search", text: 'Search: ' + q, cls: "" });
+        }
+        if (!tags.length) { box.classList.add("d-none"); box.innerHTML = ""; return; }
+        box.innerHTML = `<h6 class="fh-title">Showing Tenants</h6>
+            <div class="fh-chips">${tags.map(t => `<span class="filter-tag ${t.cls}"><i class="bi ${t.icon}"></i>${esc(t.text)}</span>`).join("")}</div>
+            <span class="fh-count ms-auto">${count} Tenant${count === 1 ? "" : "s"}</span>`;
+        box.classList.remove("d-none");
+    }
+
     function renderTable() {
         let tenants = allTenants || [];
         const searchInput = document.getElementById("tenantSearch");
@@ -839,6 +940,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const tbody = document.getElementById("tenantsTbody");
         if (!tbody) return;
 
+        updateFilterHeading(tenants.length);
+
         if (tenants.length === 0) {
             tbody.innerHTML = '';
             document.getElementById("tenantsEmpty").classList.remove("d-none");
@@ -867,14 +970,32 @@ document.addEventListener("DOMContentLoaded", () => {
             const efrroStatus = getEFRROStatus(t);
             const arrivalDate = t.arrival_date ? formatDate(t.arrival_date) : "—";
 
+            // App status from merged activity-logs data (existing endpoint)
+            let appChip = '<span class="chip chip-gray">—</span>';
+            if (t._app_installed === true) {
+                appChip = '<span class="chip chip-green"><i class="bi bi-phone"></i> Installed</span>';
+            } else if (t._app_installed === false) {
+                appChip = '<span class="chip chip-gray"><i class="bi bi-phone-slash"></i> Not Installed</span>';
+            }
+            let lastAct = '—';
+            if (t._last_app_activity) {
+                try {
+                    lastAct = new Date(t._last_app_activity).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+                } catch (_) {
+                    lastAct = String(t._last_app_activity);
+                }
+            }
+
             return `
             <tr>
                 <td>
                     <span class="name-link" onclick="openDocs('${t.id}')">${t.full_name || '—'}</span>
-                    <div class="small text-muted-soft">${t.email || '—'}</div>
+                    <div class="small text-muted-soft">${t.email || '—'}</div><div class="small text-muted-soft">Parent: ${t.parent_phone || '—'}</div>
                 </td>
                 <td>${t.pg_name || '—'}</td>
                 <td>${t.room_number || '—'}</td>
+                <td>${t.period_of_stay ? `${t.period_of_stay} Month${Number(t.period_of_stay) === 1 ? '' : 's'}` : '—'}</td>
+                <td>${t.agreement_status === 'accepted' ? '<span class="chip chip-green">Accepted</span>' : t.agreement_status === 'pending' ? '<span class="chip chip-red">Pending</span>' : '<span class="chip chip-gray">Not Required</span>'}</td>
                 <td>${fmtINR(t.rent || 0)}</td>
                 <td>${fmtINR(t.security_fee || 0)}</td>
                 <td>${t.nationality || '—'}</td>
@@ -883,7 +1004,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td>${arrivalDate}</td>
                 <td>${efrroStatus}</td>
                 <td><span class="chip ${statusChip}">${statusLabel}</span></td>
+                <td>${appChip}</td>
+                <td><span class="small text-muted-soft">${lastAct}</span></td>
                 <td class="text-end">
+                    ${t.agreement_status === 'accepted' ? `<button class="btn-icon me-1" title="Download current accepted agreement PDF" onclick="downloadTenantAgreement('${t.id}')"><i class="bi bi-file-earmark-pdf"></i></button>` : ''}
                     ${canEditTenants ? `<button class="btn-icon me-1" title="Edit" onclick="editTenant('${t.id}')"><i class="bi bi-pencil"></i></button>` : ''}
                     ${canDeleteTenants ? `<button class="btn-icon" title="Delete" onclick="deleteTenant('${t.id}')"><i class="bi bi-trash3"></i></button>` : ''}
                 </td>
@@ -1235,6 +1359,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         <label class="form-label">Phone</label>
                         <input type="text" class="form-control tenant-phone" placeholder="9876543210">
                     </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Parent Phone (+...)</label>
+                        <input type="tel" class="form-control tenant-parent-phone" placeholder="+91 9876543210">
+                    </div>
                     <div class="col-md-3 tenant-international-only d-none">
                         <label class="form-label">International Phone</label>
                         <input type="text" class="form-control tenant-international-phone" placeholder="+1 234 567 8900">
@@ -1246,6 +1374,13 @@ document.addEventListener("DOMContentLoaded", () => {
                             <option value="male">Male</option>
                             <option value="female">Female</option>
                             <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Period of Stay *</label>
+                        <select class="form-select tenant-period-of-stay" required>
+                            <option value="">Select months...</option>
+                            ${Array.from({length: 12}, (_, i) => `<option value="${i + 1}">${i + 1} Month${i === 0 ? '' : 's'}</option>`).join('')}
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -1448,7 +1583,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 const countryCode = entry.querySelector('.tenant-code').value.trim() || "+91";
                 const phone = entry.querySelector('.tenant-phone').value.trim();
                 const internationalPhone = entry.querySelector('.tenant-international-phone')?.value.trim() || '';
+                const parentPhone = entry.querySelector('.tenant-parent-phone')?.value.trim() || '';
                 const gender = entry.querySelector('.tenant-gender').value;
+                const periodOfStay = parseInt(entry.querySelector('.tenant-period-of-stay').value, 10) || 0;
                 const rent = parseFloat(entry.querySelector('.tenant-rent').value) || 0;
                 const securityFee = parseFloat(entry.querySelector('.tenant-security-fee').value) || 0;
                 const paymentDate = parseInt(entry.querySelector('.tenant-payment-date').value) || 1;
@@ -1477,6 +1614,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     showToast(`Please fill all required fields for Tenant #${idx + 1}.`, "warning");
                     return;
                 }
+                if (periodOfStay < 1 || periodOfStay > 12) {
+                    valid = false;
+                    showToast(`Please select a valid period of stay (1-12 months) for Tenant #${idx + 1}.`, "warning");
+                    return;
+                }
                 if (rent <= 0) {
                     valid = false;
                     showToast(`Please enter valid rent for Tenant #${idx + 1}.`, "warning");
@@ -1490,6 +1632,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     country_code: countryCode,
                     phone: phone,
                     international_phone: internationalPhone,
+                    parent_phone: parentPhone,
                     gender: gender,
                     residency: residency,
                     aadhaar_id: aadhaarId || null,
@@ -1502,7 +1645,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     payment_date: paymentDate,
                     paid_from: paidFrom || null,
                     paid_till: paidTill || null,
-                    arrival_date: arrivalDate
+                    arrival_date: arrivalDate,
+                    period_of_stay: periodOfStay
                 });
             });
 
@@ -1521,6 +1665,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     country_code: data.country_code,
                     phone: data.phone,
                     international_phone: data.international_phone,
+                    parent_phone: data.parent_phone,
                     gender: data.gender,
                     pg_id: parseInt(pgId),
                     room_id: roomId,
@@ -1536,6 +1681,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     paid_from: data.paid_from,
                     paid_till: data.paid_till,
                     arrival_date: data.arrival_date,
+                    period_of_stay: data.period_of_stay,
                     number_of_tenants: entriesData.length
                 };
 
@@ -1563,6 +1709,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     country_code: data.country_code,
                     phone: data.phone,
                     international_phone: data.international_phone,
+                    parent_phone: data.parent_phone,
                     gender: data.gender,
                     pg_id: parseInt(pgId),
                     room_id: roomId,
@@ -1578,6 +1725,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     paid_from: data.paid_from,
                     paid_till: data.paid_till,
                     arrival_date: data.arrival_date,
+                    period_of_stay: data.period_of_stay,
                     number_of_tenants: 1
                 };
 
@@ -1609,6 +1757,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ============================================
+    window.downloadTenantAgreement = async function(id) {
+        if (!canViewTenants) { showToast("You don't have permission to view tenant agreements.", "warning"); return; }
+        try {
+            const token = Auth.getToken();
+            const url = `${API_CONFIG.baseURL}/tenants/${encodeURIComponent(id)}/agreement.pdf?token=${encodeURIComponent(token || '')}`;
+            const response = await fetch(url);
+            if (!response.ok) { let message = 'Unable to download agreement PDF.'; try { const body = await response.json(); message = body.message || message; } catch (_) {} showToast(message, 'warning'); return; }
+            const blob = await response.blob(); const objectUrl = URL.createObjectURL(blob); const link = document.createElement('a');
+            link.href = objectUrl; link.download = `LivinKey-Agreement-${id}.pdf`; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(objectUrl);
+        } catch (error) { showToast('Unable to download agreement PDF. Please try again.', 'danger'); }
+    };
+
     // EDIT TENANT
     // ============================================
     window.editTenant = async function(id) {
@@ -1691,9 +1851,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 const intlPhoneInput = entry.querySelector('.tenant-international-phone');
                 if (intlPhoneInput) intlPhoneInput.value = t.international_phone || '';
+                const parentPhoneInput = entry.querySelector('.tenant-parent-phone');
+                if (parentPhoneInput) parentPhoneInput.value = t.parent_phone || '';
 
                 const genderSelect = entry.querySelector('.tenant-gender');
                 if (genderSelect) genderSelect.value = t.gender || 'male';
+
+                const periodInput = entry.querySelector('.tenant-period-of-stay');
+                if (periodInput) periodInput.value = t.period_of_stay || '';
 
                 const rentInput = entry.querySelector('.tenant-rent');
                 if (rentInput) rentInput.value = t.rent || 0;
@@ -1858,11 +2023,12 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 const docRes = await API.documents.admin.getByTenant(id);
                 const docTypes = t.residency === 'national'
-                    ? ['passport_photo', 'tenant_aadhaar', 'parent_aadhaar', 'university_id']
-                    : ['passport_photo', 'passport', 'visa', 'arrival_stamp', 'c_form', 'efrro', 'university_id'];
+                    ? ['passport_photo', 'signature', 'tenant_aadhaar', 'parent_aadhaar', 'university_id']
+                    : ['passport_photo', 'signature', 'passport', 'visa', 'arrival_stamp', 'c_form', 'efrro', 'university_id'];
 
                 const docLabels = {
                     'passport_photo': 'Passport Size Photo',
+                    'signature': 'Signature',
                     'tenant_aadhaar': 'Aadhaar Card',
                     'parent_aadhaar': 'Parent Aadhaar',
                     'university_id': 'University ID',

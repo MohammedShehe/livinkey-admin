@@ -18,7 +18,16 @@ document.addEventListener("DOMContentLoaded", () => {
     let tempPgImagesDataUrls = [];
     let tempQrDataUrl = null;
     let customAmenities = [];
+    const DEFAULT_TENANT_AGREEMENT = `
+    I, {TENANT_NAME}, hereby agree to stay in {PG_NAME}, Room {ROOM_NUMBER}, for the agreed period of {STAYING_PERIOD}.
+    I will pay a monthly rent of {RENT} Rs along with a security fee of {SECURITY_FEE} Rs, payable on {PAYMENT_DATE}.
 
+    I will not vacate the room until the agreed period ends.
+    I agree to take care of all equipment and devices in the room and ensure no damage is caused during my stay.
+
+    I acknowledge my arrival date as {ARRIVAL_DATE}, my residency status as {RESIDENCY}, and my nationality as {NATIONALITY}.
+    For any extension of stay, I agree to contact the Super Admin and follow the terms of this agreement.
+    `;
     // ============================================
     // FETCH AND RENDER PGs
     // ============================================
@@ -78,9 +87,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function renderGrid(search = "") {
         const f = search.trim().toLowerCase();
-        let filtered = pgData.filter(p => 
-            !f || p.name?.toLowerCase().includes(f) || p.location?.toLowerCase().includes(f)
-        );
+        const statusQs = new URLSearchParams(window.location.search).get('status');
+        let filtered = pgData.filter(p => {
+            if (statusQs === 'active' && p.is_active !== 1) return false;
+            if (statusQs === 'inactive' && p.is_active === 1) return false;
+            return !f || p.name?.toLowerCase().includes(f) || p.location?.toLowerCase().includes(f);
+        });
         
         const grid = document.getElementById("pgsGrid");
         if (filtered.length === 0) {
@@ -176,6 +188,10 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<div class="col-6"><span class="text-muted-soft">Total Rooms:</span> <strong>${p.total_rooms || 0}</strong></div>`;
             html += `<div class="col-6"><span class="text-muted-soft">Occupancy:</span> <strong>${p.total_occupied || 0}/${p.total_capacity || 0}</strong></div>`;
             html += `</div>`;
+            html += `<div class="mb-3"><strong>Tenant Agreement:</strong> <span class="chip ${p.tenant_agreement_enabled !== 0 && p.tenant_agreement_enabled !== false ? 'chip-green' : 'chip-gray'}">${p.tenant_agreement_enabled !== 0 && p.tenant_agreement_enabled !== false ? 'Enabled' : 'Disabled'}</span></div>`;
+            if (p.tenant_agreement_enabled !== 0 && p.tenant_agreement_enabled !== false && p.tenant_agreement_text) {
+                html += `<div class="mb-3"><div class="text-muted-soft small mb-1">Agreement template</div><div class="border rounded-3 p-3" style="white-space:pre-wrap;">${p.tenant_agreement_text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`;
+            }
             
             if (p.amenity_names && p.amenity_names.length > 0) {
                 html += `<div class="mb-3"><strong>Amenities:</strong> <div class="pg-amenities-display">`;
@@ -569,6 +585,8 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("pPaymentAccountNumber").value = "";
         document.getElementById("pPaymentIfsc").value = "";
         document.getElementById("pPaymentUpi").value = "";
+        document.getElementById("pTenantAgreementEnabled").checked = true;
+        document.getElementById("pTenantAgreementText").value = DEFAULT_TENANT_AGREEMENT;
         tempQrDataUrl = null;
         document.getElementById('qrPreviewContainer').classList.add('d-none');
         document.getElementById('qrUpload').value = '';
@@ -601,6 +619,8 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("pPaymentAccountNumber").value = p.payment_account_number || '';
             document.getElementById("pPaymentIfsc").value = p.payment_ifsc_code || '';
             document.getElementById("pPaymentUpi").value = p.payment_upi_id || '';
+            document.getElementById("pTenantAgreementEnabled").checked = p.tenant_agreement_enabled !== 0 && p.tenant_agreement_enabled !== false;
+            document.getElementById("pTenantAgreementText").value = p.tenant_agreement_text || DEFAULT_TENANT_AGREEMENT;
             
             if (p.payment_qr) {
                 tempQrDataUrl = p.payment_qr;
@@ -665,6 +685,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const paymentAccountNumber = document.getElementById("pPaymentAccountNumber").value.trim();
             const paymentIfsc = document.getElementById("pPaymentIfsc").value.trim().toUpperCase();
             const paymentUpi = document.getElementById("pPaymentUpi").value.trim();
+            const tenantAgreementEnabled = document.getElementById("pTenantAgreementEnabled").checked;
+            const tenantAgreementText = document.getElementById("pTenantAgreementText").value.trim();
 
             if (!name || !location) {
                 showToast("Please enter PG name and location.", "warning");
@@ -678,6 +700,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (!paymentBankName || !paymentHolderName || !paymentAccountNumber || !paymentIfsc) {
                 showToast("Bank Name, Account Holder Name, Account Number and IFSC are required.", "warning");
+                LOADER.hide(btn);
+                return;
+            }
+            if (tenantAgreementEnabled && !tenantAgreementText) {
+                showToast("Tenant Agreement text is required when the agreement is enabled.", "warning");
                 LOADER.hide(btn);
                 return;
             }
@@ -723,6 +750,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 payment_account_number: paymentAccountNumber,
                 payment_ifsc_code: paymentIfsc,
                 payment_upi_id: paymentUpi || null,
+                tenant_agreement_enabled: tenantAgreementEnabled,
+                tenant_agreement_text: tenantAgreementEnabled ? tenantAgreementText : null,
                 amenities: selectedAmenities.map(a => ({ 
                     name: a, 
                     is_custom: !['Free WiFi', '24×7 Assistance', '24×7 Power Backup', '43 Inch LED', 'Ventilated Rooms', 'Free Housekeeping', 'CCTV', 'AC'].includes(a) 

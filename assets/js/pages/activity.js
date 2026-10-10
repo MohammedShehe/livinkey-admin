@@ -4,6 +4,15 @@ document.addEventListener("DOMContentLoaded", () => {
     let activeUser = null;
     let page = 1;
     const pageSize = 25;
+    // Sidebar submenu deep-link: ?status=installed|not_installed
+    const _actStatusQs = new URLSearchParams(window.location.search).get('status');
+    if (_actStatusQs === 'installed' || _actStatusQs === 'not_installed') {
+        // Apply after DOM elements exist — deferred to end of init
+        document.addEventListener('lk-activity-ready', () => {
+            const el = document.getElementById('statusFilter');
+            if (el) { el.value = _actStatusQs; }
+        }, { once: true });
+    }
     const timelineModal = new bootstrap.Modal(document.getElementById("timelineModal"));
     const messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 
@@ -135,5 +144,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("refreshBtn").addEventListener("click",()=>{loadUsers();loadStats();});
     document.getElementById("exportBtn").addEventListener("click",()=>API.activityLogs.export({...params(),app_status:document.getElementById("statusFilter").value,from:document.getElementById("fromDate").value,to:document.getElementById("toDate").value}));
 
-    loadPGs(); loadUsers(); loadStats();
+    loadPGs();
+    // Apply URL status filter before first load
+    if (_actStatusQs === 'installed' || _actStatusQs === 'not_installed') {
+        const el = document.getElementById('statusFilter');
+        if (el) el.value = _actStatusQs;
+    }
+    loadUsers(); loadStats();
 });

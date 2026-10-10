@@ -2,7 +2,7 @@
 // Full backend integration for admin-to-tenant notifications
 
 document.addEventListener("DOMContentLoaded", () => {
-    renderLayout("notifications", "Send Notifications", "Broadcast messages to tenants via push and email");
+    renderLayout("notifications", "Send Notifications", "Broadcast via push, WhatsApp (primary) and email fallback");
 
     // Permission check
     const canViewTenants = Permissions.canView('tenants');

@@ -584,6 +584,39 @@ const API = {
             apiRequest('/pgs/stats', 'GET')
     },
 
+    livinkeyAds: {
+        getAll: () => apiRequest('/livinkey-ads', 'GET'),
+        create: (data, files) => {
+            const formData = new FormData();
+            Object.keys(data).forEach(k => formData.append(k, data[k]));
+            (files || []).slice(0, 5).forEach(f => formData.append('images', f));
+            return apiRequest('/livinkey-ads', 'POST', formData, true);
+        },
+        update: (id, data, files) => {
+            const formData = new FormData();
+            Object.keys(data).forEach(k => formData.append(k, data[k]));
+            (files || []).slice(0, 5).forEach(f => formData.append('images', f));
+            return apiRequest(`/livinkey-ads/${id}`, 'PUT', formData, true);
+        },
+        delete: id => apiRequest(`/livinkey-ads/${id}`, 'DELETE'),
+        reorder: ids => apiRequest('/livinkey-ads/reorder', 'POST', { ids })
+    },
+
+    livinkeyNotices: {
+        getAll: () => apiRequest('/livinkey-notices', 'GET'),
+        upload: (files) => {
+            const formData = new FormData();
+            files.slice(0, 5).forEach(file => formData.append('notices', file));
+            return apiRequest('/livinkey-notices', 'POST', formData, true);
+        },
+        replace: (id, file) => {
+            const formData = new FormData();
+            formData.append('notice', file);
+            return apiRequest(`/livinkey-notices/${id}`, 'PUT', formData, true);
+        },
+        delete: (id) => apiRequest(`/livinkey-notices/${id}`, 'DELETE')
+    },
+
     documents: {
         upload: (document_type, file) => {
             const formData = new FormData();
@@ -779,12 +812,21 @@ const API = {
         tenant: {
             bill: () => 
                 apiRequest('/tenant-payments/bill', 'GET'),
-            proof: (bill_id, transaction_id, amount_paid, file) => {
+            proof: (bill_id, transaction_id, amount_paid, file, options = {}) => {
                 const formData = new FormData();
-                formData.append('bill_id', bill_id);
+                if (bill_id != null) formData.append('bill_id', bill_id);
                 formData.append('transaction_id', transaction_id);
                 formData.append('amount_paid', amount_paid);
                 formData.append('payment_screenshot', file);
+                // Multi-bill payment scopes: 'bill' (default) | 'outstanding'
+                if (options.payment_scope) {
+                    formData.append('payment_scope', options.payment_scope);
+                }
+                if (options.payment_target_bill_id != null) {
+                    formData.append('payment_target_bill_id', options.payment_target_bill_id);
+                }
+                if (options.paid_from) formData.append('paid_from', options.paid_from);
+                if (options.paid_till) formData.append('paid_till', options.paid_till);
                 return apiRequest('/tenant-payments/proof', 'POST', formData, true);
             },
             history: () => 
@@ -994,3 +1036,26 @@ const Auth = {
 };
 
 window.Auth = Auth;
+
+
+// ============ CONVERSATIONS (WhatsApp Inbox) ============
+API.getConversations = async function(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return apiRequest(`/conversations${q ? '?' + q : ''}`, 'GET');
+};
+
+API.getConversation = async function(id) {
+    return apiRequest(`/conversations/${id}`, 'GET');
+};
+
+API.replyToConversation = async function(id, message) {
+    return apiRequest(`/conversations/${id}/reply`, 'POST', { message });
+};
+
+API.archiveConversation = async function(id) {
+    return apiRequest(`/conversations/${id}/archive`, 'PATCH');
+};
+
+API.getConversationUnreadCount = async function() {
+    return apiRequest('/conversations/unread-count', 'GET');
+};
