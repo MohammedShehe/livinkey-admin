@@ -19,16 +19,48 @@ document.addEventListener("DOMContentLoaded", () => {
     let tempQrDataUrl = null;
     let customAmenities = [];
     const DEFAULT_TENANT_AGREEMENT = `
-    I, {TENANT_NAME}, hereby agree to stay in {PG_NAME}, Room {ROOM_NUMBER}, for the agreed period of {STAYING_PERIOD}.
-    I will pay a monthly rent of {RENT} Rs along with a security fee of {SECURITY_FEE} Rs, payable on {PAYMENT_DATE}.
+LIVINKEY AGREEMENT
 
-    I will not vacate the room until the agreed period ends.
-    I agree to take care of all equipment and devices in the room and ensure no damage is caused during my stay.
+APARTMENT NAME: {PG_NAME}                         ROOM NO.: {ROOM_NUMBER}
+TIME PERIOD: {STAYING_PERIOD}
 
-    I acknowledge my arrival date as {ARRIVAL_DATE}, my residency status as {RESIDENCY}, and my nationality as {NATIONALITY}.
-    For any extension of stay, I agree to contact the Super Admin and follow the terms of this agreement.
-    `;
-    // ============================================
+TENANT INFORMATION
+NAME: {TENANT_NAME}                               MOBILE NO.: {MOBILE_NO}
+PARENTS NO.: {PARENTS_NO}                         AADHAR/PASSPORT/VISA NO.: {AADHAR_PASSPORT_VISA_NO}
+NATIONALITY: {NATIONALITY}                        GENDER: {GENDER}
+
+RENT INFORMATION
+DATE OF JOINING: {JOINING_DATE}
+MONTHLY RENT AMOUNT RS: {RENT}                    SECURITY DEPOSIT RS: {SECURITY_FEE}
+
+TERMS & CONDITIONS
+1. Tenant shall occupy premises for residential purpose only and not for any other purpose without prior written permission/consent of the owner.
+2. Tenant shall return the room in the same condition as it was given at the time of rent agreement. Fixed Rs. 500/- checkout fee is compulsory.
+3. Tenant shall not make any addition/alteration in the rented premises without prior consent/permission of the owner and shall not do work which will cause damage.
+4. Tenant shall pay rent monthly in the first week of every month on or before the 7th day. Late payment fine: Rs. 100/- per day until payment is received.
+5. Tenant cannot vacate before completion of the agreed 10/12-month lock-in and shall give one month's prior notice before vacating.
+6. Tenant shall provide two identity proofs along with a passport-size photograph.
+7. In case of any dispute, the matter shall be referred to Phagwara Court only.
+8. Tenant is responsible for any illegal work done in PG premises/room (drugs, fighting or any other illegal work).
+9. If tenant is found violating the rules, owner has the right to terminate the agreement and require the tenant to vacate the same day.
+10. Electricity bill shall be paid on or before the 5th of every month.
+11. Tenant must not misbehave with any staff members of LIVINKEY.
+12. Fixed maintenance charges of Rs. 300/- will be taken every month.
+13. Security deposit will be refunded upon receipt of written notice to vacate at least one month prior to the end of the lock-in period.
+14. Wi-Fi is not an inclusive service provided by LIVINKEY; it is an additional service and LIVINKEY does not guarantee it.
+15. No loud music, parties or disturbances are allowed inside the PG premises.
+16. LIVINKEY is not responsible for anything stolen inside/outside the room from common areas.
+17. Outsiders are not allowed to stay overnight. Only parents are allowed with prior permission.
+18. If anything in the room is broken, damaged or stolen, the tenant is responsible and double the amount will be charged.
+19. If the tenant loses the door keys, the tenant must pay Rs. 2,000/-.
+20. The source agreement states that the first party/owner will not take responsibility in case of injury, mishap or death.
+21. If the sub-meter fails, the average charge will be taken.
+22. Police verification is the responsibility of the tenant.
+23. For international students, C Form is necessary and must be taken 30 days before visa expiry.
+24. If the tenant stays beyond the agreement tenure, even for a single day, Rs. 800/- per day will be charged.
+25. If rent remains unpaid and tenant fails to respond to LIVINKEY messages or calls for 15 days, LIVINKEY reserves the right to break the lock and vacate the room.
+
+    `;    // ============================================
     // FETCH AND RENDER PGs
     // ============================================
     async function loadPGs() {
