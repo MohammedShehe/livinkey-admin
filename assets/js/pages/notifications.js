@@ -409,6 +409,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 recipient_type: recipientType,
                 title: title,
                 message: message,
+                link: document.getElementById('notifLink')?.value.trim() || '',
                 send_push: sendPush,
                 send_email: sendEmail
             };
@@ -427,6 +428,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Reset form
                 document.getElementById('notifTitle').value = '';
                 document.getElementById('notifMessage').value = '';
+                if (document.getElementById('notifLink')) document.getElementById('notifLink').value = '';
                 document.getElementById('sendPush').checked = true;
                 document.getElementById('sendEmail').checked = false;
                 updatePreview();

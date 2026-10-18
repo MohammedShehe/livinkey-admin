@@ -397,7 +397,9 @@ const API = {
             delete: (id) => 
                 apiRequest(`/guests/admin/${id}`, 'DELETE'),
             sendMessage: (id, message, subject) => 
-                apiRequest(`/guests/admin/${id}/send-message`, 'POST', { message, subject })
+                apiRequest(`/guests/admin/${id}/send-message`, 'POST', { message, subject }),
+            broadcastMessage: (title, message, link) =>
+                apiRequest('/guests/admin/broadcast-message', 'POST', { title, message, link })
         }
     },
 

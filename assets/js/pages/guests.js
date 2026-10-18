@@ -177,6 +177,38 @@ Enjoy your stay!
         msgModal.show();
     };
 
+    document.getElementById("sendBroadcastBtn")?.addEventListener("click", async function() {
+        const btn = this;
+        const title = document.getElementById("broadcastTitle").value.trim();
+        const message = document.getElementById("broadcastText").value.trim();
+        const link = document.getElementById("broadcastLink").value.trim();
+        if (!title || !message) {
+            showToast("Please enter a title and message.", "warning");
+            return;
+        }
+        if (link && !(String(link).startsWith("https://") || String(link).startsWith("http://"))) {
+            showToast("Link must start with http:// or https://", "warning");
+            return;
+        }
+        if (!confirm("Send this message to all active guests?")) return;
+        LOADER.show(btn, "Sending...");
+        try {
+            const res = await API.guests.admin.broadcastMessage(title, message, link);
+            if (res.success) {
+                showToast(`${res.message}. (${res.data?.sent_count || 0} guests)`, "success");
+                bootstrap.Modal.getOrCreateInstance(document.getElementById("broadcastModal")).hide();
+                document.getElementById("broadcastText").value = "";
+                document.getElementById("broadcastLink").value = "";
+            } else {
+                showToast(res.message || "Failed to send message.", "danger");
+            }
+        } catch (error) {
+            showToast("Failed to send message: " + error.message, "danger");
+        } finally {
+            LOADER.hide(btn);
+        }
+    });
+
     document.getElementById("sendMsgBtn")?.addEventListener("click", async function() {
         const btn = this;
         LOADER.show(btn, 'Sending...');
