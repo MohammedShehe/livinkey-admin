@@ -384,8 +384,9 @@ Enjoy your stay!
                 el.innerHTML = `<div class="text-muted text-center py-3">No guest notifications sent yet.</div>`;
                 return;
             }
-            el.innerHTML = logs.map(h => `
-              <div class="history-item border-bottom py-2" data-id="${h.id}" style="cursor:pointer;" title="View recipients">
+            window.__guestNotifHistory = logs;
+            el.innerHTML = logs.map((h, idx) => `
+              <div class="history-item border-bottom py-2" data-idx="${idx}" style="cursor:pointer;" title="View recipients">
                 <div class="d-flex justify-content-between align-items-start gap-2">
                   <div style="min-width:0;flex:1;">
                     <div class="fw-semibold text-truncate">${escapeHtml(h.title || 'Untitled')}</div>
@@ -399,7 +400,10 @@ Enjoy your stay!
               </div>
             `).join('');
             el.querySelectorAll('.history-item').forEach(item => {
-                item.addEventListener('click', () => openGuestHistoryDetail(item.dataset.id));
+                item.addEventListener('click', () => {
+                    const h = (window.__guestNotifHistory || [])[parseInt(item.dataset.idx, 10)];
+                    openGuestHistoryDetail(h);
+                });
             });
         } catch (err) {
             el.innerHTML = `<div class="text-danger small">${escapeHtml(err.message || 'Failed')}</div>`;
@@ -420,8 +424,11 @@ Enjoy your stay!
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    async function openGuestHistoryDetail(id) {
-        if (!id) return;
+    async function openGuestHistoryDetail(entryOrId) {
+        if (entryOrId == null) return;
+        const entry = (typeof entryOrId === 'object') ? entryOrId : null;
+        const id = entry ? entry.id : entryOrId;
+
         let modalEl = document.getElementById('guestNotifDetailModal');
         if (!modalEl) {
             modalEl = document.createElement('div');
@@ -443,13 +450,8 @@ Enjoy your stay!
         const body = document.getElementById('guestNotifDetailBody');
         body.innerHTML = 'Loading…';
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
-        try {
-            const res = await API.adminNotifications.recipients(id);
-            if (!res.success) {
-                body.innerHTML = `<div class="text-danger">${escapeHtml(res.message || 'Failed')}</div>`;
-                return;
-            }
-            const { log, recipients, note } = res.data;
+
+        const render = (log, recipients, note) => {
             let html = `
               <div class="mb-3">
                 <div class="fw-semibold fs-5">${escapeHtml(log.title || '')}</div>
@@ -470,6 +472,52 @@ Enjoy your stay!
                     </tr>`).join('')}</tbody></table></div>`;
             }
             body.innerHTML = html;
+        };
+
+        try {
+            // Prefer API detail when we have a real log id
+            if (id && !entry?._synthetic) {
+                const res = await API.adminNotifications.recipients(id);
+                if (res.success && res.data) {
+                    render(res.data.log || entry || {}, res.data.recipients || [], res.data.note);
+                    return;
+                }
+            }
+
+            // Synthetic / fallback: resolve recipient_ids already on the history row
+            let ids = [];
+            if (entry?.recipient_ids) {
+                try {
+                    ids = typeof entry.recipient_ids === 'string' ? JSON.parse(entry.recipient_ids) : entry.recipient_ids;
+                } catch (_) { ids = []; }
+            }
+            if (!Array.isArray(ids)) ids = [];
+
+            // Load guest names from already-loaded guest grid data if available
+            const guests = (typeof guestData !== 'undefined' && Array.isArray(guestData)) ? guestData : [];
+            let recipients = ids.map(gid => {
+                const g = guests.find(x => String(x.id) === String(gid));
+                return g ? {
+                    id: g.id,
+                    full_name: g.full_name,
+                    email: g.email,
+                    phone: g.phone,
+                    country_code: g.country_code
+                } : { id: gid, full_name: `Guest #${gid}`, email: '', phone: '', country_code: '' };
+            });
+
+            // If we have no ids, try recipients API anyway (may reconstruct by title)
+            if (!recipients.length && id) {
+                try {
+                    const res = await API.adminNotifications.recipients(id);
+                    if (res.success && res.data) {
+                        render(res.data.log || entry || {}, res.data.recipients || [], res.data.note);
+                        return;
+                    }
+                } catch (_) {}
+            }
+
+            render(entry || { title: '', message: '', sent_at: null, recipient_count: recipients.length }, recipients, null);
         } catch (err) {
             body.innerHTML = `<div class="text-danger">${escapeHtml(err.message || 'Failed')}</div>`;
         }
