@@ -1354,19 +1354,20 @@ document.addEventListener("DOMContentLoaded", () => {
                         <input type="email" class="form-control tenant-email" required>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Nationality</label>
-                        <div class="searchable-dropdown tenant-nationality-dropdown">
-                            <input type="text" class="dropdown-search tenant-nationality-search" placeholder="Search or select nationality..." autocomplete="off">
-                            <input type="hidden" class="tenant-nationality" value="Indian">
-                            <div class="dropdown-options tenant-nationality-options"></div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Residency</label>
-                        <select class="form-select tenant-residency">
+                        <label class="form-label">Residency *</label>
+                        <select class="form-select tenant-residency" required>
+                            <option value="" selected disabled>Select residency...</option>
                             <option value="national">National</option>
                             <option value="international">International</option>
                         </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nationality *</label>
+                        <div class="searchable-dropdown tenant-nationality-dropdown">
+                            <input type="text" class="dropdown-search tenant-nationality-search" placeholder="Search or select nationality..." autocomplete="off">
+                            <input type="hidden" class="tenant-nationality" value="">
+                            <div class="dropdown-options tenant-nationality-options"></div>
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Country code</label>
@@ -1618,6 +1619,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 const cFormNumber = entry.querySelector('.tenant-cform')?.value || '';
                 const efrroFrom = entry.querySelector('.tenant-efrro-from')?.value || '';
                 const efrroTill = entry.querySelector('.tenant-efrro-till')?.value || '';
+
+                if (!residency || !nationality) {
+                    valid = false;
+                    showToast(`Please select residency and nationality for Tenant #${idx + 1}.`, "warning");
+                    return;
+                }
 
                 if (residency === 'national' && nationality !== 'Indian') {
                     valid = false;
