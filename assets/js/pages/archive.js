@@ -51,7 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await API.tenants.archiveStats();
             if (res.success && res.data) {
-                document.getElementById('statActive').textContent = res.data.active_count ?? 0;
                 document.getElementById('statCheckedOut').textContent = res.data.checked_out_count ?? 0;
                 document.getElementById('statArchived').textContent = res.data.archived_count ?? 0;
                 document.getElementById('statAll').textContent = res.data.all_count ?? 0;

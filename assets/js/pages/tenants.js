@@ -722,7 +722,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const today = new Date();
             const expiryDate = new Date(t.efrro_till);
             const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-            return diffDays >= 0 && diffDays <= 30;
+            return diffDays <= 30;
         });
 
         const stats = [
@@ -734,7 +734,7 @@ document.addEventListener("DOMContentLoaded", () => {
             { label: "Paid", value: paid, icon: "bi-check-circle", color: "var(--success)", filter: "paid" },
             { label: "Partially Paid", value: partiallyPaid, icon: "bi-hourglass-split", color: "var(--warning)", filter: "partially_paid" },
             { label: "Unpaid", value: unpaid, icon: "bi-exclamation-circle", color: "var(--danger)", filter: "unpaid" },
-            { label: "Expiring e-FRRO", value: expiringEFRRO.length, icon: "bi-clock-history", color: "#e74c3c", filter: "efrro-expiring" }
+            { label: "e-FRRO Expiring / Expired", value: expiringEFRRO.length, icon: "bi-clock-history", color: "#e74c3c", filter: "efrro-expiring" }
         ];
 
         document.getElementById("tenantStats").innerHTML = stats.map(s => `
@@ -745,6 +745,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             </div>
         `).join("");
+
+        // Active and all-tenant counts belong to Tenants Management, not Archive.
+        document.querySelectorAll("#tenantStats .tenant-extra-stat").forEach(el => el.remove());
+        if (API.tenants.archiveStats) {
+            API.tenants.archiveStats().then(res => {
+                if (!res?.success || !res.data) return;
+                const d = res.data;
+                const extra = [
+                    { label: "Active", value: d.active_count ?? tenants.length, icon: "bi-person-check", color: "var(--success)" },
+                    { label: "All (active + inactive)", value: (Number(d.active_count) || 0) + (Number(d.checked_out_count) || 0) + (Number(d.archived_count) || 0), icon: "bi-people", color: "var(--lk-green)" }
+                ];
+                const container = document.getElementById("tenantStats");
+                extra.forEach(item => {
+                    const col = document.createElement("div");
+                    col.className = "col-6 col-md-4 col-lg tenant-extra-stat";
+                    col.innerHTML = `<div class="stat-card"><div class="stat-icon" style="background:${item.color}22;color:${item.color};"><i class="bi ${item.icon}"></i></div><div><div class="stat-value">${item.value}</div><div class="stat-label">${item.label}</div></div></div>`;
+                    container.appendChild(col);
+                });
+            }).catch(() => {});
+        }
     }
 
     window.filterByStat = function(filter) {
@@ -829,7 +849,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "status:partially_paid": ["bi-hourglass-split", "Status: Partially Paid", "tag-amber"],
             "status:unpaid": ["bi-exclamation-circle", "Status: Unpaid", "tag-red"]
         };
-        if (currentFilterType === "efrro") tags.push({ icon: "bi-clock-history", text: "e-FRRO Expiring", cls: "tag-red" });
+        if (currentFilterType === "efrro") tags.push({ icon: "bi-clock-history", text: "e-FRRO Expiring / Expired", cls: "tag-red" });
         else if (map[currentFilter]) tags.push({ icon: map[currentFilter][0], text: map[currentFilter][1], cls: map[currentFilter][2] });
         else if (currentDocFilter === "pending") tags.push({ icon: "bi-file-earmark-text", text: "Pending Docs", cls: "tag-amber" });
         else {
@@ -891,7 +911,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const today = new Date();
                 const expiryDate = new Date(t.efrro_till);
                 const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-                return diffDays >= 0 && diffDays <= 30;
+                return diffDays <= 30;
             });
         } else if (currentDocFilter === "pending") {
             // Filter tenants that are missing required documents
@@ -909,7 +929,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     const today = new Date();
                     const expiryDate = new Date(t.efrro_till);
                     const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-                    return diffDays >= 0 && diffDays <= 30;
+                    return diffDays <= 30;
                 });
             } else if (searchVal === "residency:national") {
                 tenants = tenants.filter(t => t.residency === 'national');

@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // FETCH MAINTENANCE REQUESTS
     // ============================================
     async function loadMaintenance() {
-        PAGE_LOADER.table(document.getElementById("maintenanceTbody"), 11, "Loading maintenance requests...");
+        PAGE_LOADER.table(document.getElementById("maintenanceTbody"), 12, "Loading maintenance requests...");
         PAGE_LOADER.hideEmpty("maintenanceEmpty");
         try {
             const params = {};
@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (error) {
             const tbody = document.getElementById("maintenanceTbody");
-            if (tbody) tbody.innerHTML = `<tr><td colspan="11" class="text-center py-5 text-danger">Failed to load maintenance requests. Please try again.</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center py-5 text-danger">Failed to load maintenance requests. Please try again.</td></tr>`;
             showToast("Error loading maintenance: " + error.message, "danger");
         }
     }
@@ -42,6 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
         let filtered = maintenanceData;
         if (f) {
             filtered = maintenanceData.filter(m =>
+                (m.pg_name || '').toLowerCase().includes(f) ||
                 (m.room_number || '').toLowerCase().includes(f) ||
                 (m.tenant_name || '').toLowerCase().includes(f) ||
                 (m.issue_type || '').toLowerCase().includes(f) ||
@@ -61,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         tbody.innerHTML = filtered.map(m => `
             <tr>
+                <td>${m.pg_name || '—'}</td>
                 <td><span class="fw-semibold">${m.room_number || '—'}</span></td>
                 <td>${m.tenant_name || '—'}</td>
                 <td>${m.tenant_email || '—'}</td>

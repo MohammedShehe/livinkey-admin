@@ -589,6 +589,8 @@ function doRender(activeKey, pageTitle, pageSub) {
     // Map notification entity_type -> sidebar menu badge id
     const ENTITY_MENU_BADGE = {
         tenant: 'menuBadge_tenants',
+        archive: 'menuBadge_archive',
+        archived: 'menuBadge_archive',
         tenants: 'menuBadge_tenants',
         guests: 'menuBadge_guests',
         guest: 'menuBadge_guests',
@@ -617,6 +619,7 @@ function doRender(activeKey, pageTitle, pageSub) {
         const title = String(n.title || n.message || '').toLowerCase();
         const hay = `${link} ${title}`;
 
+        if (/archive|checked.?out/.test(hay)) return 'menuBadge_archive';
         if (/proof/.test(hay)) return 'menuBadge_proofs';
         if (/payment/.test(hay)) return 'menuBadge_payments';
         if (/bill/.test(hay)) return 'menuBadge_bills';
