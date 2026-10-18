@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? '<span class="chip chip-warning">Checked out</span>'
                     : '<span class="chip chip-gray">Archived</span>';
                 const endDate = t.status === 'checked_out' ? fmtDate(t.checkout_date) : fmtDate(t.archived_at);
-                return `<tr>
+                return `<tr class="archive-row" data-id="${t.id}" style="cursor:pointer;" title="Click to view full details">
                     <td><input type="checkbox" class="row-check" value="${t.id}"></td>
                     <td>
                         <div class="fw-semibold">${escapeHtml(t.full_name || '—')}</div>
@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${statusChip}</td>
                     <td class="small">${escapeHtml(t.archive_reason || '—')}</td>
                     <td class="text-end text-nowrap">
+                        <button class="btn-icon me-1" title="View details" data-action="view" data-id="${t.id}"><i class="bi bi-eye"></i></button>
                         ${canEdit ? `<button class="btn-icon me-1" title="Restore" data-action="restore" data-id="${t.id}"><i class="bi bi-arrow-counterclockwise"></i></button>` : ''}
                         ${canDelete ? `<button class="btn-icon" title="Permanent delete" data-action="perm" data-id="${t.id}"><i class="bi bi-trash3"></i></button>` : ''}
                     </td>
@@ -106,10 +107,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('');
             tbody.querySelectorAll('.row-check').forEach(el => el.addEventListener('change', updateBulkButtons));
             tbody.querySelectorAll('[data-action]').forEach(btn => {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     const id = btn.getAttribute('data-id');
-                    if (btn.getAttribute('data-action') === 'restore') confirmRestore([id]);
+                    const action = btn.getAttribute('data-action');
+                    if (action === 'view') openArchiveDetail(id);
+                    else if (action === 'restore') confirmRestore([id]);
                     else confirmPermDelete([id]);
+                });
+            });
+            tbody.querySelectorAll('tr.archive-row').forEach(tr => {
+                tr.addEventListener('click', (e) => {
+                    if (e.target.closest('input, button, a')) return;
+                    openArchiveDetail(tr.dataset.id);
                 });
             });
             updateBulkButtons();
@@ -122,6 +132,122 @@ document.addEventListener('DOMContentLoaded', () => {
         return String(s ?? '').replace(/[&<>"']/g, c => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         })[c]);
+    }
+
+    async function openArchiveDetail(id) {
+        let modalEl = document.getElementById('archiveDetailModal');
+        if (!modalEl) {
+            modalEl = document.createElement('div');
+            modalEl.id = 'archiveDetailModal';
+            modalEl.className = 'modal fade';
+            modalEl.tabIndex = -1;
+            modalEl.innerHTML = `
+              <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Tenant details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body" id="archiveDetailBody">
+                    <div class="text-center text-muted py-4">Loading…</div>
+                  </div>
+                </div>
+              </div>`;
+            document.body.appendChild(modalEl);
+        }
+        const body = document.getElementById('archiveDetailBody');
+        body.innerHTML = '<div class="text-center text-muted py-4">Loading…</div>';
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+        try {
+            const [tenantRes, docsRes] = await Promise.all([
+                API.tenants.getById(id),
+                API.documents.admin.getByTenant(id).catch(() => ({ success: false, data: [] }))
+            ]);
+            if (!tenantRes.success || !tenantRes.data) {
+                body.innerHTML = `<div class="text-danger">${escapeHtml(tenantRes.message || 'Failed to load tenant')}</div>`;
+                return;
+            }
+            const t = tenantRes.data;
+            let docs = [];
+            if (docsRes.success) {
+                if (Array.isArray(docsRes.data)) docs = docsRes.data;
+                else if (docsRes.data?.uploaded_documents) docs = docsRes.data.uploaded_documents;
+                else if (docsRes.data?.documents) docs = docsRes.data.documents;
+            }
+
+            const field = (label, val) =>
+                `<div class="col-md-4 mb-2"><div class="small text-muted">${label}</div><div class="fw-semibold">${escapeHtml(val == null || val === '' ? '—' : String(val))}</div></div>`;
+
+            let html = `
+              <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                <div>
+                  <div class="fs-5 fw-bold">${escapeHtml(t.full_name || '—')}</div>
+                  <div class="text-muted small">${escapeHtml(t.email || '')} · ${escapeHtml((t.country_code || '') + ' ' + (t.phone || ''))}</div>
+                </div>
+                <div>
+                  <span class="chip ${t.status === 'checked_out' ? 'chip-warning' : 'chip-gray'}">${escapeHtml(t.status || 'inactive')}</span>
+                </div>
+              </div>
+              <div class="row g-2 mb-3">
+                ${field('PG', t.pg_name)}
+                ${field('Room', t.room_number)}
+                ${field('Gender', t.gender)}
+                ${field('Nationality', t.nationality)}
+                ${field('Residency', t.residency)}
+                ${field('Rent', t.rent != null ? '₹' + t.rent : null)}
+                ${field('Security fee', t.security_fee != null ? '₹' + t.security_fee : null)}
+                ${field('Arrival date', fmtDate(t.arrival_date))}
+                ${field('Paid from', fmtDate(t.paid_from))}
+                ${field('Paid till', fmtDate(t.paid_till))}
+                ${field('Period of stay', t.period_of_stay)}
+                ${field('Checkout / archived', fmtDate(t.checkout_date || t.archived_at))}
+                ${field('Archive reason', t.archive_reason)}
+              </div>
+              <h6 class="mb-2">Documents (${docs.length})</h6>`;
+
+            if (!docs.length) {
+                html += `<div class="text-muted small">No documents on file.</div>`;
+            } else {
+                html += `<div class="table-responsive"><table class="table table-sm align-middle">
+                  <thead><tr><th>Type</th><th>Uploaded</th><th class="text-end">Actions</th></tr></thead>
+                  <tbody>${docs.map(d => `
+                    <tr data-doc-id="${d.id}">
+                      <td>${escapeHtml(d.document_type || 'document')}</td>
+                      <td class="small">${fmtDate(d.created_at || d.upload_date)}</td>
+                      <td class="text-end text-nowrap">
+                        <button class="btn-icon me-1" title="Download" data-doc-action="dl" data-doc-id="${d.id}"><i class="bi bi-download"></i></button>
+                        ${canDelete ? `<button class="btn-icon" title="Delete" data-doc-action="del" data-doc-id="${d.id}"><i class="bi bi-trash3"></i></button>` : ''}
+                      </td>
+                    </tr>`).join('')}</tbody></table></div>`;
+            }
+            body.innerHTML = html;
+
+            body.querySelectorAll('[data-doc-action]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const docId = btn.getAttribute('data-doc-id');
+                    const action = btn.getAttribute('data-doc-action');
+                    if (action === 'dl') {
+                        const token = (typeof Auth !== 'undefined' && Auth.getToken) ? Auth.getToken() : localStorage.getItem('token');
+                        if (!token) { showToast('Please login to download', 'warning'); return; }
+                        window.open(`${API_CONFIG.baseURL}/documents/admin/${docId}/download?token=${encodeURIComponent(token)}`, '_blank');
+                    } else if (action === 'del') {
+                        if (!confirm('Delete this document permanently?')) return;
+                        try {
+                            const res = await API.documents.admin.delete(docId);
+                            if (res.success) {
+                                showToast('Document deleted', 'success');
+                                openArchiveDetail(id);
+                            } else showToast(res.message || 'Delete failed', 'danger');
+                        } catch (err) {
+                            showToast(err.message || 'Delete failed', 'danger');
+                        }
+                    }
+                });
+            });
+        } catch (e) {
+            body.innerHTML = `<div class="text-danger">${escapeHtml(e.message || 'Failed to load')}</div>`;
+        }
     }
 
     function confirmRestore(ids) {

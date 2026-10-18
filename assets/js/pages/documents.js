@@ -23,9 +23,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let currentFilter = "all";
     let currentPgFilter = "all";
+    // active | inactive | archived | checked_out | all
+    let currentStatusFilter = "active";
     let selectedDocs = new Set();
     let allDocs = [];
     let pgList = [];
+    let statusStats = { active: 0, inactive: 0, archived: 0, checked_out: 0, all: 0 };
     
     // Store documents by ID for quick lookup
     let docsById = {};
@@ -38,12 +41,28 @@ document.addEventListener("DOMContentLoaded", () => {
         PAGE_LOADER.hideEmpty("documentsEmpty");
         PAGE_LOADER.element(document.getElementById("docStats"), "Loading stats...");
         try {
-            // Always load full set for current PG so type menu cards stay visible.
-            // Document-type filtering is applied client-side in getFilteredDocs().
-            const params = {};
+            const params = { tenant_status: currentStatusFilter };
             if (currentPgFilter !== "all") params.pg_id = currentPgFilter;
 
-            const res = await API.documents.admin.getAll(params);
+            // Load status counts in parallel (for filter chips)
+            const [res, activeRes, inactiveRes, archivedRes, checkedRes, allRes] = await Promise.all([
+                API.documents.admin.getAll(params),
+                API.documents.admin.getAll({ tenant_status: 'active', ...(currentPgFilter !== 'all' ? { pg_id: currentPgFilter } : {}) }),
+                API.documents.admin.getAll({ tenant_status: 'inactive', ...(currentPgFilter !== 'all' ? { pg_id: currentPgFilter } : {}) }),
+                API.documents.admin.getAll({ tenant_status: 'archived', ...(currentPgFilter !== 'all' ? { pg_id: currentPgFilter } : {}) }),
+                API.documents.admin.getAll({ tenant_status: 'checked_out', ...(currentPgFilter !== 'all' ? { pg_id: currentPgFilter } : {}) }),
+                API.documents.admin.getAll({ tenant_status: 'all', ...(currentPgFilter !== 'all' ? { pg_id: currentPgFilter } : {}) })
+            ]);
+
+            statusStats = {
+                active: (activeRes.success && activeRes.data) ? activeRes.data.length : 0,
+                inactive: (inactiveRes.success && inactiveRes.data) ? inactiveRes.data.length : 0,
+                archived: (archivedRes.success && archivedRes.data) ? archivedRes.data.length : 0,
+                checked_out: (checkedRes.success && checkedRes.data) ? checkedRes.data.length : 0,
+                all: (allRes.success && allRes.data) ? allRes.data.length : 0
+            };
+            renderStatusFilter();
+
             if (res.success) {
                 allDocs = res.data || [];
                 docsById = {};
@@ -59,6 +78,32 @@ document.addEventListener("DOMContentLoaded", () => {
             if (grid) grid.innerHTML = `<div class="col-12 text-center py-5 text-danger">Failed to load documents. Please try again.</div>`;
             showToast("Error loading documents: " + error.message, "danger");
         }
+    }
+
+    function renderStatusFilter() {
+        const el = document.getElementById('tenantStatusFilter');
+        if (!el) return;
+        const opts = [
+            { key: 'active', label: 'Active tenants', count: statusStats.active },
+            { key: 'all', label: 'All (active + inactive)', count: statusStats.all },
+            { key: 'inactive', label: 'Inactive', count: statusStats.inactive },
+            { key: 'archived', label: 'Archived', count: statusStats.archived },
+            { key: 'checked_out', label: 'Checked out', count: statusStats.checked_out }
+        ];
+        el.innerHTML = opts.map(o => `
+            <button type="button" class="btn btn-sm ${currentStatusFilter === o.key ? 'btn-brand' : 'btn-outline-brand'} me-1 mb-1"
+                    data-status="${o.key}">
+              ${o.label} <span class="badge bg-light text-dark ms-1">${o.count}</span>
+            </button>
+        `).join('');
+        el.querySelectorAll('button[data-status]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentStatusFilter = btn.dataset.status;
+                selectedDocs.clear();
+                updateBulkActions();
+                loadDocuments();
+            });
+        });
     }
 
     function getFilteredDocs() {

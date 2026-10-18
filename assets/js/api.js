@@ -399,7 +399,16 @@ const API = {
             sendMessage: (id, message, subject) => 
                 apiRequest(`/guests/admin/${id}/send-message`, 'POST', { message, subject }),
             broadcastMessage: (title, message, link) =>
-                apiRequest('/guests/admin/broadcast-message', 'POST', { title, message, link })
+                apiRequest('/guests/admin/broadcast-message', 'POST', { title, message, link }),
+            notificationHistory: (params = {}) => {
+                const qs = new URLSearchParams();
+                Object.keys(params).forEach(k => {
+                    if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+                        qs.append(k, params[k]);
+                    }
+                });
+                return apiRequest(`/guests/admin/notification-history?${qs.toString()}`, 'GET');
+            }
         }
     },
 
@@ -775,6 +784,8 @@ const API = {
             });
             return apiRequest(`/admin-notifications/history?${qs.toString()}`, 'GET');
         },
+        recipients: (id) =>
+            apiRequest(`/admin-notifications/history/${id}/recipients`, 'GET'),
         // ============================================================
         // NEW: Delete a notification log by ID
         // ============================================================

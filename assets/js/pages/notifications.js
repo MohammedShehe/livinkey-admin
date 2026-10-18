@@ -477,7 +477,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const canDelete = isSuperAdmin || h.admin_id === currentAdminId;
             
             return `
-                <div class="history-item" data-id="${h.id}">
+                <div class="history-item" data-id="${h.id}" style="cursor:pointer;" title="Click to view recipients">
                     <div class="d-flex justify-content-between align-items-start">
                         <div style="flex:1;min-width:0;">
                             <div class="h-title">${h.title || 'Untitled'}</div>
@@ -505,9 +505,6 @@ document.addEventListener("DOMContentLoaded", () => {
             `;
         }).join('');
         
-        // ============================================================
-        // NEW: Attach delete event listeners to each delete button
-        // ============================================================
         document.querySelectorAll('.history-delete-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -515,6 +512,82 @@ document.addEventListener("DOMContentLoaded", () => {
                 deleteNotificationLog(id);
             });
         });
+
+        document.querySelectorAll('.history-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                if (e.target.closest('.history-delete-btn')) return;
+                openHistoryDetail(this.dataset.id);
+            });
+        });
+    }
+
+    async function openHistoryDetail(id) {
+        if (!id) return;
+        let modalEl = document.getElementById('notifHistoryDetailModal');
+        if (!modalEl) {
+            modalEl = document.createElement('div');
+            modalEl.id = 'notifHistoryDetailModal';
+            modalEl.className = 'modal fade';
+            modalEl.tabIndex = -1;
+            modalEl.innerHTML = `
+              <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Notification recipients</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body" id="notifHistoryDetailBody">
+                    <div class="text-center text-muted py-4">Loading…</div>
+                  </div>
+                </div>
+              </div>`;
+            document.body.appendChild(modalEl);
+        }
+        const body = document.getElementById('notifHistoryDetailBody');
+        body.innerHTML = '<div class="text-center text-muted py-4">Loading…</div>';
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        try {
+            const res = await API.adminNotifications.recipients(id);
+            if (!res.success) {
+                body.innerHTML = `<div class="text-danger">${res.message || 'Failed to load'}</div>`;
+                return;
+            }
+            const { log, recipients, note } = res.data;
+            const badgeLabel = log.recipient_type === 'all' ? 'All' : log.recipient_type === 'pg' ? 'PG' : log.recipient_type === 'guest' ? 'Guests' : 'Individual';
+            let html = `
+              <div class="mb-3">
+                <div class="fw-semibold fs-5">${escapeHtml(log.title || 'Untitled')}</div>
+                <div class="text-muted small mb-2">${formatDateTime(log.sent_at)} · by ${escapeHtml(log.admin_name || 'Admin')} · ${badgeLabel} · ${log.recipient_count || 0} recipients</div>
+                <div class="p-2 rounded" style="background:var(--bg);white-space:pre-wrap;">${escapeHtml(log.message || '')}</div>
+              </div>`;
+            if (note) {
+                html += `<div class="alert alert-warning py-2 small">${escapeHtml(note)}</div>`;
+            }
+            if (!recipients || !recipients.length) {
+                html += `<div class="text-muted text-center py-3">No recipient details available.</div>`;
+            } else {
+                html += `<div class="table-responsive"><table class="table table-sm align-middle">
+                  <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>PG / Room</th><th>Status</th></tr></thead>
+                  <tbody>${recipients.map(r => `
+                    <tr>
+                      <td>${escapeHtml(r.full_name || '—')}</td>
+                      <td class="small">${escapeHtml(r.email || '—')}</td>
+                      <td class="small">${escapeHtml((r.country_code || '') + ' ' + (r.phone || ''))}</td>
+                      <td class="small">${escapeHtml(r.pg_name || '—')}${r.room_number ? ' · Room ' + escapeHtml(r.room_number) : ''}</td>
+                      <td class="small">${escapeHtml(r.status || (r.is_active ? 'active' : 'inactive'))}</td>
+                    </tr>`).join('')}</tbody></table></div>`;
+            }
+            body.innerHTML = html;
+        } catch (err) {
+            body.innerHTML = `<div class="text-danger">Error: ${escapeHtml(err.message || 'Failed')}</div>`;
+        }
+    }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     // ============================================================

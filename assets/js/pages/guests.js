@@ -199,6 +199,7 @@ Enjoy your stay!
                 bootstrap.Modal.getOrCreateInstance(document.getElementById("broadcastModal")).hide();
                 document.getElementById("broadcastText").value = "";
                 document.getElementById("broadcastLink").value = "";
+                loadGuestNotifHistory();
             } else {
                 showToast(res.message || "Failed to send message.", "danger");
             }
@@ -367,7 +368,116 @@ Enjoy your stay!
     }
 
     // ============================================
+    // GUEST NOTIFICATION HISTORY
+    // ============================================
+    async function loadGuestNotifHistory() {
+        const el = document.getElementById('guestNotifHistory');
+        if (!el) return;
+        try {
+            const res = await API.guests.admin.notificationHistory({ limit: 30 });
+            if (!res.success) {
+                el.innerHTML = `<div class="text-danger small">${res.message || 'Failed to load history'}</div>`;
+                return;
+            }
+            const logs = res.data || [];
+            if (!logs.length) {
+                el.innerHTML = `<div class="text-muted text-center py-3">No guest notifications sent yet.</div>`;
+                return;
+            }
+            el.innerHTML = logs.map(h => `
+              <div class="history-item border-bottom py-2" data-id="${h.id}" style="cursor:pointer;" title="View recipients">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <div style="min-width:0;flex:1;">
+                    <div class="fw-semibold text-truncate">${escapeHtml(h.title || 'Untitled')}</div>
+                    <div class="small text-muted text-truncate">${escapeHtml(h.message || '')}</div>
+                    <div class="small text-muted mt-1">
+                      <span class="chip chip-gray">${h.recipient_count || 0} recipients</span>
+                      · ${formatGuestDate(h.sent_at)} · by ${escapeHtml(h.admin_name || 'Admin')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `).join('');
+            el.querySelectorAll('.history-item').forEach(item => {
+                item.addEventListener('click', () => openGuestHistoryDetail(item.dataset.id));
+            });
+        } catch (err) {
+            el.innerHTML = `<div class="text-danger small">${escapeHtml(err.message || 'Failed')}</div>`;
+        }
+    }
+
+    function formatGuestDate(d) {
+        if (!d) return '—';
+        try {
+            const x = new Date(d);
+            if (isNaN(x.getTime())) return String(d);
+            return x.toLocaleString();
+        } catch { return String(d); }
+    }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    async function openGuestHistoryDetail(id) {
+        if (!id) return;
+        let modalEl = document.getElementById('guestNotifDetailModal');
+        if (!modalEl) {
+            modalEl = document.createElement('div');
+            modalEl.id = 'guestNotifDetailModal';
+            modalEl.className = 'modal fade';
+            modalEl.tabIndex = -1;
+            modalEl.innerHTML = `
+              <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Guest notification recipients</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body" id="guestNotifDetailBody">Loading…</div>
+                </div>
+              </div>`;
+            document.body.appendChild(modalEl);
+        }
+        const body = document.getElementById('guestNotifDetailBody');
+        body.innerHTML = 'Loading…';
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        try {
+            const res = await API.adminNotifications.recipients(id);
+            if (!res.success) {
+                body.innerHTML = `<div class="text-danger">${escapeHtml(res.message || 'Failed')}</div>`;
+                return;
+            }
+            const { log, recipients, note } = res.data;
+            let html = `
+              <div class="mb-3">
+                <div class="fw-semibold fs-5">${escapeHtml(log.title || '')}</div>
+                <div class="text-muted small mb-2">${formatGuestDate(log.sent_at)} · ${log.recipient_count || 0} recipients · by ${escapeHtml(log.admin_name || 'Admin')}</div>
+                <div class="p-2 rounded" style="background:var(--bg);white-space:pre-wrap;">${escapeHtml(log.message || '')}</div>
+              </div>`;
+            if (note) html += `<div class="alert alert-warning py-2 small">${escapeHtml(note)}</div>`;
+            if (!recipients?.length) {
+                html += `<div class="text-muted text-center py-3">No recipient details available.</div>`;
+            } else {
+                html += `<div class="table-responsive"><table class="table table-sm">
+                  <thead><tr><th>Name</th><th>Email</th><th>Phone</th></tr></thead>
+                  <tbody>${recipients.map(r => `
+                    <tr>
+                      <td>${escapeHtml(r.full_name || '—')}</td>
+                      <td class="small">${escapeHtml(r.email || '—')}</td>
+                      <td class="small">${escapeHtml((r.country_code || '') + ' ' + (r.phone || ''))}</td>
+                    </tr>`).join('')}</tbody></table></div>`;
+            }
+            body.innerHTML = html;
+        } catch (err) {
+            body.innerHTML = `<div class="text-danger">${escapeHtml(err.message || 'Failed')}</div>`;
+        }
+    }
+
+    // ============================================
     // INIT
     // ============================================
     loadGuests();
+    loadGuestNotifHistory();
 });
