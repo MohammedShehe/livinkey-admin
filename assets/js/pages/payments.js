@@ -113,17 +113,38 @@ document.addEventListener("DOMContentLoaded", () => {
             
             results.forEach(({ tenant, res }) => {
                 if (res && res.success && res.data) {
-                    const online = (res.data.online_payments || []).map(p => ({
-                        ...p,
-                        _type: 'online',
-                        _display_type: 'Online Payment',
-                        _gateway: p.payment_method || 'online',
-                        tenant_name: tenant.full_name,
-                        tenant_id: tenant.id,
-                        pg_name: tenant.pg_name || 'N/A',
-                        pg_id: tenant.pg_id,
-                        room_number: tenant.room_number || 'N/A'
-                    }));
+                    // Legacy INITIAL-RENT ledger rows (cash method, no cash_payments row)
+                    // should display as verified Cash Payment, not pending Online Payment.
+                    const online = (res.data.online_payments || []).map(p => {
+                        const isInitialRentCash =
+                            String(p.payment_method || '').toLowerCase() === 'cash' &&
+                            String(p.transaction_id || '').startsWith('INITIAL-RENT-');
+                        if (isInitialRentCash) {
+                            return {
+                                ...p,
+                                status: 'verified',
+                                _type: 'cash',
+                                _display_type: 'Cash Payment',
+                                _gateway: 'cash',
+                                tenant_name: tenant.full_name,
+                                tenant_id: tenant.id,
+                                pg_name: tenant.pg_name || 'N/A',
+                                pg_id: tenant.pg_id,
+                                room_number: tenant.room_number || 'N/A'
+                            };
+                        }
+                        return {
+                            ...p,
+                            _type: 'online',
+                            _display_type: 'Online Payment',
+                            _gateway: p.payment_method || 'online',
+                            tenant_name: tenant.full_name,
+                            tenant_id: tenant.id,
+                            pg_name: tenant.pg_name || 'N/A',
+                            pg_id: tenant.pg_id,
+                            room_number: tenant.room_number || 'N/A'
+                        };
+                    });
                     const cash = (res.data.cash_payments || []).map(p => ({
                         ...p,
                         _type: 'cash',
@@ -222,17 +243,37 @@ document.addEventListener("DOMContentLoaded", () => {
                 const pgName = tenant ? tenant.pg_name : 'N/A';
                 const pgId = tenant ? tenant.pg_id : null;
                 
-                const onlinePayments = (res.data.online_payments || []).map(p => ({
-                    ...p,
-                    _type: 'online',
-                    _display_type: 'Online Payment',
-                    _gateway: p.payment_method || 'online',
-                    tenant_name: tenantName,
-                    tenant_id: id,
-                    pg_name: pgName,
-                    pg_id: pgId,
-                    room_number: tenant ? tenant.room_number : 'N/A'
-                }));
+                // Legacy INITIAL-RENT ledger rows should show as verified Cash Payment.
+                const onlinePayments = (res.data.online_payments || []).map(p => {
+                    const isInitialRentCash =
+                        String(p.payment_method || '').toLowerCase() === 'cash' &&
+                        String(p.transaction_id || '').startsWith('INITIAL-RENT-');
+                    if (isInitialRentCash) {
+                        return {
+                            ...p,
+                            status: 'verified',
+                            _type: 'cash',
+                            _display_type: 'Cash Payment',
+                            _gateway: 'cash',
+                            tenant_name: tenantName,
+                            tenant_id: id,
+                            pg_name: pgName,
+                            pg_id: pgId,
+                            room_number: tenant ? tenant.room_number : 'N/A'
+                        };
+                    }
+                    return {
+                        ...p,
+                        _type: 'online',
+                        _display_type: 'Online Payment',
+                        _gateway: p.payment_method || 'online',
+                        tenant_name: tenantName,
+                        tenant_id: id,
+                        pg_name: pgName,
+                        pg_id: pgId,
+                        room_number: tenant ? tenant.room_number : 'N/A'
+                    };
+                });
                 const cashPayments = (res.data.cash_payments || []).map(p => ({
                     ...p,
                     _type: 'cash',
