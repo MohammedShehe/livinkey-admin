@@ -1009,7 +1009,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td class="text-end">
                     ${t.agreement_status === 'accepted' ? `<button class="btn-icon me-1" title="Download current accepted agreement PDF" onclick="downloadTenantAgreement('${t.id}')"><i class="bi bi-file-earmark-pdf"></i></button>` : ''}
                     ${canEditTenants ? `<button class="btn-icon me-1" title="Edit" onclick="editTenant('${t.id}')"><i class="bi bi-pencil"></i></button>` : ''}
-                    ${canDeleteTenants ? `<button class="btn-icon" title="Delete" onclick="deleteTenant('${t.id}')"><i class="bi bi-trash3"></i></button>` : ''}
+                    ${canDeleteTenants ? `<button class="btn-icon me-1" title="Check Out" onclick="checkoutTenant('${t.id}')"><i class="bi bi-box-arrow-right"></i></button>
+                    <button class="btn-icon" title="Archive" onclick="archiveTenant('${t.id}')"><i class="bi bi-archive"></i></button>` : ''}
                 </td>
             </tr>`;
         }).join("");
@@ -1920,64 +1921,99 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     // ============================================
-    // DELETE TENANT
+    // CHECK OUT / ARCHIVE TENANT (soft — history preserved)
     // ============================================
     const confirmModal = new bootstrap.Modal(document.getElementById("confirmModal"));
-    let deleteTargetId = null;
+    let archiveTargetId = null;
+    let archiveMode = 'archive'; // 'archive' | 'checkout'
 
-    window.deleteTenant = function(id) {
+    function resolveTenant(id, cb) {
+        let tenant = allTenants.find(t => String(t.id) === String(id));
+        if (tenant) { cb(tenant); return; }
+        loadTenants().then(() => {
+            tenant = allTenants.find(t => String(t.id) === String(id));
+            if (tenant) { cb(tenant); return; }
+            API.tenants.getById(id).then(res => {
+                if (res.success && res.data) cb(res.data);
+                else showToast("Tenant not found. Please refresh and try again.", "danger");
+            }).catch(() => showToast("Unable to find tenant.", "danger"));
+        });
+    }
+
+    window.checkoutTenant = function(id) {
         if (!canDeleteTenants) {
-            showToast("You don't have permission to delete tenants.", "warning");
+            showToast("You don't have permission to check out tenants.", "warning");
             return;
         }
-        
-        let tenant = allTenants.find(t => t.id === id);
-
-        if (!tenant) {
-            loadTenants().then(() => {
-                tenant = allTenants.find(t => t.id === id);
-                if (tenant) {
-                    showDeleteConfirm(id, tenant);
-                } else {
-                    API.tenants.getById(id).then(res => {
-                        if (res.success && res.data) {
-                            tenant = res.data;
-                            showDeleteConfirm(id, tenant);
-                        } else {
-                            showToast("Tenant not found. Please refresh and try again.", "danger");
-                        }
-                    }).catch(() => {
-                        showToast("Unable to find tenant. Please refresh and try again.", "danger");
-                    });
-                }
-            });
-            return;
-        }
-
-        showDeleteConfirm(id, tenant);
+        resolveTenant(id, (tenant) => showArchiveConfirm(id, tenant, 'checkout'));
     };
 
-    function showDeleteConfirm(id, tenant) {
-        deleteTargetId = id;
-        document.getElementById("confirmTitle").textContent = `Delete ${tenant.full_name}?`;
-        document.getElementById("confirmBody").textContent = "This will permanently remove this tenant and their documents. This action cannot be undone.";
+    window.archiveTenant = function(id) {
+        if (!canDeleteTenants) {
+            showToast("You don't have permission to archive tenants.", "warning");
+            return;
+        }
+        resolveTenant(id, (tenant) => showArchiveConfirm(id, tenant, 'archive'));
+    };
+
+    // backward alias
+    window.deleteTenant = window.archiveTenant;
+
+    function showArchiveConfirm(id, tenant, mode) {
+        archiveTargetId = id;
+        archiveMode = mode;
+        const isCheckout = mode === 'checkout';
+        document.getElementById("confirmTitle").textContent = isCheckout
+            ? `Check out ${tenant.full_name}?`
+            : `Archive ${tenant.full_name}?`;
+
+        const extra = isCheckout
+            ? `<div class="mt-3 text-start">
+                 <label class="form-label">Checkout date <span class="text-danger">*</span></label>
+                 <input type="date" class="form-control" id="checkoutDateInput" value="${new Date().toISOString().slice(0,10)}">
+                 <label class="form-label mt-2">Note (optional)</label>
+                 <textarea class="form-control" id="archiveReasonInput" rows="2" placeholder="Optional note"></textarea>
+                 <p class="small text-muted mt-2 mb-0">Tenant will move to <strong>Archive</strong>. History and documents are kept. You can restore later.</p>
+               </div>`
+            : `<div class="mt-3 text-start">
+                 <label class="form-label">Archive reason (optional)</label>
+                 <textarea class="form-control" id="archiveReasonInput" rows="2" placeholder="Optional reason"></textarea>
+                 <p class="small text-muted mt-2 mb-0">Tenant will move to <strong>Archive</strong>. Nothing is permanently deleted. Use permanent delete from Archive if needed.</p>
+               </div>`;
+
+        document.getElementById("confirmBody").innerHTML = extra;
+        document.getElementById("confirmActionBtn").textContent = isCheckout ? 'Check Out' : 'Move to Archive';
         document.getElementById("confirmActionBtn").onclick = async function() {
             const btn = this;
-            LOADER.show(btn, 'Deleting...');
+            const reasonEl = document.getElementById("archiveReasonInput");
+            const reason = reasonEl ? reasonEl.value.trim() : null;
+            LOADER.show(btn, isCheckout ? 'Checking out...' : 'Archiving...');
             try {
-                const res = await API.tenants.delete(deleteTargetId);
+                let res;
+                if (isCheckout) {
+                    const dateEl = document.getElementById("checkoutDateInput");
+                    const checkout_date = dateEl ? dateEl.value : null;
+                    if (!checkout_date) {
+                        showToast("Checkout date is required.", "warning");
+                        LOADER.hide(btn);
+                        return;
+                    }
+                    res = await API.tenants.checkout(archiveTargetId, checkout_date, reason || null);
+                } else {
+                    res = await API.tenants.delete(archiveTargetId, reason || null);
+                }
                 if (res.success) {
-                    showToast(res.message || "Tenant deleted successfully.", "success");
+                    showToast(res.message || (isCheckout ? "Tenant checked out." : "Tenant archived."), "success");
                     confirmModal.hide();
-                    allTenants = allTenants.filter(t => t.id !== deleteTargetId);
+                    allTenants = allTenants.filter(t => String(t.id) !== String(archiveTargetId));
                     window.LK_TENANTS = allTenants;
                     renderTable();
                     renderStats();
                 } else {
-                    showToast(res.message || "Failed to delete tenant.", "danger");
+                    showToast(res.message || "Action failed.", "danger");
                 }
             } catch (error) {
-                showToast(error.message || "An error occurred while deleting.", "danger");
+                showToast(error.message || "An error occurred.", "danger");
             }
             LOADER.hide(btn);
         };

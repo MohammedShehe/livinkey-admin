@@ -4,6 +4,7 @@
 // ============ NOTIFICATION -> EXISTING PAGE MAPPING ============
 const NOTIF_PAGE_MAP = {
     tenant: 'tenants.html',
+    archive: 'archive.html',
     guests: 'guests.html',
     guest: 'guests.html',
     bill: 'bills.html',
@@ -142,8 +143,18 @@ function doRender(activeKey, pageTitle, pageSub) {
                 { label: 'Male', icon: 'bi-gender-male', href: 'tenants.html?filter=gender:male' },
                 { label: 'Female', icon: 'bi-gender-female', href: 'tenants.html?filter=gender:female' },
                 { divider: true },
-                { label: 'e-FRRO Expiring', icon: 'bi-clock-history', href: 'tenants.html?filter=efrro-expiring' }
+                { label: 'e-FRRO Expiring', icon: 'bi-clock-history', href: 'tenants.html?filter=efrro-expiring' },
+                { divider: true },
+                { label: 'Tenant Archive', icon: 'bi-archive', href: 'archive.html' }
             ]
+        },
+        { 
+            key: 'archive', 
+            label: 'Archive', 
+            icon: 'bi-archive', 
+            href: 'archive.html',
+            permission: 'archive',
+            badgeId: 'menuBadge_archive'
         },
         { 
             key: 'guests', 

@@ -295,8 +295,29 @@ const API = {
             }
             return apiRequest(`/tenants/${id}`, 'PUT', formData, true);
         },
-        delete: (id) => 
-            apiRequest(`/tenants/${id}`, 'DELETE'),
+        delete: (id, reason = null) => 
+            apiRequest(`/tenants/${id}`, 'DELETE', reason ? { reason } : {}),
+        checkout: (id, checkout_date, reason = null) =>
+            apiRequest(`/tenants/${id}/checkout`, 'POST', { checkout_date, reason }),
+        archiveList: (params = {}) => {
+            const qs = new URLSearchParams();
+            Object.keys(params).forEach(k => {
+                if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+                    qs.append(k, params[k]);
+                }
+            });
+            return apiRequest(`/tenants/archive/list?${qs.toString()}`, 'GET');
+        },
+        archiveStats: () =>
+            apiRequest('/tenants/archive/stats', 'GET'),
+        restore: (id) =>
+            apiRequest(`/tenants/${id}/restore`, 'POST', {}),
+        restoreBulk: (ids) =>
+            apiRequest('/tenants/archive/restore-bulk', 'POST', { ids }),
+        permanentDelete: (id) =>
+            apiRequest(`/tenants/${id}/permanent`, 'DELETE'),
+        permanentDeleteBulk: (ids) =>
+            apiRequest('/tenants/archive/permanent-bulk', 'POST', { ids }),
         stats: () => 
             apiRequest('/tenants/stats', 'GET'),
         guestStats: () => 
