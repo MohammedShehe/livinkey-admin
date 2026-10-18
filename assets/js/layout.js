@@ -329,8 +329,17 @@ function doRender(activeKey, pageTitle, pageSub) {
             </div>`;
         }).join('');
     
+    // Sidebar and topbar mount nodes are required by every page using this layout.
+    // Fail clearly if a page template is missing the shared app-shell structure.
+    const sidebarMount = document.getElementById('sidebarMount');
+    const topbarMount = document.getElementById('topbarMount');
+    if (!sidebarMount || !topbarMount) {
+        console.error('Cannot render admin layout: page template must include #sidebarMount and #topbarMount inside .app-shell.');
+        return;
+    }
+
     // Sidebar
-    document.getElementById('sidebarMount').innerHTML = `
+    sidebarMount.innerHTML = `
         <aside class="sidebar" id="sidebarEl">
             <div class="side-brand">
                 <img src="assets/img/white_logo.png" alt="Livinkey" height="34">
@@ -490,7 +499,7 @@ function doRender(activeKey, pageTitle, pageSub) {
     const userEmail = session.email || admin.email || '';
     const initials = userName.split(' ').filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join('');
     
-    document.getElementById('topbarMount').innerHTML = `
+    topbarMount.innerHTML = `
         <header class="topbar">
             <div class="d-flex align-items-center gap-3">
                 <button class="btn btn-icon sidebar-toggle" id="sidebarToggleBtn"><i class="bi bi-list"></i></button>
