@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
         arrival_stamp: { label: "Arrival Stamps", icon: "bi-stamp", color: "#4B7B8A" },
         c_form: { label: "C-Forms", icon: "bi-file-earmark-text", color: "#92C24A" },
         efrro: { label: "E-FRRO", icon: "bi-file-earmark-check", color: "#7C8A76" },
+        agreement: { label: "Agreements", icon: "bi-file-earmark-text", color: "#6B4E71" },
         university_id: { label: "University IDs", icon: "bi-mortarboard", color: "#8B6FA3" }
     };
 

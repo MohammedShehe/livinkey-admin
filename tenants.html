@@ -409,10 +409,35 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Documents — <span id="docsTenantName"></span></h5>
+        <div class="d-flex align-items-center gap-2 ms-auto me-2">
+          <button type="button" class="btn btn-outline-brand btn-sm" id="docsDownloadAllBtn" title="Download all uploaded documents as ZIP" onclick="downloadAllTenantDocs()">
+            <i class="bi bi-download me-1"></i>Download All
+          </button>
+        </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="row g-3" id="docsGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Document Preview Modal -->
+<div class="modal fade" id="docPreviewModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="docPreviewTitle">Document Preview</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center p-2" id="docPreviewBody" style="min-height:60vh;background:#0f0f0f;">
+      </div>
+      <div class="modal-footer">
+        <a id="docPreviewDownload" class="btn btn-outline-brand" href="#" target="_blank" download>
+          <i class="bi bi-download me-1"></i>Download
+        </a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>

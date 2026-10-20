@@ -668,6 +668,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="col-6"><span class="text-muted-soft">Electricity:</span> <strong>${fmtINR(parseFloat(b.electricity_amount) || 0)}</strong></div>
                 <div class="col-6"><span class="text-muted-soft">Maintenance:</span> <strong>${fmtINR(parseFloat(b.maintenance_amount) || 0)}</strong></div>
                 <div class="col-6"><span class="text-muted-soft">Other Charges:</span> <strong>${fmtINR(parseFloat(b.other_charges) || 0)}</strong></div>
+                ${b.other_charges_note ? `<div class="col-12"><span class="text-muted-soft">Other charges note:</span> <span>${b.other_charges_note}</span></div>` : ""}
                 <div class="col-6"><span class="text-muted-soft">Fine:</span> <strong class="text-danger">${fmtINR(fineAmount)}</strong></div>
                 <div class="col-6"><span class="text-muted-soft">Total:</span> <strong>${fmtINR(totalAmount)}</strong></div>
                 <div class="col-12"><hr></div>
@@ -1115,6 +1116,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("editBillElectricity").value = b.electricity_amount || 0;
             document.getElementById("editBillMaintenance").value = b.maintenance_amount || 0;
             document.getElementById("editBillOther").value = b.other_charges || 0;
+            const noteEl = document.getElementById("editBillOtherNote"); if (noteEl) noteEl.value = b.other_charges_note || "";
             editMeterImageFiles = [];
             editBillAttachment = null;
             document.getElementById("editMeterUploadStatus").textContent = "No new image selected";
@@ -1216,6 +1218,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 electricity_amount: Number(document.getElementById("editBillElectricity").value || 0),
                 maintenance_amount: Number(document.getElementById("editBillMaintenance").value || 0),
                 other_charges: Number(document.getElementById("editBillOther").value || 0),
+                other_charges_note: (document.getElementById("editBillOtherNote")?.value || '').trim() || null,
                 clear_meter_1: document.getElementById("editClearMeter1")?.checked ? '1' : '0',
                 clear_meter_2: document.getElementById("editClearMeter2")?.checked ? '1' : '0'
             };
@@ -1700,6 +1703,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 electricity_amount: electricity,
                 maintenance_amount: maintenance,
                 other_charges: other,
+                other_charges_note: (document.getElementById('billOtherNote')?.value || '').trim() || null,
                 billing_month: billingMonth,
                 payment_details_source: paymentDetailsSource,
                 payment_bank_name: paymentBankName,

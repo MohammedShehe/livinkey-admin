@@ -159,9 +159,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     function getRequiredDocumentTypes(residency) {
         if (residency === 'national') {
-            return ['passport_photo', 'signature', 'tenant_aadhaar', 'parent_aadhaar', 'university_id'];
+            return ['passport_photo', 'signature', 'tenant_aadhaar', 'parent_aadhaar', 'university_id', 'agreement'];
         } else {
-            return ['passport_photo', 'signature', 'passport', 'visa', 'arrival_stamp', 'c_form', 'efrro', 'university_id'];
+            return ['passport_photo', 'signature', 'passport', 'visa', 'arrival_stamp', 'c_form', 'efrro', 'university_id', 'agreement'];
         }
     }
 
@@ -2086,8 +2086,8 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 const docRes = await API.documents.admin.getByTenant(id);
                 const docTypes = t.residency === 'national'
-                    ? ['passport_photo', 'signature', 'tenant_aadhaar', 'parent_aadhaar', 'university_id']
-                    : ['passport_photo', 'signature', 'passport', 'visa', 'arrival_stamp', 'c_form', 'efrro', 'university_id'];
+                    ? ['passport_photo', 'signature', 'tenant_aadhaar', 'parent_aadhaar', 'university_id', 'agreement']
+                    : ['passport_photo', 'signature', 'passport', 'visa', 'arrival_stamp', 'c_form', 'efrro', 'university_id', 'agreement'];
 
                 const docLabels = {
                     'passport_photo': 'Passport Size Photo',
@@ -2099,9 +2099,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     'visa': 'Visa',
                     'arrival_stamp': 'Arrival Stamp',
                     'c_form': 'C-Form',
-                    'efrro': 'E-FRRO'
+                    'efrro': 'E-FRRO',
+                    'agreement': 'Agreement'
                 };
-
                 let docs = [];
                 
                 if (docRes.success && docRes.data) {
@@ -2117,6 +2117,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 
                 const uploadedTypes = docs.map(d => d.document_type);
+                window._currentTenantDocs = docs; // keep for bulk download
                 
                 // Update document cache with this tenant's status
                 const requiredTypes = getRequiredDocumentTypes(t.residency || 'national');
@@ -2130,11 +2131,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     return `
                     <div class="col-md-4 col-6">
                         <div class="doc-thumb">
-                            ${has ? `<img src="${doc?.document_url || '#'}" alt="${docLabels[key]}" style="height:160px;object-fit:cover;" onerror="this.src='https://placehold.co/300x160/E1E8D8/7C8A76?text=${encodeURIComponent(docLabels[key])}'">` :
+                            ${has ? `<img src="${doc?.document_url || '#'}" alt="${docLabels[key]}" style="height:160px;object-fit:cover;cursor:pointer;" onclick="previewDoc('${(doc?.document_url || '').replace(/'/g, "\\'")}','${(docLabels[key] || key).replace(/'/g, "\\'")}','${doc?.id}')" onerror="this.onerror=null;this.src='https://placehold.co/300x160/E1E8D8/7C8A76?text=${encodeURIComponent(docLabels[key])}';this.onclick=null;">` :
                              `<img src="https://placehold.co/300x160/E1E8D8/7C8A76?text=${encodeURIComponent(docLabels[key])}" alt="${docLabels[key]}">`}
                             <div class="doc-actions">
-                                ${has ? `<button class="btn-icon" style="background:#fff;" onclick="downloadDoc('${doc?.id}')"><i class="bi bi-download"></i></button>` : ''}
-                                ${has && canDeleteTenants ? `<button class="btn-icon" style="background:#fff;color:var(--danger);" onclick="deleteDoc('${doc?.id}')"><i class="bi bi-trash3"></i></button>` : ''}
+                                ${has ? `<button class="btn-icon" style="background:#fff;" title="Preview" onclick="previewDoc('${(doc?.document_url || '').replace(/'/g, "\\'")}','${(docLabels[key] || key).replace(/'/g, "\\'")}','${doc?.id}')"><i class="bi bi-eye"></i></button>` : ''}
+                                ${has ? `<button class="btn-icon" style="background:#fff;" title="Download" onclick="downloadDoc('${doc?.id}')"><i class="bi bi-download"></i></button>` : ''}
+                                ${has && canDeleteTenants ? `<button class="btn-icon" style="background:#fff;color:var(--danger);" title="Delete" onclick="deleteDoc('${doc?.id}')"><i class="bi bi-trash3"></i></button>` : ''}
                             </div>
                             <div class="doc-label">
                                 <div class="fw-bold">${docLabels[key]}</div>
@@ -2200,6 +2202,91 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // DOCUMENT ACTIONS
     // ============================================
+    let docPreviewModalInstance = null;
+    try { docPreviewModalInstance = new bootstrap.Modal(document.getElementById("docPreviewModal")); } catch (_) {}
+
+    window.previewDoc = function(url, title, docId) {
+        if (!url || url === '#' || url === 'undefined') {
+            showToast("No preview available for this document.", "warning");
+            return;
+        }
+        const body = document.getElementById("docPreviewBody");
+        const titleEl = document.getElementById("docPreviewTitle");
+        const dl = document.getElementById("docPreviewDownload");
+        if (titleEl) titleEl.textContent = title || 'Document Preview';
+        if (dl) {
+            dl.href = url;
+            dl.onclick = function(e) {
+                e.preventDefault();
+                if (docId) downloadDoc(docId);
+                else window.open(url, '_blank');
+            };
+        }
+        const lower = (url || '').toLowerCase();
+        const isPdf = lower.includes('.pdf') || lower.includes('application/pdf') || lower.includes('/raw/');
+        // Cloudinary raw resources and explicit pdfs → iframe; images → img
+        if (isPdf || (!lower.match(/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i) && lower.includes('cloudinary'))) {
+            // Prefer direct open for PDFs that may block iframe; still try iframe first
+            body.innerHTML = `<iframe src="${url}" style="width:100%;height:70vh;border:none;border-radius:8px;background:#fff;" title="Preview"></iframe>
+                <p class="text-muted-soft small mt-2 mb-0">If the preview does not load, use Download.</p>`;
+        } else {
+            body.innerHTML = `<img src="${url}" alt="${title || 'Document'}" style="max-width:100%;max-height:70vh;object-fit:contain;border-radius:8px;">`;
+        }
+        if (docPreviewModalInstance) docPreviewModalInstance.show();
+        else {
+            // fallback: open in new tab
+            window.open(url, '_blank');
+        }
+    };
+
+    window.downloadAllTenantDocs = async function() {
+        if (!currentDocTenantId) {
+            showToast("No tenant selected.", "warning");
+            return;
+        }
+        const token = Auth.getTokenFromStorage();
+        if (!token) {
+            showToast("Please login to download documents.", "warning");
+            return;
+        }
+        try {
+            const docs = window._currentTenantDocs || [];
+            const ids = docs.map(d => d.id).filter(Boolean);
+            if (!ids.length) {
+                showToast("No uploaded documents to download.", "info");
+                return;
+            }
+            showToast("Preparing ZIP download...", "info");
+            const response = await fetch(`${API_CONFIG.baseURL}/documents/admin/download?token=${encodeURIComponent(token)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ documentIds: ids })
+            });
+            if (!response.ok) {
+                let message = 'Unable to download documents.';
+                try { const body = await response.json(); message = body.message || message; } catch (_) {}
+                showToast(message, 'warning');
+                return;
+            }
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = `tenant-${currentDocTenantId}-documents.zip`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(objectUrl);
+            showToast("Download started.", "success");
+        } catch (error) {
+            console.error(error);
+            showToast("Unable to download documents. Please try again.", "danger");
+        }
+    };
+
     window.downloadDoc = function(docId) {
         const token = Auth.getTokenFromStorage();
         if (!token) {
