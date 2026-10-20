@@ -1788,13 +1788,45 @@ document.addEventListener("DOMContentLoaded", () => {
     window.downloadTenantAgreement = async function(id) {
         if (!canViewTenants) { showToast("You don't have permission to view tenant agreements.", "warning"); return; }
         try {
-            const token = Auth.getToken();
-            const url = `${API_CONFIG.baseURL}/tenants/${encodeURIComponent(id)}/agreement.pdf?token=${encodeURIComponent(token || '')}`;
-            const response = await fetch(url);
-            if (!response.ok) { let message = 'Unable to download agreement PDF.'; try { const body = await response.json(); message = body.message || message; } catch (_) {} showToast(message, 'warning'); return; }
-            const blob = await response.blob(); const objectUrl = URL.createObjectURL(blob); const link = document.createElement('a');
-            link.href = objectUrl; link.download = `LivinKey-Agreement-${id}.pdf`; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(objectUrl);
-        } catch (error) { showToast('Unable to download agreement PDF. Please try again.', 'danger'); }
+            const token = Auth.getToken() || Auth.getTokenFromStorage();
+            if (!token) { showToast("Please login again to download the agreement.", "warning"); return; }
+            const url = `${API_CONFIG.baseURL}/tenants/${encodeURIComponent(id)}/agreement.pdf?token=${encodeURIComponent(token)}`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/pdf' }
+            });
+            if (!response.ok) {
+                let message = 'Unable to download agreement PDF.';
+                const ct = (response.headers.get('content-type') || '').toLowerCase();
+                if (ct.includes('application/json')) {
+                    try { const body = await response.json(); message = body.message || message; } catch (_) {}
+                }
+                showToast(message, 'warning');
+                return;
+            }
+            const blob = await response.blob();
+            // Guard against JSON error bodies returned as blob
+            if (blob.type && blob.type.includes('application/json')) {
+                try {
+                    const text = await blob.text();
+                    const body = JSON.parse(text);
+                    showToast(body.message || 'Unable to download agreement PDF.', 'warning');
+                    return;
+                } catch (_) {}
+            }
+            const objectUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = `LivinKey-Agreement-${id}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(objectUrl);
+            showToast('Agreement PDF downloaded.', 'success');
+        } catch (error) {
+            console.error('downloadTenantAgreement error:', error);
+            showToast('Unable to download agreement PDF. Please try again.', 'danger');
+        }
     };
 
     // EDIT TENANT
@@ -2128,11 +2160,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("docsGrid").innerHTML = docTypes.map(key => {
                     const has = uploadedTypes.includes(key);
                     const doc = docs.find(d => d.document_type === key);
+                    const dUrl = (doc?.document_url || '').toLowerCase();
+                    const isPdfDoc = has && (dUrl.includes('.pdf') || dUrl.includes('/raw/') || (doc?.mime_type && String(doc.mime_type).toLowerCase().includes('pdf')) ||
+                        (key === 'agreement' && !dUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i)));
                     return `
                     <div class="col-md-4 col-6">
                         <div class="doc-thumb">
-                            ${has ? `<img src="${doc?.document_url || '#'}" alt="${docLabels[key]}" style="height:160px;object-fit:cover;cursor:pointer;" onclick="previewDoc('${(doc?.document_url || '').replace(/'/g, "\\'")}','${(docLabels[key] || key).replace(/'/g, "\\'")}','${doc?.id}')" onerror="this.onerror=null;this.src='https://placehold.co/300x160/E1E8D8/7C8A76?text=${encodeURIComponent(docLabels[key])}';this.onclick=null;">` :
-                             `<img src="https://placehold.co/300x160/E1E8D8/7C8A76?text=${encodeURIComponent(docLabels[key])}" alt="${docLabels[key]}">`}
+                            ${!has ? `<img src="https://placehold.co/300x160/E1E8D8/7C8A76?text=${encodeURIComponent(docLabels[key])}" alt="${docLabels[key]}">` :
+                             (isPdfDoc ? `<div style="height:160px;display:flex;align-items:center;justify-content:center;background:#1a1a1a;cursor:pointer;" onclick="previewDoc('${(doc?.document_url || '').replace(/'/g, "\\'")}','${(docLabels[key] || key).replace(/'/g, "\\'")}','${doc?.id}')"><i class="bi bi-file-earmark-pdf" style="font-size:3rem;color:#e74c3c;"></i></div>` :
+                             `<img src="${doc?.document_url || '#'}" alt="${docLabels[key]}" style="height:160px;object-fit:cover;cursor:pointer;width:100%;" onclick="previewDoc('${(doc?.document_url || '').replace(/'/g, "\\'")}','${(docLabels[key] || key).replace(/'/g, "\\'")}','${doc?.id}')" onerror="this.onerror=null;this.src='https://placehold.co/300x160/E1E8D8/7C8A76?text=${encodeURIComponent(docLabels[key])}';this.onclick=null;">`)}
                             <div class="doc-actions">
                                 ${has ? `<button class="btn-icon" style="background:#fff;" title="Preview" onclick="previewDoc('${(doc?.document_url || '').replace(/'/g, "\\'")}','${(docLabels[key] || key).replace(/'/g, "\\'")}','${doc?.id}')"><i class="bi bi-eye"></i></button>` : ''}
                                 ${has ? `<button class="btn-icon" style="background:#fff;" title="Download" onclick="downloadDoc('${doc?.id}')"><i class="bi bi-download"></i></button>` : ''}

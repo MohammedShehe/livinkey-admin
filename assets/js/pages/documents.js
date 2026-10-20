@@ -222,11 +222,17 @@ document.addEventListener("DOMContentLoaded", () => {
         grid.innerHTML = filtered.map(d => {
             const docLabel = DOC_TYPES[d.document_type]?.label || d.document_type || 'Document';
             const isSelected = selectedDocs.has(d.id);
+            const url = (d.document_url || '').toLowerCase();
+            const isPdf = url.includes('.pdf') || url.includes('/raw/') || (d.mime_type && String(d.mime_type).toLowerCase().includes('pdf')) ||
+                (d.document_type === 'agreement' && !url.match(/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i));
+            const thumbHtml = isPdf
+                ? `<div style="height:160px;display:flex;align-items:center;justify-content:center;background:#1a1a1a;cursor:pointer;" onclick="previewDocument('${d.id}')"><i class="bi bi-file-earmark-pdf" style="font-size:3rem;color:#e74c3c;"></i></div>`
+                : `<img src="${d.document_url || 'https://placehold.co/300x160/E1E8D8/7C8A76?text=' + encodeURIComponent(docLabel)}" alt="${docLabel}" style="height:160px;cursor:pointer;object-fit:cover;width:100%;" onclick="previewDocument('${d.id}')" onerror="this.onerror=null;this.src='https://placehold.co/300x160/E1E8D8/7C8A76?text='+encodeURIComponent('${docLabel.replace(/'/g, "\\'")}');">`;
             return `
             <div class="col-md-4 col-lg-3 doc-card-wrapper ${isSelected ? 'selected' : ''}" data-id="${d.id}">
                 <input type="checkbox" class="doc-checkbox" ${isSelected ? 'checked' : ''} onchange="toggleDocSelection('${d.id}')">
                 <div class="doc-thumb">
-                    <img src="${d.document_url || 'https://placehold.co/300x160/E1E8D8/7C8A76?text=' + encodeURIComponent(docLabel)}" alt="${docLabel}" style="height:160px;cursor:pointer;" onclick="previewDocument('${d.id}')">
+                    ${thumbHtml}
                     <div class="doc-actions">
                         <button class="btn-icon" style="background:#fff;" title="Preview" onclick="event.stopPropagation(); previewDocument('${d.id}')"><i class="bi bi-eye"></i></button>
                         <button class="btn-icon" style="background:#fff;" title="Download" onclick="event.stopPropagation(); downloadDocument('${d.id}')"><i class="bi bi-download"></i></button>
@@ -475,10 +481,25 @@ document.addEventListener("DOMContentLoaded", () => {
         currentDocId = doc.id;
         const label = DOC_TYPES[doc.document_type]?.label || doc.document_type || 'Document';
         document.getElementById("docPreviewTitle").textContent = `${label} - ${doc.tenant_name || 'Tenant'}`;
-        document.getElementById("docPreviewImg").src = doc.document_url || '';
-        document.getElementById("docPreviewImg").onerror = function() {
-            this.src = 'https://placehold.co/600x400/E1E8D8/7C8A76?text=No+Image';
-        };
+        const url = doc.document_url || '';
+        const body = document.getElementById("docPreviewBody");
+        const img = document.getElementById("docPreviewImg");
+        const lower = (url || '').toLowerCase();
+        const isPdf = lower.includes('.pdf') || lower.includes('application/pdf') || lower.includes('/raw/') ||
+            (doc.mime_type && String(doc.mime_type).toLowerCase().includes('pdf')) ||
+            (doc.document_type === 'agreement' && !lower.match(/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i));
+        if (body) {
+            if (isPdf || (!lower.match(/\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i) && lower.includes('cloudinary') && !lower.includes('/image/'))) {
+                body.innerHTML = `<iframe src="${url}" style="width:100%;height:70vh;border:none;border-radius:8px;background:#fff;" title="Preview"></iframe>
+                    <p class="text-muted-soft small mt-2 mb-0">If the preview does not load, use Download.</p>`;
+            } else {
+                body.innerHTML = `<img id="docPreviewImg" src="${url}" alt="${label}" class="img-fluid" style="max-height:70vh;object-fit:contain;border-radius:8px;" onerror="this.src='https://placehold.co/600x400/E1E8D8/7C8A76?text=No+Image'">`;
+            }
+        } else if (img) {
+            img.src = url;
+            img.style.display = '';
+            img.onerror = function() { this.src = 'https://placehold.co/600x400/E1E8D8/7C8A76?text=No+Image'; };
+        }
         previewModal.show();
     }
 
