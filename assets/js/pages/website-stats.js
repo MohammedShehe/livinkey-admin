@@ -55,8 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
         tenantsEl.value = d.manual_happy_tenants_count ?? 0;
       }
 
-      const statsRes = await API.public.stats();
-      const s = (statsRes && (statsRes.data || statsRes)) || {};
+      const statsRes = await API.public.pgs.stats();      const s = (statsRes && (statsRes.data || statsRes)) || {};
       livePgs = Number(s.total_pgs || 0);
       liveTenants = Number(s.total_tenants || 0);
 
