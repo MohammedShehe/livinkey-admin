@@ -342,7 +342,7 @@ function doRender(activeKey, pageTitle, pageSub) {
     sidebarMount.innerHTML = `
         <aside class="sidebar" id="sidebarEl">
             <div class="side-brand">
-                <img src="assets/img/white_logo.png" alt="Livinkey" height="34">
+                <img src="assets/img/white_logo.png" alt="Livinkey" height="56">
             </div>
             <style>
                 .menu-unread-badge {
