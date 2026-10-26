@@ -890,6 +890,14 @@ const API = {
             stats: () => 
                 apiRequest('/public/pgs/stats', 'GET')
         }
+    },
+
+    // Manual website stats (properties + happy tenants boost)
+    siteSettings: {
+        getManualStats: () =>
+            apiRequest('/site-settings/manual-stats', 'GET'),
+        updateManualStats: (data) =>
+            apiRequest('/site-settings/manual-stats', 'PUT', data)
     }
 };
 

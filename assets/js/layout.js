@@ -265,6 +265,13 @@ function doRender(activeKey, pageTitle, pageSub) {
             permission: 'about_livinkey'
         },
         {
+            key: 'website_stats',
+            label: 'Website Stats',
+            icon: 'bi-graph-up-arrow',
+            href: 'website-stats.html',
+            permission: 'about_livinkey'
+        },
+        {
             key: 'ads',
             label: 'Ads',
             icon: 'bi-badge-ad-fill',
