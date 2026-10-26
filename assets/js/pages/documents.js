@@ -19,13 +19,20 @@ document.addEventListener("DOMContentLoaded", () => {
         c_form: { label: "C-Forms", icon: "bi-file-earmark-text", color: "#92C24A" },
         efrro: { label: "E-FRRO", icon: "bi-file-earmark-check", color: "#7C8A76" },
         agreement: { label: "Agreements", icon: "bi-file-earmark-text", color: "#6B4E71" },
-        university_id: { label: "University IDs", icon: "bi-mortarboard", color: "#8B6FA3" }
+        university_id: { label: "University IDs", icon: "bi-mortarboard", color: "#8B6FA3" },
+        // Vehicle
+        vehicle_photo: { label: "Vehicle Photo", icon: "bi-car-front", color: "#0D9488" },
+        vehicle_rc: { label: "RC Photo", icon: "bi-card-heading", color: "#0891B2" },
+        driver_license: { label: "Driver License", icon: "bi-person-vcard", color: "#2563EB" }
     };
+
+    const VEHICLE_DOC_KEYS = ["vehicle_photo", "vehicle_rc", "driver_license"];
 
     let currentFilter = "all";
     let currentPgFilter = "all";
     // active | inactive | archived | checked_out | all
     let currentStatusFilter = "active";
+    let currentVehicleFilter = "all"; // all | vehicle | non_vehicle
     let selectedDocs = new Set();
     let allDocs = [];
     let pgList = [];
@@ -108,8 +115,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function getFilteredDocs() {
-        if (currentFilter === "all") return allDocs;
-        return allDocs.filter(d => (d.document_type || "other") === currentFilter);
+        let docs = allDocs;
+        if (currentFilter === "all") {
+            // keep all types
+        } else if (currentFilter === "vehicle_all") {
+            docs = docs.filter(d => VEHICLE_DOC_KEYS.includes(d.document_type));
+        } else {
+            docs = docs.filter(d => (d.document_type || "other") === currentFilter);
+        }
+        if (currentVehicleFilter === "vehicle") {
+            docs = docs.filter(d => d.has_vehicle == 1 || d.has_vehicle === true || VEHICLE_DOC_KEYS.includes(d.document_type));
+        } else if (currentVehicleFilter === "non_vehicle") {
+            docs = docs.filter(d => !VEHICLE_DOC_KEYS.includes(d.document_type));
+        }
+        return docs;
     }
 
     // ============================================
@@ -148,9 +167,11 @@ document.addEventListener("DOMContentLoaded", () => {
             counts[type] = (counts[type] || 0) + 1;
         });
 
-        // Always show All + every known document type so menus never disappear when filtering
+        // Always show All + Vehicle group + every known document type
+        const vehicleCount = VEHICLE_DOC_KEYS.reduce((n, k) => n + (counts[k] || 0), 0);
         const stats = [
-            { key: "all", label: "All Documents", icon: "bi-files", color: "#0B0F0A", count: allDocs.length }
+            { key: "all", label: "All Documents", icon: "bi-files", color: "#0B0F0A", count: allDocs.length },
+            { key: "vehicle_all", label: "Vehicle Docs", icon: "bi-car-front", color: "#0D9488", count: vehicleCount }
         ];
 
         Object.keys(DOC_TYPES).forEach(key => {
@@ -239,8 +260,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         ${canDeleteDocs ? `<button class="btn-icon" style="background:#fff;color:var(--danger);" title="Delete" onclick="event.stopPropagation(); deleteDocument('${d.id}')"><i class="bi bi-trash3"></i></button>` : ''}
                     </div>
                     <div class="doc-label">
-                        <div class="fw-bold">${docLabel}</div>
-                        <div class="small text-muted-soft">${d.tenant_name || '—'} · Room ${d.room_number || '—'}</div>
+                        <div class="fw-bold">${docLabel}${VEHICLE_DOC_KEYS.includes(d.document_type) ? ' <span class="badge bg-teal-subtle text-teal" style="font-size:.65rem;background:#0d948833;color:#5eead4;">Vehicle</span>' : ''}</div>
+                        <div class="small text-muted-soft">${d.tenant_name || '—'} · Room ${d.room_number || '—'}${d.vehicle_number ? ' · <i class="bi bi-car-front"></i> ' + d.vehicle_number : ''}</div>
                         <div class="small text-muted-soft"><i class="bi bi-building me-1"></i>${d.pg_name || '—'}</div>
                     </div>
                 </div>
