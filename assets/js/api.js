@@ -91,7 +91,36 @@ function isOnAuthPage() {
 }
 
 // ============ API REQUEST HELPER ============
+// Short-lived cache for rarely-changing GETs (PG lists, document types...).
+// Any successful write clears it, so screens never show stale data after a change.
+const GET_CACHE_TTL = 45000;
+const GET_CACHE_PREFIXES = ['/pgs', '/documents/types', '/admin-notifications/pg-list'];
+const _getCache = new Map();
+const _inflight = new Map();
+function _cacheable(endpoint, method) {
+    return method === 'GET' && GET_CACHE_PREFIXES.some(p => endpoint.startsWith(p));
+}
+
 async function apiRequest(endpoint, method, data = null, isFormData = false) {
+    if (method === 'GET') {
+        const hit = _getCache.get(endpoint);
+        if (hit && Date.now() - hit.at < GET_CACHE_TTL && _cacheable(endpoint, method)) return hit.value;
+        if (_inflight.has(endpoint)) return _inflight.get(endpoint);   // de-duplicate parallel identical GETs
+        const p = _apiRequest(endpoint, method, data, isFormData).then(res => {
+            if (res && res.success && _cacheable(endpoint, method)) _getCache.set(endpoint, { at: Date.now(), value: res });
+            return res;
+        }).finally(() => _inflight.delete(endpoint));
+        _inflight.set(endpoint, p);
+        return p;
+    }
+    const res = await _apiRequest(endpoint, method, data, isFormData);
+    if (res && res.success) _getCache.clear();
+    return res;
+}
+window.apiRequest = apiRequest;
+window.clearApiCache = () => _getCache.clear();
+
+async function _apiRequest(endpoint, method, data = null, isFormData = false) {
     if (API_CONFIG.useMock) {
         await new Promise(resolve => setTimeout(resolve, 500));
         return getMockResponse(endpoint, method, data);
@@ -123,11 +152,17 @@ async function apiRequest(endpoint, method, data = null, isFormData = false) {
 
     let response;
     try {
-        response = await fetch(`${API_CONFIG.baseURL}${endpoint}`, config);
+        const ctl = new AbortController();
+        const timer = setTimeout(() => ctl.abort(), isFormData ? 120000 : 30000);
+        config.signal = ctl.signal;
+        try { response = await fetch(`${API_CONFIG.baseURL}${endpoint}`, config); }
+        finally { clearTimeout(timer); }
     } catch (networkError) {
         throw {
             status: 0,
-            message: '⚠️ We\'re having trouble connecting to our services right now. Please try again later.'
+            message: networkError && networkError.name === 'AbortError'
+                ? 'The server took too long to respond. Please try again.'
+                : 'Cannot reach the server. Check your internet connection and try again.'
         };
     }
 
@@ -164,7 +199,7 @@ async function apiRequest(endpoint, method, data = null, isFormData = false) {
         const admin = session?.admin || session?.user || session || {};
         const position = session?.role === 'super_admin' ? 'Super Admin' : 'Admin';
         if (admin?.name && typeof window.showToast === 'function') {
-            window.showToast(`Done by ${admin.name}, ${position}`, 'info');
+            window.showToast(`Recorded in audit log · ${admin.name} (${position})`, 'info');
         }
     }
 
@@ -262,7 +297,10 @@ const API = {
         updatePermissions: (id, permissions) => 
             apiRequest(`/admins/${id}/permissions`, 'PUT', { permissions }),
         dashboard: () => 
-            apiRequest('/admins/dashboard', 'GET')
+            apiRequest('/admins/dashboard', 'GET'),
+        overview: () => apiRequest('/admins/overview', 'GET'),
+        systemHealth: () => apiRequest('/admins/system-health', 'GET'),
+        loginHistory: (limit = 50) => apiRequest(`/admins/login-history?limit=${limit}`, 'GET')
     },
 
     tenants: {
@@ -679,7 +717,8 @@ const API = {
             download: (documentIds) => 
                 apiRequest('/documents/admin/download', 'POST', { documentIds }),
             downloadSingle: (documentId) => 
-                apiRequest(`/documents/admin/${documentId}/download`, 'GET')
+                apiRequest(`/documents/admin/${documentId}/download`, 'GET'),
+            statusSummary: () => apiRequest('/documents/admin/status-summary', 'GET')
         }
     },
 
@@ -875,6 +914,7 @@ const API = {
     public: {
         welcome: () => 
             apiRequest('/public/welcome', 'GET'),
+        siteConfig: () => apiRequest('/public/site-config', 'GET'),
         pgs: {
             all: (params = {}) => {
                 const qs = new URLSearchParams();
@@ -897,7 +937,9 @@ const API = {
         getManualStats: () =>
             apiRequest('/site-settings/manual-stats', 'GET'),
         updateManualStats: (data) =>
-            apiRequest('/site-settings/manual-stats', 'PUT', data)
+            apiRequest('/site-settings/manual-stats', 'PUT', data),
+        getWebsite: () => apiRequest('/site-settings/website', 'GET'),
+        updateWebsite: (data) => apiRequest('/site-settings/website', 'PUT', data)
     }
 };
 
@@ -928,38 +970,8 @@ function formatDateTime(date) {
 
 // ============ TOAST UTILITY ============
 function showToast(message, type = 'success') {
-    const icons = {
-        success: 'bi-check-circle-fill',
-        info: 'bi-info-circle-fill',
-        danger: 'bi-x-circle-fill',
-        warning: 'bi-exclamation-triangle-fill'
-    };
-    const colors = {
-        success: '#4F8F2E',
-        info: '#3E7CB1',
-        danger: '#D9483F',
-        warning: '#E2A238'
-    };
-    
-    let container = document.getElementById('lkToastContainer');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'lkToastContainer';
-        container.className = 'toast-lk d-flex flex-column gap-2';
-        document.body.appendChild(container);
-    }
-    
-    const el = document.createElement('div');
-    el.className = 'fade-in';
-    el.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:.85rem 1.1rem;display:flex;gap:.6rem;align-items:flex-start;min-width:280px;max-width:360px;';
-    el.innerHTML = `<i class="bi ${icons[type]}" style="color:${colors[type]};font-size:1.1rem;margin-top:.1rem;"></i><div style="font-size:.87rem;color:var(--ink);">${message}</div>`;
-    container.appendChild(el);
-    setTimeout(() => {
-        el.style.transition = '.3s';
-        el.style.opacity = '0';
-        el.style.transform = 'translateX(20px)';
-        setTimeout(() => el.remove(), 300);
-    }, 3800);
+    if (window.LKUI) return window.LKUI.toast(message, type);
+    console[type === 'danger' ? 'error' : 'log'](message);
 }
 
 // ============ AUTH HELPER ============

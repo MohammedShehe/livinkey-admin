@@ -2085,9 +2085,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // INIT - Load bills tab by default
     // ============================================
+    LKUI.onRefresh(async () => { await Promise.all([loadData(), activeSubTab === 'proofs' ? loadProofs() : Promise.resolve()]); });
     (async function init() {
+        const qs = new URLSearchParams(window.location.search);
+        const q = qs.get('q');
+        if (q) { const el = document.getElementById('billSearch'); if (el) el.value = q; }
         await loadPgs();
         await loadData();
+        if (q) document.getElementById('billSearch')?.dispatchEvent(new Event('input'));
+        if (qs.get('new') === '1' && canAddBills) { bootstrap.Modal.getOrCreateInstance(document.getElementById('createBillModal')).show(); history.replaceState(null, '', 'bills.html'); }
         if (window.location.hash !== '#proofs') {
             switchMainTab('bills', false);
         }

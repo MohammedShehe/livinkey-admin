@@ -661,5 +661,6 @@ document.addEventListener("DOMContentLoaded", () => {
         await loadTenants("all");
     }
     
+    LKUI.onRefresh(() => init());
     init();
 });

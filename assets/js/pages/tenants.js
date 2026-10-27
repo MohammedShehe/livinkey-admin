@@ -202,31 +202,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function preloadDocumentStatus(tenants) {
         if (isDocumentCacheLoading || documentCacheLoadComplete) return;
-        
         isDocumentCacheLoading = true;
-        const tenantIds = tenants.filter(t => documentStatusCache[t.id] === undefined).map(t => t.id);
-        
-        if (tenantIds.length === 0) {
-            isDocumentCacheLoading = false;
-            documentCacheLoadComplete = true;
-            return;
+        try {
+            // One request for every tenant (was: one request per tenant).
+            const res = await API.documents.admin.statusSummary();
+            if (res && res.success && res.data) {
+                tenants.forEach(t => {
+                    const row = res.data[t.id];
+                    documentStatusCache[t.id] = row ? row.complete : false;
+                });
+            } else throw new Error('summary unavailable');
+        } catch (_) {
+            // Older backend: fall back to per-tenant checks, 8 at a time.
+            const ids = tenants.filter(t => documentStatusCache[t.id] === undefined).map(t => t.id);
+            for (let i = 0; i < ids.length; i += 8) {
+                await Promise.all(ids.slice(i, i + 8).map(id => {
+                    const tenant = tenants.find(t => t.id === id);
+                    return checkTenantDocuments(id, tenant?.residency || 'national');
+                }));
+            }
         }
-
-        // Load in batches to avoid overwhelming the API
-        const batchSize = 5;
-        for (let i = 0; i < tenantIds.length; i += batchSize) {
-            const batch = tenantIds.slice(i, i + batchSize);
-            await Promise.all(batch.map(id => {
-                const tenant = tenants.find(t => t.id === id);
-                return checkTenantDocuments(id, tenant?.residency || 'national');
-            }));
-        }
-        
         isDocumentCacheLoading = false;
         documentCacheLoadComplete = true;
-        
-        // Update pending docs badge
         updatePendingDocsBadge();
+        if (currentDocFilter === 'pending') renderTable();
     }
 
     function updatePendingDocsBadge() {
@@ -1006,27 +1005,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
+            const X = LKUI.esc;
             return `
-            <tr>
+            <tr data-id="${X(t.id)}">
                 <td>
-                    <span class="name-link" onclick="openDocs('${t.id}')">${t.full_name || '—'}</span>
-                    <div class="small text-muted-soft">${t.email || '—'}</div><div class="small text-muted-soft">Parent: ${t.parent_phone || '—'}</div>
+                    <span class="name-link" onclick="openDocs('${X(t.id)}')">${X(t.full_name) || '—'}</span>
+                    <div class="small text-muted-soft">${X(t.email) || '—'}</div><div class="small text-muted-soft">Parent: ${X(t.parent_phone) || '—'}</div>
                 </td>
-                <td>${t.pg_name || '—'}</td>
-                <td>${t.room_number || '—'}</td>
+                <td>${X(t.pg_name) || '—'}</td>
+                <td>${X(t.room_number) || '—'}</td>
                 <td>${t.period_of_stay ? `${t.period_of_stay} Month${Number(t.period_of_stay) === 1 ? '' : 's'}` : '—'}</td>
                 <td>${t.agreement_status === 'accepted' ? '<span class="chip chip-green">Accepted</span>' : t.agreement_status === 'pending' ? '<span class="chip chip-red">Pending</span>' : '<span class="chip chip-gray">Not Required</span>'}</td>
                 <td>${fmtINR(t.rent || 0)}</td>
                 <td>${fmtINR(t.security_fee || 0)}</td>
-                <td>${t.nationality || '—'}</td>
-                <td>${t.gender || '—'}</td>
+                <td>${X(t.nationality) || '—'}</td>
+                <td style="text-transform:capitalize">${X(t.gender) || '—'}</td>
                 <td>${t.payment_date ? "Day " + t.payment_date : "—"}</td>
                 <td>${arrivalDate}</td>
                 <td>${efrroStatus}</td>
                 <td><span class="chip ${statusChip}">${statusLabel}</span></td>
                 <td>${appChip}</td>
-                <td><span class="small text-muted-soft">${lastAct}</span></td>
-                <td class="text-end">
+                <td>${LKUI.seen(t._last_app_activity, { never: 'Never opened' })}</td>
+                <td class="text-end text-nowrap">
+                    <a class="btn-icon me-1" title="View bills" href="bills.html?q=${encodeURIComponent(t.full_name || '')}"><i class="bi bi-receipt"></i></a>
                     ${t.agreement_status === 'accepted' ? `<button class="btn-icon me-1" title="Download current accepted agreement PDF" onclick="downloadTenantAgreement('${t.id}')"><i class="bi bi-file-earmark-pdf"></i></button>` : ''}
                     ${canEditTenants ? `<button class="btn-icon me-1" title="Edit" onclick="editTenant('${t.id}')"><i class="bi bi-pencil"></i></button>` : ''}
                     ${canDeleteTenants ? `<button class="btn-icon me-1" title="Check Out" onclick="checkoutTenant('${t.id}')"><i class="bi bi-box-arrow-right"></i></button>
@@ -1343,54 +1344,38 @@ document.addEventListener("DOMContentLoaded", () => {
         for (let i = 0; i < num; i++) {
             container.innerHTML += `
             <div class="tenant-entry" data-index="${i}">
-                <div class="tenant-entry-number">Tenant #${i + 1}</div>
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="tenant-entry-number">Tenant #${i + 1}</div>
+                    <button type="button" class="btn-remove-tenant" onclick="removeTenantEntry(this)"><i class="bi bi-x-circle me-1"></i>Remove</button>
+                </div>
                 <div class="row g-3">
+                    <div class="col-12"><div class="fs-sub"><i class="bi bi-person"></i>Personal details</div></div>
                     <div class="col-md-6">
-                        <label class="form-label">Full name *</label>
-                        <input type="text" class="form-control tenant-name" required>
+                        <label class="form-label">Full name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control tenant-name" required placeholder="As on ID">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Email *</label>
-                        <input type="email" class="form-control tenant-email" required>
+                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control tenant-email" required placeholder="name@example.com">
+                        <div class="form-text">Login details and bills are sent here.</div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Residency *</label>
+                    <div class="col-md-4">
+                        <label class="form-label">Residency <span class="text-danger">*</span></label>
                         <select class="form-select tenant-residency" required>
                             <option value="" selected disabled>Select residency...</option>
                             <option value="national">National</option>
                             <option value="international">International</option>
                         </select>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Nationality *</label>
+                    <div class="col-md-4">
+                        <label class="form-label">Nationality <span class="text-danger">*</span></label>
                         <div class="searchable-dropdown tenant-nationality-dropdown">
-                            <input type="text" class="dropdown-search tenant-nationality-search" placeholder="Search or select nationality..." autocomplete="off">
+                            <input type="text" class="dropdown-search tenant-nationality-search" placeholder="Search or select..." autocomplete="off">
                             <input type="hidden" class="tenant-nationality" value="">
                             <div class="dropdown-options tenant-nationality-options"></div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Country code</label>
-                        <div class="searchable-dropdown tenant-code-dropdown">
-                            <input type="text" class="dropdown-search tenant-code-search" placeholder="Search or select code..." autocomplete="off">
-                            <input type="hidden" class="tenant-code" value="+91">
-                            <div class="dropdown-options tenant-code-options"></div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Phone</label>
-                        <input type="text" class="form-control tenant-phone" placeholder="9876543210">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Parent Phone (+...)</label>
-                        <input type="tel" class="form-control tenant-parent-phone" placeholder="+91 9876543210">
-                    </div>
-                    <div class="col-md-3 tenant-international-only d-none">
-                        <label class="form-label">International Phone</label>
-                        <input type="text" class="form-control tenant-international-phone" placeholder="+1 234 567 8900">
-                        <div class="form-text small text-muted">For family/emergency contact abroad</div>
-                    </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label class="form-label">Gender</label>
                         <select class="form-select tenant-gender">
                             <option value="male">Male</option>
@@ -1398,72 +1383,94 @@ document.addEventListener("DOMContentLoaded", () => {
                             <option value="other">Other</option>
                         </select>
                     </div>
+
+                    <div class="col-12"><div class="fs-sub"><i class="bi bi-telephone"></i>Contact</div></div>
                     <div class="col-md-3">
-                        <label class="form-label">Period of Stay *</label>
+                        <label class="form-label">Country code</label>
+                        <div class="searchable-dropdown tenant-code-dropdown">
+                            <input type="text" class="dropdown-search tenant-code-search" placeholder="Code..." autocomplete="off">
+                            <input type="hidden" class="tenant-code" value="+91">
+                            <div class="dropdown-options tenant-code-options"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Phone</label>
+                        <input type="text" class="form-control tenant-phone" inputmode="tel" placeholder="9876543210">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Parent phone</label>
+                        <input type="tel" class="form-control tenant-parent-phone" placeholder="+91 9876543210">
+                    </div>
+                    <div class="col-md-3 tenant-international-only d-none">
+                        <label class="form-label">International phone</label>
+                        <input type="text" class="form-control tenant-international-phone" placeholder="+1 234 567 8900">
+                        <div class="form-text">Family or emergency contact abroad</div>
+                    </div>
+
+                    <div class="col-12"><div class="fs-sub"><i class="bi bi-wallet2"></i>Stay &amp; payment</div></div>
+                    <div class="col-md-3">
+                        <label class="form-label">Period of stay <span class="text-danger">*</span></label>
                         <select class="form-select tenant-period-of-stay" required>
                             <option value="">Select months...</option>
                             ${Array.from({length: 12}, (_, i) => `<option value="${i + 1}">${i + 1} Month${i === 0 ? '' : 's'}</option>`).join('')}
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Rent (INR)</label>
-                        <input type="number" class="form-control tenant-rent" placeholder="11000">
+                        <label class="form-label">Rent (₹)</label>
+                        <input type="number" min="0" class="form-control tenant-rent" placeholder="11000">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Security Fee</label>
-                        <input type="number" class="form-control tenant-security-fee" placeholder="5000">
+                        <label class="form-label">Security fee (₹)</label>
+                        <input type="number" min="0" class="form-control tenant-security-fee" placeholder="5000">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Payment Date (day)</label>
+                        <label class="form-label">Rent due day</label>
                         <input type="number" min="1" max="28" class="form-control tenant-payment-date" placeholder="5">
+                        <div class="form-text">Day of month (1–28)</div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Arrival Date</label>
+                    <div class="col-md-4">
+                        <label class="form-label">Arrival date</label>
                         <input type="date" class="form-control tenant-arrival-date">
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Paid From</label>
+                    <div class="col-md-4">
+                        <label class="form-label">Paid from</label>
                         <input type="date" class="form-control tenant-paid-from">
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Paid Till</label>
+                    <div class="col-md-4">
+                        <label class="form-label">Paid till</label>
                         <input type="date" class="form-control tenant-paid-till">
                     </div>
+
+                    <div class="col-12"><div class="fs-sub"><i class="bi bi-person-vcard"></i>Identity &amp; compliance</div></div>
                     <div class="col-md-4 tenant-national-only">
                         <label class="form-label">Aadhaar ID</label>
-                        <input type="text" class="form-control tenant-aadhaar" placeholder="Aadhaar number">
+                        <input type="text" class="form-control tenant-aadhaar" inputmode="numeric" placeholder="Aadhaar number">
                     </div>
                     <div class="col-md-4 tenant-national-only">
                         <label class="form-label">Parent Aadhaar</label>
-                        <input type="text" class="form-control tenant-parent-aadhaar" placeholder="Parent Aadhaar">
+                        <input type="text" class="form-control tenant-parent-aadhaar" inputmode="numeric" placeholder="Parent Aadhaar">
                     </div>
                     <div class="col-md-4 tenant-international-only">
-                        <label class="form-label">C-Form Number</label>
+                        <label class="form-label">C-Form number</label>
                         <input type="text" class="form-control tenant-cform" placeholder="C-Form number">
                     </div>
                     <div class="col-md-4 tenant-international-only">
-                        <label class="form-label">e-FRRO From</label>
+                        <label class="form-label">e-FRRO from</label>
                         <input type="date" class="form-control tenant-efrro-from">
                     </div>
                     <div class="col-md-4 tenant-international-only">
-                        <label class="form-label">e-FRRO Till</label>
+                        <label class="form-label">e-FRRO till</label>
                         <input type="date" class="form-control tenant-efrro-till">
                     </div>
+                    <div class="col-12 tenant-residency-hint"><div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose a residency above to see the ID fields that apply.</div></div>
                     <div class="col-12">
-                        <div class="doc-upload-container">
-                            <label class="form-label">Attach Document (Auto-Fill)</label>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-outline-brand btn-sm btn-attach-doc">
-                                    <i class="bi bi-paperclip me-1"></i>Attach Document
-                                </button>
-                                <span class="text-muted-soft small d-flex align-items-center">Upload ID/Passport/Aadhaar for auto-fill</span>
+                        <div class="doc-upload-container autofill-box">
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <button type="button" class="btn btn-outline-brand btn-sm btn-attach-doc"><i class="bi bi-magic me-1"></i>Auto-fill from a document</button>
+                                <span class="text-muted-soft small">Upload an ID, passport or Aadhaar to fill the fields above. The file is not stored.</span>
                             </div>
                             <input type="file" class="d-none doc-file-input" accept="image/*,.pdf,.doc,.docx">
-                            <small class="text-muted-soft d-block mt-1">⚠️ Document is only used for auto-filling fields. Not stored in database.</small>
                         </div>
-                    </div>
-                    <div class="col-12 text-end">
-                        <button type="button" class="btn-remove-tenant" onclick="removeTenantEntry(this)">Remove this tenant</button>
                     </div>
                 </div>
             </div>`;
@@ -1488,6 +1495,7 @@ document.addEventListener("DOMContentLoaded", () => {
             select.addEventListener('change', function() {
                 const entry = this.closest('.tenant-entry');
                 const isNational = this.value === 'national';
+                entry.querySelector('.tenant-residency-hint')?.classList.add('d-none');
                 const natHidden = entry.querySelector('.tenant-nationality');
                 const natSearch = entry.querySelector('.tenant-nationality-search');
 
@@ -2367,6 +2375,45 @@ document.addEventListener("DOMContentLoaded", () => {
             renderTable();
         }
     });
+
+    // ============================================
+    // TABLE KIT: sorting, paging, column toggle, CSV, bulk selection
+    // ============================================
+    LKUI.table('#tenantsTable', {
+        key: 'tenants', noun: 'tenant', csv: 'tenants', skipCols: [15],
+        bulk: {
+            idOf: tr => tr.dataset.id,
+            actions: [
+                { label: 'Message', icon: 'bi-megaphone', run: (ids) => {
+                    sessionStorage.setItem('lk_notify_preselect', JSON.stringify(ids));
+                    window.location.href = 'notifications.html?preselect=1'; return false; } },
+                { label: 'Archive', icon: 'bi-archive', danger: true, visible: () => canDeleteTenants, run: async (ids) => {
+                    const reason = await LKUI.prompt({ title: `Archive ${ids.length} tenant${ids.length === 1 ? '' : 's'}?`, body: 'They move to the Tenant Archive and can be restored later.', label: 'Reason (optional)', placeholder: 'e.g. Semester ended', confirmText: 'Archive', tone: 'warn', icon: 'bi-archive' });
+                    if (reason === null) return false;
+                    const r = await LKUI.runBatch(ids, id => API.tenants.delete(id, reason || null), { title: 'Archiving tenants…' });
+                    LKUI.toast(r.failed.length ? `Archived ${r.ok}, ${r.failed.length} failed: ${r.failed[0].error}` : `Archived ${r.ok} tenant${r.ok === 1 ? '' : 's'}`, r.failed.length ? 'warning' : 'success');
+                    loadTenants(); return true; } }
+            ]
+        }
+    });
+
+    // ============================================
+    // REFRESH + DEEP LINKS (?new=1, ?docs=pending, ?q=name)
+    // ============================================
+    LKUI.onRefresh(() => { documentCacheLoadComplete = false; return loadTenants(); });
+    (function deepLinks() {
+        const qs = new URLSearchParams(window.location.search);
+        if (qs.get('new') === '1' && canAddTenants) {
+            setTimeout(() => bootstrap.Modal.getOrCreateInstance(document.getElementById('addTenantModal')).show(), 250);
+            history.replaceState(null, '', 'tenants.html');
+        }
+        if (qs.get('docs') === 'pending') {
+            currentDocFilter = 'pending';
+            document.getElementById('pendingDocsFilter')?.classList.add('active');
+        }
+        const q = qs.get('q');
+        if (q) { const el = document.getElementById('tenantSearch'); if (el) { el.value = q; currentFilterType = 'text'; currentFilter = q; } }
+    })();
 
     // ============================================
     // INIT

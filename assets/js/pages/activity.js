@@ -150,5 +150,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const el = document.getElementById('statusFilter');
         if (el) el.value = _actStatusQs;
     }
+    LKUI.onRefresh(() => Promise.all([loadUsers(), loadStats()]));
     loadUsers(); loadStats();
 });

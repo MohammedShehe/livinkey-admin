@@ -526,6 +526,7 @@ Enjoy your stay!
     // ============================================
     // INIT
     // ============================================
+    LKUI.onRefresh(() => Promise.all([loadGuests(), loadGuestNotifHistory()]));
     loadGuests();
     loadGuestNotifHistory();
 });

@@ -60,16 +60,17 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         document.getElementById("maintenanceEmpty").classList.add("d-none");
 
+        const X = LKUI.esc;
         tbody.innerHTML = filtered.map(m => `
-            <tr>
-                <td>${m.pg_name || '—'}</td>
-                <td><span class="fw-semibold">${m.room_number || '—'}</span></td>
-                <td>${m.tenant_name || '—'}</td>
-                <td>${m.tenant_email || '—'}</td>
-                <td><span class="chip chip-blue">${m.issue_type || '—'}</span></td>
+            <tr data-id="${X(m.id)}">
+                <td>${X(m.pg_name) || '—'}</td>
+                <td><span class="fw-semibold">${X(m.room_number) || '—'}</span></td>
+                <td>${X(m.tenant_name) || '—'}</td>
+                <td>${X(m.tenant_email) || '—'}</td>
+                <td><span class="chip chip-blue">${X(m.issue_type) || '—'}</span></td>
                 <td>${m.service_date ? formatDate(m.service_date) : '—'}</td>
-                <td>${m.free_time || '—'}</td>
-                <td>${m.description || '—'}</td>
+                <td>${X(m.free_time) || '—'}</td>
+                <td>${X(m.description) || '—'}</td>
                 <td>
                     ${m.image_url ? `<img src="${m.image_url}" alt="Issue" style="width:40px;height:30px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="window.previewImage('${m.id}')">` : "—"}
                 </td>
@@ -347,5 +348,16 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // INIT
     // ============================================
+    LKUI.table('#maintenanceTable', {
+        key: 'maintenance', noun: 'request', csv: 'maintenance-requests', skipCols: [8, 10],
+        bulk: { idOf: tr => tr.dataset.id, actions: [
+            { label: 'Delete', icon: 'bi-trash3', danger: true, visible: () => canDeleteMaintenance, run: async (ids) => {
+                if (!await LKUI.confirm({ title: `Delete ${ids.length} request${ids.length === 1 ? '' : 's'}?`, body: 'This cannot be undone.', confirmText: 'Delete' })) return false;
+                const r = await LKUI.runBatch(ids, id => API.maintenance.admin.delete(id), { title: 'Deleting requests…' });
+                LKUI.toast(r.failed.length ? `Deleted ${r.ok}, ${r.failed.length} failed` : `Deleted ${r.ok} request${r.ok === 1 ? '' : 's'}`, r.failed.length ? 'warning' : 'success');
+                loadMaintenance(); return true; } }
+        ] }
+    });
+    LKUI.onRefresh(() => loadMaintenance());
     loadMaintenance();
 });

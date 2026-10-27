@@ -871,5 +871,10 @@ TERMS & CONDITIONS
     // ============================================
     // INIT
     // ============================================
+    LKUI.onRefresh(() => loadPGs());
     loadPGs();
+    (function deepLinks() {
+        const qs = new URLSearchParams(window.location.search);
+        if (qs.get('new') === '1') { const b = document.querySelector('[data-bs-target="#addPgModal"],[data-bs-target="#pgModal"]'); if (b) setTimeout(() => b.click(), 400); }
+    })();
 });

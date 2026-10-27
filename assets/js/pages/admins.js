@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // FETCH ADMINS
     // ============================================
     async function loadAdmins() {
-        PAGE_LOADER.table(document.getElementById("adminsTbody"), 5, "Loading admins...");
+        PAGE_LOADER.table(document.getElementById("adminsTbody"), 9, "Loading admins...");
         PAGE_LOADER.hideEmpty("adminsEmpty");
         try {
             const res = await API.admins.getAll();
@@ -62,20 +62,28 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         document.getElementById("adminsEmpty").classList.add("d-none");
 
-        tbody.innerHTML = filtered.map(a => `
-            <tr>
-                <td><span class="name-link" onclick="openAccess('${a.id}')">${a.name || '—'}</span></td>
-                <td>${a.email || '—'}</td>
-                <td>${a.phone || '—'}</td>
+        const X = LKUI.esc;
+        tbody.innerHTML = filtered.map(a => {
+            const mods = Object.values(a.permissions || {}).filter(p => p.view).length;
+            return `
+            <tr data-id="${X(a.id)}">
+                <td><span class="name-link" onclick="openAccess('${X(a.id)}')">${X(a.name) || '—'}</span><div class="cell-sub">${X(a.email) || '—'}</div></td>
+                <td>${X(a.phone) || '—'}</td>
+                <td><span class="chip ${a.is_active === false ? 'chip-red' : 'chip-green'} dot">${a.is_active === false ? 'Disabled' : 'Active'}</span>${a.must_change_password ? '<div class="cell-sub mt-1">Password change pending</div>' : ''}</td>
+                <td>${LKUI.seen(a.last_login_at, { never: 'Never signed in' })}${a.last_login_device ? `<div class="cell-sub">${X(a.last_login_device)}${a.last_login_ip ? ' · ' + X(a.last_login_ip) : ''}</div>` : ''}</td>
+                <td>${Number(a.login_count || 0)}</td>
+                <td><span class="chip chip-gray" title="Modules this admin can view">${mods} module${mods === 1 ? '' : 's'}</span></td>
+                <td>${a.created_at ? X(formatDate(a.created_at)) : '—'}</td>
                 <td>
-                    ${a.id_document ? `<img src="${a.id_document}" alt="ID Document" style="width:40px;height:30px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="previewDocument('${a.id}')">` : "—"}
+                    ${a.id_document ? `<img src="${X(a.id_document)}" alt="ID Document" style="width:40px;height:30px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="previewDocument('${X(a.id)}')">` : "—"}
                 </td>
-                <td class="text-end">
-                    <button class="btn-icon me-1" title="Edit" onclick="editAdmin('${a.id}')"><i class="bi bi-pencil"></i></button>
-                    <button class="btn-icon" title="Delete" onclick="deleteAdmin('${a.id}')"><i class="bi bi-trash3"></i></button>
+                <td class="text-end text-nowrap">
+                    <button class="btn-icon me-1" title="Permissions" onclick="openAccess('${X(a.id)}')"><i class="bi bi-shield-lock"></i></button>
+                    <button class="btn-icon me-1" title="Edit" onclick="editAdmin('${X(a.id)}')"><i class="bi bi-pencil"></i></button>
+                    <button class="btn-icon danger" title="Delete" onclick="deleteAdmin('${X(a.id)}')"><i class="bi bi-trash3"></i></button>
                 </td>
-            </tr>
-        `).join("");
+            </tr>`;
+        }).join("");
     }
 
     document.getElementById("adminSearch")?.addEventListener("input", (e) => renderTable(e.target.value));
@@ -543,6 +551,22 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         LOADER.hide(btn);
     });
+
+    // ============================================
+    // TABLE KIT + REFRESH
+    // ============================================
+    LKUI.table('#adminsTable', {
+        key: 'admins', noun: 'admin', csv: 'admins', skipCols: [7, 8], defaultHidden: [7],
+        bulk: { idOf: tr => tr.dataset.id, actions: [
+            { label: 'Delete', icon: 'bi-trash3', danger: true, run: async (ids) => {
+                const ok = await LKUI.confirm({ title: `Delete ${ids.length} admin${ids.length === 1 ? '' : 's'}?`, body: 'They lose all access to the console immediately. This cannot be undone.', confirmText: 'Delete', requireText: ids.length > 1 ? 'DELETE' : null });
+                if (!ok) return false;
+                const r = await LKUI.runBatch(ids, id => API.admins.delete(id), { title: 'Deleting admins…' });
+                LKUI.toast(r.failed.length ? `Deleted ${r.ok}, ${r.failed.length} failed: ${r.failed[0].error}` : `Deleted ${r.ok} admin${r.ok === 1 ? '' : 's'}`, r.failed.length ? 'warning' : 'success');
+                loadAdmins(); return true; } }
+        ] }
+    });
+    LKUI.onRefresh(() => loadAdmins());
 
     // ============================================
     // INIT

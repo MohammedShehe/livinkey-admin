@@ -682,7 +682,22 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // INIT
     // ============================================
-    loadData();
+    LKUI.onRefresh(() => loadData());
+    loadData().then(() => {
+        // Arrived from a bulk "Message" action in Tenants
+        if (new URLSearchParams(location.search).get('preselect') !== '1') return;
+        try {
+            const ids = JSON.parse(sessionStorage.getItem('lk_notify_preselect') || '[]').map(Number).filter(Boolean);
+            sessionStorage.removeItem('lk_notify_preselect');
+            if (!ids.length) return;
+            window.selectRecipientType('individual');
+            selectedTenants = ids.filter(id => allTenants.some(t => t.id === id));
+            updateSelectedCount(); updateSelectedItems(); renderTenantList();
+            showToast(`${selectedTenants.length} tenant${selectedTenants.length === 1 ? '' : 's'} pre-selected`, 'info');
+            history.replaceState(null, '', 'notifications.html');
+        } catch (_) {}
+    });
+
     
     // Initial preview
     updatePreview();

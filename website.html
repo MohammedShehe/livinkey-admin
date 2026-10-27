@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Website control · Livinkey Admin</title>
+<link rel="icon" href="assets/img/black_logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="assets/css/style.css?v=2" rel="stylesheet">
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebarMount"></div>
+  <div class="main-area">
+    <div id="topbarMount"></div>
+    <main class="content-area" id="mainContent">
+
+      <div id="siteState" class="state-banner live mb-3"><span class="sb-dot"></span><span id="siteStateText">Checking public website…</span>
+        <a class="btn btn-outline-brand btn-sm ms-auto" id="viewSite" href="https://livinkey.com" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Open website</a></div>
+
+      <div class="settings-layout">
+        <nav class="settings-nav" id="wsNav" aria-label="Website settings">
+          <button class="active" data-pane="announce"><i class="bi bi-megaphone"></i>Announcement banner</button>
+          <button data-pane="maintenance"><i class="bi bi-cone-striped"></i>Maintenance mode</button>
+          <button data-pane="contact"><i class="bi bi-telephone"></i>Contact &amp; social</button>
+          <button data-pane="identity"><i class="bi bi-type"></i>Site identity</button>
+          <button data-pane="features"><i class="bi bi-toggles"></i>Page features</button>
+          <button data-pane="more"><i class="bi bi-collection"></i>More controls</button>
+        </nav>
+
+        <div class="section-card">
+          <form id="wsForm" novalidate>
+            <div class="settings-pane active" id="pane-announce">
+              <div class="card-head"><div><h5>Announcement banner</h5><p>A message shown at the top of every public page. Good for offers, holidays or notices.</p></div></div>
+              <div class="set-row"><div><div class="s-title">Show the banner</div><div class="s-desc">Turn off to hide it without losing your text.</div></div>
+                <div class="s-ctl set-switch"><span class="small text-muted-soft" id="announceState">Hidden</span><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="announcement_enabled"></div></div></div>
+              <div class="set-row"><div><div class="s-title">Message</div><div class="s-desc">Keep it short — up to 300 characters.</div></div>
+                <div class="s-ctl"><textarea class="form-control" id="announcement_text" rows="2" maxlength="300" placeholder="e.g. Admissions open for the new semester. Limited beds available."></textarea><div class="form-text text-end"><span id="announceCount">0</span>/300</div></div></div>
+              <div class="set-row"><div><div class="s-title">Link (optional)</div><div class="s-desc">Where the banner takes visitors when clicked.</div></div>
+                <div class="s-ctl"><input class="form-control" id="announcement_link" placeholder="https://livinkey.com/pgs.html"><div class="invalid-feedback"></div></div></div>
+              <div class="set-row"><div><div class="s-title">Style</div><div class="s-desc">Colour tells visitors how urgent it is.</div></div>
+                <div class="s-ctl"><select class="form-select" id="announcement_type"><option value="info">Information (blue)</option><option value="success">Good news (green)</option><option value="warning">Heads-up (amber)</option><option value="danger">Urgent (red)</option></select></div></div>
+              <div class="set-row"><div><div class="s-title">Preview</div></div><div class="s-ctl"><div class="site-preview"><div class="sp-bar"><span></span><span></span><span></span><div class="sp-url">livinkey.com</div></div><div id="spAnnounce"></div><div class="sp-body"><h6 id="spName">Livinkey</h6><p id="spTag"></p></div></div></div></div>
+            </div>
+
+            <div class="settings-pane" id="pane-maintenance">
+              <div class="card-head"><div><h5>Maintenance mode</h5><p>Show a “be right back” screen on the public website. The admin console and mobile apps are not affected.</p></div></div>
+              <div class="set-row"><div><div class="s-title">Put the website in maintenance</div><div class="s-desc">Visitors will see your message instead of the site until you turn this off.</div></div>
+                <div class="s-ctl set-switch"><span class="small text-muted-soft" id="maintState">Off</span><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="maintenance_mode"></div></div></div>
+              <div class="set-row"><div><div class="s-title">Message to visitors</div><div class="s-desc">Say when you will be back, if you know.</div></div>
+                <div class="s-ctl"><textarea class="form-control" id="maintenance_message" rows="3" maxlength="400"></textarea></div></div>
+              <div class="set-row"><div><div class="s-title">Preview</div></div><div class="s-ctl"><div class="site-preview"><div class="sp-maint"><i class="bi bi-cone-striped"></i><h6 class="text-white mt-1 mb-0" id="spMaintName">Livinkey</h6><p id="spMaint"></p></div></div></div></div>
+            </div>
+
+            <div class="settings-pane" id="pane-contact">
+              <div class="card-head"><div><h5>Contact &amp; social links</h5><p>Shown on the contact, about and footer sections of the public site.</p></div></div>
+              <div class="set-row"><div><div class="s-title">WhatsApp number</div><div class="s-desc">Country code first, digits only. Example: 919878383497</div></div><div class="s-ctl"><input class="form-control" id="contact_whatsapp" inputmode="numeric" placeholder="919878383497"><div class="invalid-feedback"></div></div></div>
+              <div class="set-row"><div><div class="s-title">Phone (optional)</div><div class="s-desc">Displayed as a call link.</div></div><div class="s-ctl"><input class="form-control" id="contact_phone" placeholder="+91 98783 83497"></div></div>
+              <div class="set-row"><div><div class="s-title">Email</div></div><div class="s-ctl"><input class="form-control" type="email" id="contact_email" placeholder="hello@livinkey.com"><div class="invalid-feedback"></div></div></div>
+              <div class="set-row"><div><div class="s-title">Address (optional)</div></div><div class="s-ctl"><textarea class="form-control" id="contact_address" rows="2" maxlength="300"></textarea></div></div>
+              <div class="set-row"><div><div class="s-title">Instagram</div></div><div class="s-ctl"><input class="form-control" id="social_instagram" placeholder="https://instagram.com/…"><div class="invalid-feedback"></div></div></div>
+              <div class="set-row"><div><div class="s-title">Facebook</div></div><div class="s-ctl"><input class="form-control" id="social_facebook" placeholder="https://facebook.com/…"><div class="invalid-feedback"></div></div></div>
+            </div>
+
+            <div class="settings-pane" id="pane-identity">
+              <div class="card-head"><div><h5>Site identity</h5><p>The name and tagline used across the public website.</p></div></div>
+              <div class="set-row"><div><div class="s-title">Site name</div></div><div class="s-ctl"><input class="form-control" id="site_name" maxlength="80"><div class="invalid-feedback"></div></div></div>
+              <div class="set-row"><div><div class="s-title">Tagline</div><div class="s-desc">One line that describes Livinkey.</div></div><div class="s-ctl"><input class="form-control" id="site_tagline" maxlength="200"></div></div>
+            </div>
+
+            <div class="settings-pane" id="pane-features">
+              <div class="card-head"><div><h5>Page features</h5><p>Choose which sections appear on the public website.</p></div></div>
+              <div class="set-row"><div><div class="s-title">AI chat assistant</div><div class="s-desc">The floating chat bubble for visitors.</div></div><div class="s-ctl set-switch"><span></span><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="show_chatbot"></div></div></div>
+              <div class="set-row"><div><div class="s-title">Tenant reviews</div><div class="s-desc">Ratings and comments on PG pages.</div></div><div class="s-ctl set-switch"><span></span><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="show_reviews"></div></div></div>
+              <div class="set-row"><div><div class="s-title">Counters</div><div class="s-desc">Properties and happy-tenant numbers on the home page.</div></div><div class="s-ctl set-switch"><span></span><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="show_stats"></div></div></div>
+            </div>
+
+            <div class="settings-pane" id="pane-more">
+              <div class="card-head"><div><h5>More website controls</h5><p>Other parts of the public site are managed on their own pages.</p></div></div>
+              <a class="todo-item" href="website-stats.html"><span class="t-n"><i class="bi bi-graph-up-arrow"></i></span><span class="t-l">Public counters<small>Add manual numbers to the live property and tenant counts</small></span><i class="bi bi-chevron-right"></i></a>
+              <a class="todo-item" href="about-livinkey.html"><span class="t-n"><i class="bi bi-building-check"></i></span><span class="t-l">Notices<small>Upload notice images shown to visitors</small></span><i class="bi bi-chevron-right"></i></a>
+              <a class="todo-item" href="ads.html"><span class="t-n"><i class="bi bi-badge-ad-fill"></i></span><span class="t-l">Ads<small>Advertisements shown to tenants in the app</small></span><i class="bi bi-chevron-right"></i></a>
+              <a class="todo-item" href="pgs.html"><span class="t-n"><i class="bi bi-building"></i></span><span class="t-l">PG listings<small>Set a PG inactive to hide it from the public site</small></span><i class="bi bi-chevron-right"></i></a>
+              <a class="todo-item" href="feedbacks.html"><span class="t-n"><i class="bi bi-chat-dots"></i></span><span class="t-l">Reviews<small>Moderate what appears on PG pages</small></span><i class="bi bi-chevron-right"></i></a>
+            </div>
+
+            <div class="savebar" id="saveBar">
+              <div><span class="dirty"><i class="bi bi-dot fs-4"></i>You have unsaved changes</span><span class="clean" id="savedInfo">No changes yet</span></div>
+              <div class="d-flex gap-2"><button class="btn btn-outline-brand" type="button" id="discardBtn">Discard</button><button class="btn btn-brand" type="submit" id="saveBtn">Save changes</button></div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/layout.js"></script>
+<script src="assets/js/pages/website.js"></script>
+</body>
+</html>

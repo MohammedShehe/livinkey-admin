@@ -40,7 +40,7 @@ function initLoginPage() {
     if (Auth.isAuthenticated()) {
         Auth.verifySession().then(isValid => {
             if (isValid) {
-                window.location.href = "tenants.html";
+                window.location.href = "dashboard.html";
             } else {
                 // Token was invalid or expired - already cleared by verifySession
                 // Stay on login page
@@ -236,7 +236,7 @@ function initOtpPage() {
     if (Auth.isAuthenticated()) {
         Auth.verifySession().then(isValid => {
             if (isValid) {
-                window.location.href = "tenants.html";
+                window.location.href = "dashboard.html";
             } else {
                 // Token invalid - stay on OTP page
                 Auth.clear();
@@ -316,7 +316,7 @@ function initOtpPage() {
                         Auth.clearPending("lk_login_pending");
                         showToast("✅ Login successful! Redirecting...", "success");
                         setTimeout(() => {
-                            window.location.href = "tenants.html";
+                            window.location.href = "dashboard.html";
                         }, 500);
                     } else {
                         showToast("Login successful but no token received.", "warning");
@@ -326,7 +326,7 @@ function initOtpPage() {
                                 permissions: res.user?.permissions || {}
                             });
                             setTimeout(() => {
-                                window.location.href = "tenants.html";
+                                window.location.href = "dashboard.html";
                             }, 500);
                         }
                     }

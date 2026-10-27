@@ -635,6 +635,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // INIT
     // ============================================
+    LKUI.onRefresh(() => loadDocuments());
     loadPGs();
     loadDocuments();
 });

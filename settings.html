@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings · Livinkey Admin</title>
+<link rel="icon" href="assets/img/black_logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="assets/css/style.css?v=2" rel="stylesheet">
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebarMount"></div>
+  <div class="main-area">
+    <div id="topbarMount"></div>
+    <main class="content-area" id="mainContent">
+      <div class="settings-layout">
+        <nav class="settings-nav" id="stNav" aria-label="Settings sections">
+          <button class="active" data-pane="profile"><i class="bi bi-person-circle"></i>Profile &amp; security</button>
+          <button data-pane="access"><i class="bi bi-key"></i>My access</button>
+          <button data-pane="preferences"><i class="bi bi-sliders"></i>Preferences</button>
+          <button data-pane="system" id="navSystem" hidden><i class="bi bi-heart-pulse"></i>System health</button>
+          <button data-pane="shortcuts"><i class="bi bi-command"></i>Shortcuts</button>
+        </nav>
+        <div>
+          <div class="settings-pane active section-card" id="pane-profile">
+            <div class="card-head"><div><h5>Profile</h5><p>Your account in this console.</p></div></div>
+            <div class="d-flex align-items-center gap-3 mb-3">
+              <div class="avatar-circle" style="width:56px;height:56px;font-size:1.1rem" id="pfAvatar">A</div>
+              <div><div class="fw-bold fs-5" id="pfName"></div><div class="text-muted-soft" id="pfEmail"></div></div>
+            </div>
+            <dl class="kv mb-0" id="pfKv"></dl>
+            <hr class="my-4">
+            <div class="card-head"><div><h5>Change password</h5><p>Use at least 8 characters with a mix of letters and numbers.</p></div></div>
+            <form id="pwdForm" class="row g-3" style="max-width:560px" novalidate autocomplete="off">
+              <div class="col-12"><label class="form-label">Current password</label><input type="password" class="form-control" id="pwdCur" autocomplete="current-password"><div class="invalid-feedback"></div></div>
+              <div class="col-md-6"><label class="form-label">New password</label><input type="password" class="form-control" id="pwdNew" autocomplete="new-password"><div class="pwd-meter"><span id="pwdBar"></span></div><div class="invalid-feedback"></div></div>
+              <div class="col-md-6"><label class="form-label">Confirm new password</label><input type="password" class="form-control" id="pwdConf" autocomplete="new-password"><div class="invalid-feedback"></div></div>
+              <div class="col-12"><button class="btn btn-brand" type="submit" id="pwdBtn">Update password</button></div>
+            </form>
+          </div>
+
+          <div class="settings-pane section-card" id="pane-access">
+            <div class="card-head"><div><h5>My access</h5><p>What your role allows. Ask a Super Admin if you need more.</p></div></div>
+            <div id="accessBody"></div>
+          </div>
+
+          <div class="settings-pane section-card" id="pane-preferences">
+            <div class="card-head"><div><h5>Preferences</h5><p>Saved on this browser only.</p></div></div>
+            <div class="set-row"><div><div class="s-title">Auto-refresh data</div><div class="s-desc">Reload the current page's data in the background while the tab is visible.</div></div>
+              <div class="s-ctl"><select class="form-select" id="prefAuto"><option value="0">Off</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select></div></div>
+            <div class="set-row"><div><div class="s-title">Rows per page</div><div class="s-desc">Default size for tables.</div></div>
+              <div class="s-ctl"><select class="form-select" id="prefRows"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="0">All</option></select></div></div>
+            <div class="set-row"><div><div class="s-title">Compact sidebar</div><div class="s-desc">Show icons only to give pages more room.</div></div>
+              <div class="s-ctl set-switch"><span></span><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="prefCollapse"></div></div></div>
+            <div class="set-row"><div><div class="s-title">Reset table layouts</div><div class="s-desc">Show every hidden column again on all tables.</div></div>
+              <div class="s-ctl"><button class="btn btn-outline-brand btn-sm" id="prefResetCols" type="button">Reset columns</button></div></div>
+          </div>
+
+          <div class="settings-pane section-card" id="pane-system">
+            <div class="card-head"><div><h5>System health</h5><p id="sysChecked">Status of the server, database and connected services.</p></div><button class="btn btn-outline-brand btn-sm" id="sysReload" type="button"><i class="bi bi-arrow-clockwise"></i> Check again</button></div>
+            <div id="sysBody"><div class="sk sk-block"></div></div>
+          </div>
+
+          <div class="settings-pane section-card" id="pane-shortcuts">
+            <div class="card-head"><div><h5>Keyboard shortcuts</h5><p>Move faster without the mouse.</p></div></div>
+            <dl class="kv">
+              <dt>Ctrl / ⌘ + K</dt><dd>Quick search: jump to any page or run an action</dd>
+              <dt>/</dt><dd>Focus the search box on the current page</dd>
+              <dt>Shift + click</dt><dd>Select a range of rows in a table</dd>
+              <dt>Esc</dt><dd>Close dialogs, menus and quick search</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/layout.js"></script>
+<script src="assets/js/pages/settings.js"></script>
+</body>
+</html>

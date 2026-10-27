@@ -333,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ids.length) confirmPermDelete(ids);
     });
 
+    LKUI.onRefresh(() => Promise.all([loadStats(), loadList()]));
     loadStats();
     loadList();
 });

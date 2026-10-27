@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audit & sign-ins · Livinkey Admin</title>
+<link rel="icon" href="assets/img/black_logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="assets/css/style.css?v=2" rel="stylesheet">
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebarMount"></div>
+  <div class="main-area">
+    <div id="topbarMount"></div>
+    <main class="content-area" id="mainContent">
+      <div class="row g-3 mb-3" id="auditStats"></div>
+      <div class="section-card">
+        <ul class="nav nav-pills gap-2 mb-3" id="auditTabs">
+          <li class="nav-item"><button class="filter-pill active" data-tab="actions" type="button">Admin actions</button></li>
+          <li class="nav-item" id="tabLoginsLi"><button class="filter-pill" data-tab="logins" type="button">Sign-in history</button></li>
+        </ul>
+
+        <div id="paneActions">
+          <div class="row g-2 mb-3 align-items-end">
+            <div class="col-lg-3 col-md-6"><label class="filter-label">Search</label><div class="table-search"><i class="bi bi-search"></i><input id="aSearch" class="form-control" placeholder="Admin, action or module"></div></div>
+            <div class="col-lg-2 col-6"><label class="filter-label">Module</label><select id="aModule" class="form-select"><option value="">All modules</option></select></div>
+            <div class="col-lg-2 col-6"><label class="filter-label">Action</label><select id="aAction" class="form-select"><option value="">All actions</option><option value="created">Created</option><option value="updated">Updated</option><option value="deleted">Deleted</option><option value="message_sent">Message sent</option><option value="permissions_updated">Permissions changed</option><option value="exported">Exported</option></select></div>
+            <div class="col-lg-2 col-6"><label class="filter-label">From</label><input type="date" id="aFrom" class="form-control"></div>
+            <div class="col-lg-2 col-6"><label class="filter-label">To</label><input type="date" id="aTo" class="form-control"></div>
+            <div class="col-lg-1 col-12"><button class="btn btn-outline-brand w-100" id="aReset" type="button">Reset</button></div>
+          </div>
+          <div class="table-responsive"><table class="data-table" id="actionsTable">
+            <thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Module</th><th>Record</th><th>IP address</th></tr></thead>
+            <tbody id="actionsBody"></tbody></table></div>
+          <div class="text-center mt-3"><button class="btn btn-outline-brand btn-sm" id="loadMore" hidden>Load older entries</button></div>
+        </div>
+
+        <div id="paneLogins" hidden>
+          <div class="table-responsive"><table class="data-table" id="loginsTable">
+            <thead><tr><th>When</th><th>Admin</th><th>Role</th><th>Device</th><th>IP address</th></tr></thead>
+            <tbody id="loginsBody"></tbody></table></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/layout.js"></script>
+<script src="assets/js/pages/audit.js"></script>
+</body>
+</html>
