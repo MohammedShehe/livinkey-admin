@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>(function(){try{var t=localStorage.getItem('lk_theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.setAttribute('data-theme',d?'dark':'light');r.setAttribute('data-bs-theme',d?'dark':'light');}catch(e){}})();</script>
+<meta name="color-scheme" content="light dark">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tenants Management · Livinkey Admin</title>
 <link rel="icon" href="assets/img/black_logo.png">
@@ -200,7 +203,7 @@
   .pending-docs-filter-btn.active {
     background: var(--lk-green);
     border-color: var(--lk-green);
-    color: var(--lk-black);
+    color: var(--heading);
   }
   .pending-docs-filter-btn .pending-docs-badge {
     position: absolute;
@@ -471,6 +474,7 @@
 <script src="assets/js/api.js"></script>
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/layout.js"></script>
+<script src="assets/js/doc-extract.js"></script>
 <script src="assets/js/pages/tenants.js"></script>
 </body>
 </html>

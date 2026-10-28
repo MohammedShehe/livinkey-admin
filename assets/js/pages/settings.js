@@ -59,6 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ---- preferences
+    $('prefTheme').value = LKUI.theme.pref();
+    $('prefTheme').addEventListener('change', () => LKUI.theme.set($('prefTheme').value));
     $('prefAuto').value = LKUI.ls.get('lk_pref_autorefresh', '0');
     $('prefRows').value = LKUI.ls.get('lk_pref_pagesize', '25');
     $('prefCollapse').checked = LKUI.ls.get('lk_sidebar_collapsed') === '1';

@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>(function(){try{var t=localStorage.getItem('lk_theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.setAttribute('data-theme',d?'dark':'light');r.setAttribute('data-bs-theme',d?'dark':'light');}catch(e){}})();</script>
+<meta name="color-scheme" content="light dark">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Payments · Livinkey Admin</title>
 <link rel="icon" href="assets/img/black_logo.png">
@@ -49,7 +52,7 @@
     font-weight: 700;
     font-size: 1.5rem;
     line-height: 1;
-    color: var(--lk-black);
+    color: var(--heading);
   }
   .payment-stat-card .stat-value-sm {
     font-size: 1.15rem;
@@ -148,7 +151,7 @@
     color: #856404;
   }
   .chip-gray {
-    background: #e9ecef;
+    background: var(--chip-gray);
     color: #495057;
   }
 

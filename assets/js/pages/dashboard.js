@@ -10,12 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
     const compact = (n) => { n = Number(n || 0); if (n >= 1e7) return '₹' + (n / 1e7).toFixed(1) + 'Cr'; if (n >= 1e5) return '₹' + (n / 1e5).toFixed(1) + 'L'; if (n >= 1e3) return '₹' + (n / 1e3).toFixed(1) + 'k'; return '₹' + n; };
-    const hour = new Date().getHours();
-    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    // 05:00-11:59 morning · 12:00-16:59 afternoon · 17:00-20:59 evening · 21:00-04:59 night
+    const greetingFor = (h) => h >= 5 && h < 12 ? 'Good morning' : h >= 12 && h < 17 ? 'Good afternoon' : h >= 17 && h < 21 ? 'Good evening' : 'Good night';
     const first = (session.name || 'there').split(' ')[0];
+    const paintGreeting = () => { document.getElementById('heroTitle').textContent = `${greetingFor(new Date().getHours())}, ${first}`; };
 
     // static hero parts (render instantly)
-    document.getElementById('heroTitle').textContent = `${greeting}, ${first}`;
+    paintGreeting(); setInterval(paintGreeting, 60000);
     const prev = session.previous_login;
     const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     document.getElementById('heroMeta').innerHTML =

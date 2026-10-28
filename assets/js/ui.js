@@ -505,7 +505,23 @@
         }
     });
 
+    // ------------------------------------------------------------ theme (light / dark / system)
+    const Theme = {
+        pref() { return LS.get('lk_theme', 'system'); },
+        effective() { const p = this.pref(); return p === 'system' ? (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : p; },
+        apply() {
+            const t = this.effective(), r = document.documentElement;
+            r.setAttribute('data-theme', t); r.setAttribute('data-bs-theme', t);
+            document.querySelectorAll('.theme-toggle').forEach(b => { b.title = t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'; b.setAttribute('aria-label', b.title); });
+            document.dispatchEvent(new CustomEvent('lk:theme', { detail: t }));
+        },
+        set(p) { LS.set('lk_theme', p); this.apply(); },
+        toggle() { this.set(this.effective() === 'dark' ? 'light' : 'dark'); }
+    };
+    if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (Theme.pref() === 'system') Theme.apply(); });
+
     window.LKUI = {
+        theme: Theme,
         esc, debounce, parseDate, timeAgo, fmtDateTime, seen,
         toast, confirm: confirmDialog, prompt: promptDialog, runBatch,
         table: enhanceTable, downloadCSV, ls: LS,

@@ -502,94 +502,98 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================================
     // DOCUMENT HANDLING
     // ============================================
-    function handleDocumentUpload(file, entry) {
-        if (!file) return;
+    // Reads the document in the browser (OCR) and fills the tenant fields. See assets/js/doc-extract.js
+    const AUTOFILL_FIELDS = {
+        full_name: ['Full name', '.tenant-name'], gender: ['Gender', '.tenant-gender'], residency: ['Residency', '.tenant-residency'],
+        nationality: ['Nationality', '.tenant-nationality-search'], phone_code: ['Country code', '.tenant-code-search'],
+        phone: ['Phone', '.tenant-phone'], international_phone: ['International phone', '.tenant-international-phone'],
+        cform: ['C-Form number', '.tenant-cform'], arrival_date: ['Arrival date', '.tenant-arrival-date'],
+        period_of_stay: ['Period of stay', '.tenant-period-of-stay'], aadhaar: ['Aadhaar ID', '.tenant-aadhaar']
+    };
+    const AUTOFILL_ORDER = ['residency', 'full_name', 'gender', 'nationality', 'phone_code', 'phone', 'international_phone', 'cform', 'arrival_date', 'period_of_stay', 'aadhaar'];
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const fileType = file.type;
-                if (fileType.startsWith('image/')) {
-                    const previewDiv = document.createElement('div');
-                    previewDiv.className = 'doc-preview mt-2';
-                    previewDiv.innerHTML = `
-                        <img src="${e.target.result}" alt="Document preview" style="max-width:100%;max-height:150px;border-radius:8px;border:1px solid var(--border);">
-                        <div class="text-muted-soft small mt-1">Document attached for reference only. Fields auto-filled below.</div>
-                    `;
-
-                    const container = entry.querySelector('.doc-upload-container');
-                    if (container) {
-                        const oldPreview = container.querySelector('.doc-preview');
-                        if (oldPreview) oldPreview.remove();
-                        container.appendChild(previewDiv);
-                    }
-
-                    autoFillFromDocument(file.name, entry);
-                    return;
-                }
-
-                autoFillFromDocument(file.name, entry);
-                showToast(`Document "${file.name}" attached. Fields auto-filled.`, "info");
-
-            } catch (error) {
-                console.error("Document processing error:", error);
-                showToast("Could not auto-fill from document. Please fill manually.", "warning");
-            }
-        };
-
-        if (file.type.startsWith('image/')) {
-            reader.readAsDataURL(file);
-        } else {
-            const container = entry.querySelector('.doc-upload-container');
-            if (container) {
-                const previewDiv = document.createElement('div');
-                previewDiv.className = 'doc-preview mt-2';
-                previewDiv.innerHTML = `
-                    <div style="background:var(--bg);padding:0.5rem 1rem;border-radius:8px;border:1px solid var(--border);">
-                        <i class="bi bi-file-earmark-text me-2"></i>
-                        <span>${file.name}</span>
-                        <span class="text-muted-soft small ms-2">(${(file.size / 1024).toFixed(1)} KB)</span>
-                    </div>
-                    <div class="text-muted-soft small mt-1">Document attached for reference only. Fields auto-filled below.</div>
-                `;
-
-                const oldPreview = container.querySelector('.doc-preview');
-                if (oldPreview) oldPreview.remove();
-                container.appendChild(previewDiv);
-            }
-
-            autoFillFromDocument(file.name, entry);
-            showToast(`Document "${file.name}" attached. Fields auto-filled.`, "info");
+    function setFieldValue(entry, key, value) {
+        const [label, sel] = AUTOFILL_FIELDS[key];
+        const el = entry.querySelector(sel);
+        if (!el) return { ok: false };
+        const current = (el.value || '').trim();
+        if (key === 'residency') {
+            if (current) return { ok: current === value, kept: current !== value };
+            el.value = value; el.dispatchEvent(new Event('change', { bubbles: true })); mark(el); return { ok: true };
         }
+        if (key === 'nationality' || key === 'phone_code') {
+            const hidden = entry.querySelector(key === 'nationality' ? '.tenant-nationality' : '.tenant-code');
+            const existing = key === 'phone_code' ? (hidden?.value === '+91' && !el.dataset.touched ? '' : current) : current;
+            if (existing && existing !== value) return { ok: false, kept: true };
+            el.value = value; if (hidden) hidden.value = value; mark(el); return { ok: true };
+        }
+        if (current && current !== value) return { ok: false, kept: true };
+        if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === value)) return { ok: false };
+        el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); mark(el);
+        return { ok: true };
+    }
+    function mark(el) {
+        el.classList.add('lk-autofilled');
+        el.addEventListener('input', () => el.classList.remove('lk-autofilled'), { once: true });
+        el.addEventListener('change', () => el.classList.remove('lk-autofilled'), { once: true });
+    }
+    function displayValue(key, v) {
+        if (key === 'arrival_date') { const d = new Date(v + 'T00:00:00'); return isNaN(d) ? v : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); }
+        if (key === 'period_of_stay') return v + (v === '1' ? ' month' : ' months');
+        if (key === 'gender') return v.charAt(0).toUpperCase() + v.slice(1);
+        if (key === 'residency') return v === 'international' ? 'International' : 'National';
+        if (key === 'aadhaar') return v.replace(/(\d{4})(\d{4})(\d{4})/, '$1 $2 $3');
+        return v;
     }
 
-    function autoFillFromDocument(fileName, entry) {
-        const nameMatch = fileName.match(/^([a-zA-Z\s]+)(?=[_.-]|$)/);
-        if (nameMatch && nameMatch[1]) {
-            const extractedName = nameMatch[1].trim();
-            const nameInput = entry.querySelector('.tenant-name');
-            if (nameInput && !nameInput.value) {
-                nameInput.value = extractedName;
-            }
+    async function handleDocumentUpload(file, entry) {
+        if (!file) return;
+        const X = LKUI.esc;
+        const box = entry.querySelector('.doc-upload-container');
+        let panel = box.querySelector('.autofill-result');
+        if (!panel) { panel = document.createElement('div'); panel.className = 'autofill-result mt-3'; box.appendChild(panel); }
+        const btn = entry.querySelector('.btn-attach-doc');
+        const fileChip = `<div class="ar-file"><i class="bi bi-file-earmark-text"></i><span>${X(file.name)}</span><span class="text-muted-soft">${(file.size / 1024).toFixed(0)} KB</span></div>`;
+        if (file.size > 25 * 1024 * 1024) { panel.innerHTML = `${fileChip}<div class="alert alert-warning mb-0 mt-2">That file is larger than 25 MB. Please upload a smaller scan.</div>`; return; }
+        btn.disabled = true;
+        panel.innerHTML = `${fileChip}<div class="ar-progress mt-2"><div class="d-flex align-items-center gap-2"><span class="spinner-border spinner-border-sm"></span><span class="ar-status">Preparing…</span></div><div class="pwd-meter mt-2"><span class="ar-bar" style="width:4%;background:var(--lk-green-dark)"></span></div><div class="form-text">Reading on your device. The first scan downloads the reader (about 10 MB) and can take up to a minute.</div></div>`;
+        const statusEl = panel.querySelector('.ar-status'), bar = panel.querySelector('.ar-bar');
+        try {
+            const res = await LKDocExtract.run(file, {
+                nationalities: NATIONALITIES,
+                countryCodes: COUNTRY_CODES.map(c => c.code),
+                countryNames: COUNTRY_CODES.map(c => c.name),
+                onStatus: (msg, pi, total) => { statusEl.textContent = msg; const m = /pass (\d) of (\d)/.exec(msg); if (m) bar.style.width = Math.min(95, 8 + (((pi || 0) + (+m[1] - 1) / +m[2]) / (total || 1)) * 85) + '%'; }
+            });
+            const filled = [], kept = [];
+            AUTOFILL_ORDER.forEach(k => {
+                if (res.fields[k] === undefined) return;
+                const r = setFieldValue(entry, k, res.fields[k]);
+                if (r.ok) filled.push(k); else if (r.kept) kept.push(k);
+            });
+            const rows = filled.map(k => `<li><span class="ar-l">${X(AUTOFILL_FIELDS[k][0])}</span><b>${X(displayValue(k, res.fields[k]))}</b>${res.confidence[k] === 'check' ? '<span class="chip chip-amber ms-auto">Check</span>' : '<span class="chip chip-green ms-auto"><i class="bi bi-check2"></i></span>'}</li>`).join('');
+            const notes = [...res.notes];
+            if (kept.length) notes.push(`${kept.length} field${kept.length === 1 ? ' was' : 's were'} left as you typed (${kept.map(k => AUTOFILL_FIELDS[k][0]).join(', ')}).`);
+            const extra = [];
+            if (res.extra.passport_no) extra.push(`Passport ${res.extra.passport_no}`);
+            if (res.extra.visa_valid_till) extra.push(`Visa valid till ${displayValue('arrival_date', res.extra.visa_valid_till)}`);
+            if (res.extra.dob) extra.push(`Date of birth ${displayValue('arrival_date', res.extra.dob)}`);
+            panel.innerHTML = `${fileChip}
+                ${filled.length ? `<div class="ar-ok"><i class="bi bi-magic"></i> Filled ${filled.length} field${filled.length === 1 ? '' : 's'} from ${X(res.kinds.join(' + ') || 'the document')}</div><ul class="ar-list">${rows}</ul>
+                    <div class="form-text"><i class="bi bi-eye me-1"></i>Filled fields are highlighted. Please check them against the document before saving.</div>`
+                    : `<div class="ar-warn"><i class="bi bi-exclamation-triangle"></i> Nothing could be filled automatically.</div>`}
+                ${extra.length ? `<div class="form-text mt-1">Also found: ${X(extra.join(' · '))}</div>` : ''}
+                ${notes.map(n => `<div class="form-text text-warning-emphasis mt-1"><i class="bi bi-info-circle me-1"></i>${X(n)}</div>`).join('')}`;
+            if (filled.length) showToast(`Auto-filled ${filled.length} field${filled.length === 1 ? '' : 's'}. Please verify them.`, 'success');
+            else showToast('Could not read details from that file.', 'warning');
+        } catch (err) {
+            console.error('Auto-fill failed:', err);
+            panel.innerHTML = `${fileChip}<div class="ar-warn mt-2"><i class="bi bi-exclamation-triangle"></i> ${X(err && err.message ? err.message : 'Could not read this document.')} You can fill the form manually.</div>`;
+            showToast((err && err.message) || 'Could not read this document.', 'danger');
+        } finally {
+            btn.disabled = false;
+            entry.querySelector('.doc-file-input').value = '';
         }
-
-        const emailMatch = fileName.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-        if (emailMatch && emailMatch[0]) {
-            const emailInput = entry.querySelector('.tenant-email');
-            if (emailInput && !emailInput.value) {
-                emailInput.value = emailMatch[0];
-            }
-        }
-
-        const phoneMatch = fileName.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
-        if (phoneMatch && phoneMatch[0]) {
-            const phoneInput = entry.querySelector('.tenant-phone');
-            if (phoneInput && !phoneInput.value) {
-                phoneInput.value = phoneMatch[0].replace(/[-.\s()]/g, '');
-            }
-        }
-
-        showToast("📄 Document processed. Name and email auto-filled where possible.", "info");
     }
 
     function toDateInputValue(dateStr) {
@@ -728,7 +732,7 @@ document.addEventListener("DOMContentLoaded", () => {
             { label: "Total Tenants", value: tenants.length, icon: "bi-people-fill", color: "var(--lk-green)", filter: "all" },
             { label: "National", value: national, icon: "bi-flag-fill", color: "var(--info)", filter: "residency:national" },
             { label: "International", value: international, icon: "bi-globe2", color: "var(--warning)", filter: "residency:international" },
-            { label: "Male", value: male, icon: "bi-gender-male", color: "var(--lk-black)", filter: "gender:male" },
+            { label: "Male", value: male, icon: "bi-gender-male", color: "var(--heading)", filter: "gender:male" },
             { label: "Female", value: female, icon: "bi-gender-female", color: "var(--danger)", filter: "gender:female" },
             { label: "Paid", value: paid, icon: "bi-check-circle", color: "var(--success)", filter: "paid" },
             { label: "Partially Paid", value: partiallyPaid, icon: "bi-hourglass-split", color: "var(--warning)", filter: "partially_paid" },
@@ -1467,9 +1471,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="doc-upload-container autofill-box">
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 <button type="button" class="btn btn-outline-brand btn-sm btn-attach-doc"><i class="bi bi-magic me-1"></i>Auto-fill from a document</button>
-                                <span class="text-muted-soft small">Upload an ID, passport or Aadhaar to fill the fields above. The file is not stored.</span>
+                                <span class="text-muted-soft small">Upload a Form C, passport page or Aadhaar (PDF or photo). It is read on your device and is not stored.</span>
                             </div>
-                            <input type="file" class="d-none doc-file-input" accept="image/*,.pdf,.doc,.docx">
+                            <input type="file" class="d-none doc-file-input" accept="image/*,.pdf">
                         </div>
                     </div>
                 </div>

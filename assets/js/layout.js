@@ -206,7 +206,7 @@ function doRender(activeKey, pageTitle, pageSub) {
     sidebarMount.innerHTML = `
         <aside class="sidebar" id="sidebarEl" aria-label="Main navigation">
             <div class="side-brand">
-                <a href="dashboard.html" aria-label="Livinkey dashboard"><img src="assets/img/black_logo.png" alt="Livinkey"><span class="brand-key"><i class="bi bi-key-fill"></i></span></a>
+                <a href="dashboard.html" aria-label="Livinkey dashboard"><img class="logo-light" src="assets/img/black_logo.png" alt="Livinkey"><img class="logo-dark" src="assets/img/white_logo.png" alt="Livinkey"><span class="brand-key"><i class="bi bi-key-fill"></i></span></a>
                 <button class="side-collapse" id="sideCollapseBtn" type="button" aria-label="Collapse sidebar" title="Collapse sidebar"><i class="bi bi-chevron-left"></i></button>
             </div>
             <button class="side-search" id="cmdOpenBtn" type="button" aria-label="Search pages and actions"><i class="bi bi-search"></i><span>Quick search</span><kbd>Ctrl K</kbd></button>
@@ -236,6 +236,7 @@ function doRender(activeKey, pageTitle, pageSub) {
             <div class="topbar-right">
                 <span class="updated-at" id="updatedAt" aria-live="polite"></span>
                 <button class="btn-icon" id="refreshBtn" type="button" title="Refresh data" aria-label="Refresh data"><i class="bi bi-arrow-clockwise"></i></button>
+                <button class="btn-icon theme-toggle" id="themeBtn" type="button" title="Switch theme" aria-label="Switch theme"><i class="bi bi-moon-stars-fill"></i><i class="bi bi-sun-fill"></i></button>
                 <div class="dropdown">
                     <button class="btn-icon notif-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" id="notifBell" type="button" aria-label="Notifications"><i class="bi bi-bell"></i><span class="notif-dot" id="notifCount">0</span></button>
                     <div class="dropdown-menu dropdown-menu-end notif-dropdown-panel">
@@ -257,6 +258,7 @@ function doRender(activeKey, pageTitle, pageSub) {
                         </div>
                         <a class="dropdown-item" href="settings.html#profile"><i class="bi bi-person-circle me-2"></i>My profile & security</a>
                         <a class="dropdown-item" href="settings.html#preferences"><i class="bi bi-sliders me-2"></i>Preferences</a>
+                        <button class="dropdown-item" type="button" id="themeItem"><i class="bi bi-circle-half me-2"></i>Switch light / dark</button>
                         <button class="dropdown-item" type="button" id="cmdOpenBtn2"><i class="bi bi-command me-2"></i>Quick search <span class="ms-auto small text-muted-soft">Ctrl K</span></button>
                         <div class="dropdown-divider"></div>
                         <button class="dropdown-item text-danger fw-semibold" id="logoutBtn" type="button"><i class="bi bi-box-arrow-right me-2"></i>Log out</button>
@@ -375,6 +377,11 @@ function doRender(activeKey, pageTitle, pageSub) {
     document.addEventListener('lk:refresh-start', () => refreshBtn?.classList.add('spinning'));
     document.addEventListener('lk:refresh-end', () => { refreshBtn?.classList.remove('spinning'); paintUpdated(); });
     if (!window.__lkRefreshAuto) { window.__lkRefreshAuto = true; window.addEventListener('load', () => setTimeout(() => LKUI.refreshState.setAuto(Number(LKUI.ls.get('lk_pref_autorefresh', 0))), 500)); }
+
+    // ---------- theme ----------
+    document.getElementById('themeBtn')?.addEventListener('click', () => LKUI.theme.toggle());
+    document.getElementById('themeItem')?.addEventListener('click', () => LKUI.theme.toggle());
+    LKUI.theme.apply();
 
     // ---------- logout / drawer / collapse ----------
     document.getElementById('logoutBtn')?.addEventListener('click', async (e) => {

@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>(function(){try{var t=localStorage.getItem('lk_theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.setAttribute('data-theme',d?'dark':'light');r.setAttribute('data-bs-theme',d?'dark':'light');}catch(e){}})();</script>
+<meta name="color-scheme" content="light dark">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Settings · Livinkey Admin</title>
 <link rel="icon" href="assets/img/black_logo.png">
@@ -52,6 +55,8 @@
 
           <div class="settings-pane section-card" id="pane-preferences">
             <div class="card-head"><div><h5>Preferences</h5><p>Saved on this browser only.</p></div></div>
+            <div class="set-row"><div><div class="s-title">Appearance</div><div class="s-desc">Light, dark, or follow your device setting.</div></div>
+              <div class="s-ctl"><select class="form-select" id="prefTheme"><option value="system">Match my device</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div>
             <div class="set-row"><div><div class="s-title">Auto-refresh data</div><div class="s-desc">Reload the current page's data in the background while the tab is visible.</div></div>
               <div class="s-ctl"><select class="form-select" id="prefAuto"><option value="0">Off</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option></select></div></div>
             <div class="set-row"><div><div class="s-title">Rows per page</div><div class="s-desc">Default size for tables.</div></div>

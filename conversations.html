@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>(function(){try{var t=localStorage.getItem('lk_theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.setAttribute('data-theme',d?'dark':'light');r.setAttribute('data-bs-theme',d?'dark':'light');}catch(e){}})();</script>
+<meta name="color-scheme" content="light dark">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Conversations · Livinkey Admin</title>
 <link rel="icon" href="assets/img/black_logo.png">
@@ -86,7 +89,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    background: #f7f9f4;
+    background: var(--surface-2);
   }
   .msg-bubble {
     max-width: 70%;
@@ -103,7 +106,7 @@
   }
   .msg-bubble.inbound {
     align-self: flex-start;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-bottom-left-radius: 4px;
   }

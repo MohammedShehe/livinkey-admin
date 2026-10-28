@@ -255,9 +255,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="doc-thumb">
                     ${thumbHtml}
                     <div class="doc-actions">
-                        <button class="btn-icon" style="background:#fff;" title="Preview" onclick="event.stopPropagation(); previewDocument('${d.id}')"><i class="bi bi-eye"></i></button>
-                        <button class="btn-icon" style="background:#fff;" title="Download" onclick="event.stopPropagation(); downloadDocument('${d.id}')"><i class="bi bi-download"></i></button>
-                        ${canDeleteDocs ? `<button class="btn-icon" style="background:#fff;color:var(--danger);" title="Delete" onclick="event.stopPropagation(); deleteDocument('${d.id}')"><i class="bi bi-trash3"></i></button>` : ''}
+                        <button class="btn-icon" style="background:var(--surface);" title="Preview" onclick="event.stopPropagation(); previewDocument('${d.id}')"><i class="bi bi-eye"></i></button>
+                        <button class="btn-icon" style="background:var(--surface);" title="Download" onclick="event.stopPropagation(); downloadDocument('${d.id}')"><i class="bi bi-download"></i></button>
+                        ${canDeleteDocs ? `<button class="btn-icon" style="background:var(--surface);color:var(--danger);" title="Delete" onclick="event.stopPropagation(); deleteDocument('${d.id}')"><i class="bi bi-trash3"></i></button>` : ''}
                     </div>
                     <div class="doc-label">
                         <div class="fw-bold">${docLabel}${VEHICLE_DOC_KEYS.includes(d.document_type) ? ' <span class="badge bg-teal-subtle text-teal" style="font-size:.65rem;background:#0d948833;color:#5eead4;">Vehicle</span>' : ''}</div>
