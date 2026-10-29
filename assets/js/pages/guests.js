@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="col-6 col-md-3">
                 <div class="stat-card hover-lift">
                     <div class="stat-icon" style="background:${s.color}22;color:${s.color};"><i class="bi ${s.icon}"></i></div>
-                    <div><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div>
+                    <div><div class="stat-value">${s.value}</div><div class="stat-label">${lkEsc(s.label)}</div></div>
                 </div>
             </div>
         `).join("");
@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     ${getInitials(g.full_name || 'Guest')}
                 </div>
                 <div>
-                    <div class="fw-semibold small">${g.full_name || '—'}</div>
+                    <div class="fw-semibold small">${lkEsc(g.full_name || '—')}</div>
                     <div class="small text-muted-soft">${daysAgo(g.created_at)} day(s) ago</div>
                 </div>
             </div>
@@ -122,8 +122,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="d-flex align-items-center gap-2">
                             <div class="avatar-circle">${getInitials(g.full_name || 'Guest')}</div>
                             <div>
-                                <div class="fw-bold">${g.full_name || '—'}</div>
-                                <div class="small text-muted-soft">${g.nationality || '—'}</div>
+                                <div class="fw-bold">${lkEsc(g.full_name || '—')}</div>
+                                <div class="small text-muted-soft">${lkEsc(g.nationality || '—')}</div>
                             </div>
                         </div>
                         <div class="dropdown">
@@ -134,8 +134,8 @@ document.addEventListener("DOMContentLoaded", () => {
                             </ul>
                         </div>
                     </div>
-                    <div class="small mb-1"><i class="bi bi-envelope me-2 text-muted-soft"></i>${g.email || '—'}</div>
-                    <div class="small mb-3"><i class="bi bi-telephone me-2 text-muted-soft"></i>${g.country_code || ''} ${g.phone || ''}</div>
+                    <div class="small mb-1"><i class="bi bi-envelope me-2 text-muted-soft"></i>${lkEsc(g.email || '—')}</div>
+                    <div class="small mb-3"><i class="bi bi-telephone me-2 text-muted-soft"></i>${g.country_code || ''} ${lkEsc(g.phone || '')}</div>
                     ${canEditGuests ? `<button class="btn btn-outline-brand btn-sm w-100" onclick="openMsg('${g.id}')"><i class="bi bi-chat-dots me-1"></i>Send Message</button>` : ''}
                 </div>
             </div>
@@ -376,7 +376,7 @@ Enjoy your stay!
         try {
             const res = await API.guests.admin.notificationHistory({ limit: 30 });
             if (!res.success) {
-                el.innerHTML = `<div class="text-danger small">${res.message || 'Failed to load history'}</div>`;
+                el.innerHTML = `<div class="text-danger small">${lkEsc(res.message || 'Failed to load history')}</div>`;
                 return;
             }
             const logs = res.data || [];

@@ -1,3 +1,10 @@
+// Global HTML escaper – use for every piece of user-provided text placed in innerHTML.
+window.lkEsc = window.lkEsc || function (v) {
+    return String(v ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+};
+
 // Livinkey Admin - API Service Layer
 // Complete backend integration for all admin modules
 
@@ -174,12 +181,16 @@ async function _apiRequest(endpoint, method, data = null, isFormData = false) {
     }
 
     if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-            // FIX: Clear sessionStorage on auth failure.
-            // localStorage is also cleared for cleanup of legacy tokens.
+        // Only end the session when the server says the session itself is over.
+        // A wrong "current password" (401) or a missing permission (403) must NOT log the admin out.
+        const SESSION_END_CODES = ['TOKEN_EXPIRED', 'TOKEN_INVALID', 'ACCOUNT_DISABLED', 'NO_TOKEN'];
+        if (response.status === 401 && SESSION_END_CODES.includes(result.code)) {
             Auth.clear();
             Auth.clearLocalStorage();
             if (!isOnAuthPage()) {
+                if (typeof window.showToast === 'function') {
+                    window.showToast(result.message || 'Your session has ended. Please sign in again.', 'warning');
+                }
                 setTimeout(() => {
                     window.location.href = 'index.html';
                 }, 1200);
@@ -205,6 +216,41 @@ async function _apiRequest(endpoint, method, data = null, isFormData = false) {
 
     return result;
 }
+
+
+// ============ SHORT-LIVED DOWNLOAD LINKS ============
+// Exchanges the session token for a 5-minute, GET-only token so the real
+// session token is never placed in a URL (history, logs, Referer headers).
+async function getDownloadToken() {
+    const session = sessionStorage.getItem('lk_token');
+    if (!session) throw { status: 401, message: 'Please sign in again to continue.' };
+    let res;
+    try {
+        res = await fetch(`${API_CONFIG.baseURL}/download-token/admin`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session}` }
+        });
+    } catch (_) {
+        throw { status: 0, message: 'Cannot reach the server. Check your internet connection and try again.' };
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.token) throw { status: res.status, message: data.message || 'Could not prepare the download. Please try again.' };
+    return data.token;
+}
+
+window.openAuthorizedUrl = async function (path) {
+    // Open the tab immediately (inside the click) so pop-up blockers allow it.
+    const win = window.open('', '_blank');
+    try {
+        const t = await getDownloadToken();
+        const url = `${API_CONFIG.baseURL}${path}${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(t)}`;
+        if (win) { win.opener = null; win.location.href = url; }
+        else { window.location.href = url; }
+    } catch (err) {
+        if (win) win.close();
+        if (typeof window.showToast === 'function') window.showToast(err.message || 'Download failed. Please try again.', 'danger');
+    }
+};
 
 // ============ PERMISSION UTILITIES ============
 function getAdminPermissions() {
@@ -468,8 +514,7 @@ const API = {
         export: (params = {}) => {
             const qs = new URLSearchParams();
             Object.keys(params).forEach(k => { if (params[k] !== undefined && params[k] !== null && params[k] !== '') qs.append(k, params[k]); });
-            const token = sessionStorage.getItem('lk_token') || '';
-            window.open(`${API_CONFIG.baseURL}/activity-logs/export?${qs.toString()}${qs.toString() ? '&' : ''}token=${encodeURIComponent(token)}`, '_blank');
+            return window.openAuthorizedUrl(`/activity-logs/export${qs.toString() ? '?' + qs.toString() : ''}`);
         }
     },
 
@@ -874,14 +919,9 @@ const API = {
             apiRequest(`/payments/history/${tenantId}`, 'GET'),
         webhook: (gateway, data) => 
             apiRequest(`/payments/webhook/${gateway}`, 'POST', data),
-        receiptUrl: (type, paymentId) => {
-            const token = Auth.getToken();
-            return `${API_CONFIG.baseURL}/payments/receipt/${type}/${paymentId}?token=${encodeURIComponent(token || '')}`;
-        },
-        downloadUrl: (type, paymentId) => {
-            const token = Auth.getToken();
-            return `${API_CONFIG.baseURL}/payments/receipt/${type}/${paymentId}/download?token=${encodeURIComponent(token || '')}`;
-        },
+        // Opens the receipt using a short-lived download token (never the session token).
+        openReceipt: (type, paymentId) => window.openAuthorizedUrl(`/payments/receipt/${type}/${paymentId}`),
+        openReceiptDownload: (type, paymentId) => window.openAuthorizedUrl(`/payments/receipt/${type}/${paymentId}/download`),
         tenant: {
             bill: () => 
                 apiRequest('/tenant-payments/bill', 'GET'),

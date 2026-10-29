@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function showAlert(msg, type = "success") {
     if (!alertEl) return;
-    alertEl.innerHTML = `<div class="alert alert-${type} border-0 shadow-sm rounded-3">${msg}</div>`;
+    alertEl.innerHTML = `<div class="alert alert-${type} border-0 shadow-sm rounded-3">${lkEsc(msg)}</div>`;
     setTimeout(() => { alertEl.innerHTML = ""; }, 4000);
   }
 

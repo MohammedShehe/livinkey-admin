@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const select = document.getElementById("paymentPgFilter");
         if (!select) return;
         select.innerHTML = `<option value="all">All PGs</option>` +
-            allPgs.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+            allPgs.map(p => `<option value="${p.id}">${lkEsc(p.name)}</option>`).join("");
     }
 
     // ============================================
@@ -62,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const select = document.getElementById("paymentTenantFilter");
         if (!select) return;
         select.innerHTML = `<option value="">All Tenants</option>` +
-            tenants.map(t => `<option value="${t.id}">${t.full_name} — ${t.pg_name || 'N/A'} Room ${t.room_number || 'N/A'}</option>`).join("");
+            tenants.map(t => `<option value="${t.id}">${lkEsc(t.full_name)} — ${lkEsc(t.pg_name || 'N/A')} Room ${lkEsc(t.room_number || 'N/A')}</option>`).join("");
     }
 
     function populatePaymentRoomFilter() {
@@ -376,8 +376,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <tbody>
                 ${transactions.map(t => `
                 <tr>
-                    ${showPgColumn ? `<td><strong>${t.pg_name || 'N/A'}</strong></td>` : ''}
-                    ${showTenantColumn ? `<td><strong>${t.tenant_name || 'N/A'}</strong><div class="small text-muted-soft">ID: ${t.tenant_id || 'N/A'}</div></td>` : ''}
+                    ${showPgColumn ? `<td><strong>${lkEsc(t.pg_name || 'N/A')}</strong></td>` : ''}
+                    ${showTenantColumn ? `<td><strong>${lkEsc(t.tenant_name || 'N/A')}</strong><div class="small text-muted-soft">ID: ${t.tenant_id || 'N/A'}</div></td>` : ''}
                     <td>${t.room_number ? `Room ${t.room_number}` : 'N/A'}</td>
                     <td>#${t.bill_id || 'N/A'}</td>
                     <td><span class="chip ${t._type === 'online' ? 'chip-blue' : t._type === 'cash' ? 'chip-amber' : 'chip-gray'}">${t._display_type || 'N/A'}</span></td>
@@ -487,11 +487,7 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Please login to view receipts.", "warning");
             return;
         }
-        const url = `${API_CONFIG.baseURL}/payments/receipt/${type}/${id}?token=${encodeURIComponent(token)}`;
-        const receiptWindow = window.open(url, '_blank');
-        if (!receiptWindow) {
-            showToast("Please allow popups to view receipt.", "warning");
-        }
+        window.openAuthorizedUrl(`/payments/receipt/${type}/${id}`);
     };
 
     // ============================================

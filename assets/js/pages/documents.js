@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
         el.innerHTML = opts.map(o => `
             <button type="button" class="btn btn-sm ${currentStatusFilter === o.key ? 'btn-brand' : 'btn-outline-brand'} me-1 mb-1"
                     data-status="${o.key}">
-              ${o.label} <span class="badge bg-light text-dark ms-1">${o.count}</span>
+              ${lkEsc(o.label)} <span class="badge bg-light text-dark ms-1">${o.count}</span>
             </button>
         `).join('');
         el.querySelectorAll('button[data-status]').forEach(btn => {
@@ -152,7 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
         let options = '<option value="all">All PGs</option>';
         pgList.forEach(pg => {
             const selected = currentPgFilter === String(pg.id) ? "selected" : "";
-            options += `<option value="${pg.id}" ${selected}>${pg.name}</option>`;
+            options += `<option value="${pg.id}" ${selected}>${lkEsc(pg.name)}</option>`;
         });
         select.innerHTML = options;
     }
@@ -192,7 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     </div>
                     <div>
                         <div class="doc-stat-value">${s.count}</div>
-                        <div class="doc-stat-label">${s.label}</div>
+                        <div class="doc-stat-label">${lkEsc(s.label)}</div>
                     </div>
                 </div>
             </div>
@@ -261,8 +261,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     </div>
                     <div class="doc-label">
                         <div class="fw-bold">${docLabel}${VEHICLE_DOC_KEYS.includes(d.document_type) ? ' <span class="badge bg-teal-subtle text-teal" style="font-size:.65rem;background:#0d948833;color:#5eead4;">Vehicle</span>' : ''}</div>
-                        <div class="small text-muted-soft">${d.tenant_name || '—'} · Room ${d.room_number || '—'}${d.vehicle_number ? ' · <i class="bi bi-car-front"></i> ' + d.vehicle_number : ''}</div>
-                        <div class="small text-muted-soft"><i class="bi bi-building me-1"></i>${d.pg_name || '—'}</div>
+                        <div class="small text-muted-soft">${lkEsc(d.tenant_name || '—')} · Room ${lkEsc(d.room_number || '—')}${d.vehicle_number ? ' · <i class="bi bi-car-front"></i> ' + d.vehicle_number : ''}</div>
+                        <div class="small text-muted-soft"><i class="bi bi-building me-1"></i>${lkEsc(d.pg_name || '—')}</div>
                     </div>
                 </div>
             </div>`;
@@ -514,7 +514,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body.innerHTML = `<iframe src="${url}" style="width:100%;height:70vh;border:none;border-radius:8px;background:#fff;" title="Preview"></iframe>
                     <p class="text-muted-soft small mt-2 mb-0">If the preview does not load, use Download.</p>`;
             } else {
-                body.innerHTML = `<img id="docPreviewImg" src="${url}" alt="${label}" class="img-fluid" style="max-height:70vh;object-fit:contain;border-radius:8px;" onerror="this.src='https://placehold.co/600x400/E1E8D8/7C8A76?text=No+Image'">`;
+                body.innerHTML = `<img id="docPreviewImg" src="${url}" alt="${lkEsc(label)}" class="img-fluid" style="max-height:70vh;object-fit:contain;border-radius:8px;" onerror="this.src='https://placehold.co/600x400/E1E8D8/7C8A76?text=No+Image'">`;
             }
         } else if (img) {
             img.src = url;
@@ -533,7 +533,7 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Please login to download documents.", "warning");
             return;
         }
-        window.open(`${API_CONFIG.baseURL}/documents/admin/${id}/download?token=${encodeURIComponent(token)}`, '_blank');
+        window.openAuthorizedUrl(`/documents/admin/${encodeURIComponent(id)}/download`);
         showToast("Document download started.", "info");
     };
 

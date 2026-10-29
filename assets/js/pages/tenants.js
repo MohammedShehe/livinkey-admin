@@ -744,7 +744,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="col-6 col-md-4 col-lg">
                 <div class="stat-card hover-lift" onclick="filterByStat('${s.filter}')">
                     <div class="stat-icon" style="background:${s.color}22;color:${s.color};"><i class="bi ${s.icon}"></i></div>
-                    <div><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div>
+                    <div><div class="stat-value">${s.value}</div><div class="stat-label">${lkEsc(s.label)}</div></div>
                 </div>
             </div>
         `).join("");
@@ -763,7 +763,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 extra.forEach(item => {
                     const col = document.createElement("div");
                     col.className = "col-6 col-md-4 col-lg tenant-extra-stat";
-                    col.innerHTML = `<div class="stat-card"><div class="stat-icon" style="background:${item.color}22;color:${item.color};"><i class="bi ${item.icon}"></i></div><div><div class="stat-value">${item.value}</div><div class="stat-label">${item.label}</div></div></div>`;
+                    col.innerHTML = `<div class="stat-card"><div class="stat-icon" style="background:${item.color}22;color:${item.color};"><i class="bi ${item.icon}"></i></div><div><div class="stat-value">${item.value}</div><div class="stat-label">${lkEsc(item.label)}</div></div></div>`;
                     container.appendChild(col);
                 });
             }).catch(() => {});
@@ -1074,7 +1074,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     let options = `<option value="all">All PGs</option>`;
                     res.data.forEach(pg => {
                         const selected = currentPgFilter === String(pg.id) ? "selected" : "";
-                        options += `<option value="${pg.id}" ${selected}>${pg.name}</option>`;
+                        options += `<option value="${pg.id}" ${selected}>${lkEsc(pg.name)}</option>`;
                     });
                     select.innerHTML = options;
                 }
@@ -1163,7 +1163,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const res = await API.pgs.getAll();
             if (res.success) {
                 select.innerHTML = `<option value="">Choose PG...</option>` +
-                    res.data.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+                    res.data.map(p => `<option value="${p.id}">${lkEsc(p.name)}</option>`).join("");
             }
         } catch (error) {
             select.innerHTML = `<option value="">Error loading PGs</option>`;
@@ -1186,7 +1186,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     ) || []
                 ) || [];
                 select.innerHTML = `<option value="">Select room...</option>` +
-                    available.map(r => `<option value="${r.room_number}" ${r.room_number === excludeRoom ? 'selected' : ''}>${r.room_number} (${r.occupied_count || 0}/${r.capacity})</option>`).join("");
+                    available.map(r => `<option value="${lkEsc(r.room_number)}" ${r.room_number === excludeRoom ? 'selected' : ''}>${lkEsc(r.room_number)} (${r.occupied_count || 0}/${r.capacity})</option>`).join("");
             }
         } catch (error) {
             select.innerHTML = `<option value="">Error loading rooms</option>`;
@@ -1802,7 +1802,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const token = Auth.getToken() || Auth.getTokenFromStorage();
             if (!token) { showToast("Please login again to download the agreement.", "warning"); return; }
-            const url = `${API_CONFIG.baseURL}/tenants/${encodeURIComponent(id)}/agreement.pdf?token=${encodeURIComponent(token)}`;
+            const url = `${API_CONFIG.baseURL}/tenants/${encodeURIComponent(id)}/agreement.pdf`;
             const response = await fetch(url, {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/pdf' }
@@ -2278,7 +2278,7 @@ document.addEventListener("DOMContentLoaded", () => {
             body.innerHTML = `<iframe src="${url}" style="width:100%;height:70vh;border:none;border-radius:8px;background:#fff;" title="Preview"></iframe>
                 <p class="text-muted-soft small mt-2 mb-0">If the preview does not load, use Download.</p>`;
         } else {
-            body.innerHTML = `<img src="${url}" alt="${title || 'Document'}" style="max-width:100%;max-height:70vh;object-fit:contain;border-radius:8px;">`;
+            body.innerHTML = `<img src="${lkEsc(url)}" alt="${lkEsc(title || 'Document')}" style="max-width:100%;max-height:70vh;object-fit:contain;border-radius:8px;">`;
         }
         if (docPreviewModalInstance) docPreviewModalInstance.show();
         else {
@@ -2305,7 +2305,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
             showToast("Preparing ZIP download...", "info");
-            const response = await fetch(`${API_CONFIG.baseURL}/documents/admin/download?token=${encodeURIComponent(token)}`, {
+            const response = await fetch(`${API_CONFIG.baseURL}/documents/admin/download`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2341,7 +2341,7 @@ document.addEventListener("DOMContentLoaded", () => {
             showToast("Please login to download documents.", "warning");
             return;
         }
-        window.open(`${API_CONFIG.baseURL}/documents/admin/${docId}/download?token=${encodeURIComponent(token)}`, '_blank');
+        window.openAuthorizedUrl(`/documents/admin/${encodeURIComponent(docId)}/download`);
     };
 
     window.deleteDoc = async function(docId) {

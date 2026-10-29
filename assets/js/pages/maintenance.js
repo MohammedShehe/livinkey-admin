@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
             'completed': { cls: 'status-completed', label: 'Completed' }
         };
         const s = map[status] || map['pending'];
-        return `<span class="status-badge ${s.cls}">${s.label}</span>`;
+        return `<span class="status-badge ${s.cls}">${lkEsc(s.label)}</span>`;
     }
 
     function getStatusActionButton(m) {

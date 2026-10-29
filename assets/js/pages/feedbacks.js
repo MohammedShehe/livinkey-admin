@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
         let options = '<option value="all">All PGs</option>';
         pgList.forEach(pg => {
             const selected = currentPgFilter === String(pg.id) ? "selected" : "";
-            options += `<option value="${pg.id}" ${selected}>${pg.name}</option>`;
+            options += `<option value="${pg.id}" ${selected}>${lkEsc(pg.name)}</option>`;
         });
         select.innerHTML = options;
     }
@@ -134,7 +134,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="col-6 col-md-3 col-lg">
                 <div class="stat-card stat-card-feedback" onclick="filterByStat('${s.filter}')">
                     <div class="stat-icon" style="background:${s.color}22;color:${s.color};"><i class="bi ${s.icon}"></i></div>
-                    <div><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div>
+                    <div><div class="stat-value">${s.value}</div><div class="stat-label">${lkEsc(s.label)}</div></div>
                 </div>
             </div>
         `).join("");
@@ -198,14 +198,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="feedback-header">
                     <div>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="fw-semibold">${f.tenant_name || '—'}</span>
+                            <span class="fw-semibold">${lkEsc(f.tenant_name || '—')}</span>
                             <span class="text-muted-soft small">•</span>
-                            <span class="text-muted-soft small">${f.pg_name || '—'}</span>
+                            <span class="text-muted-soft small">${lkEsc(f.pg_name || '—')}</span>
                             <span class="text-muted-soft small">•</span>
-                            <span class="text-muted-soft small">Room ${f.room_number || '—'}</span>
+                            <span class="text-muted-soft small">Room ${lkEsc(f.room_number || '—')}</span>
                         </div>
                         <div class="feedback-meta">
-                            <span><i class="bi bi-envelope"></i> ${f.tenant_email || '—'}</span>
+                            <span><i class="bi bi-envelope"></i> ${lkEsc(f.tenant_email || '—')}</span>
                             ${f.nationality ? `<span><i class="bi bi-flag"></i> ${f.nationality}</span>` : ''}
                             ${f.gender ? `<span><i class="bi bi-gender-${(f.gender || 'male') === 'Male' ? 'male' : 'female'}"></i> ${f.gender}</span>` : ''}
                             <span><i class="bi bi-calendar3"></i> ${date}</span>
@@ -277,7 +277,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("detailMeta").innerHTML = `
             ${f.pg_name || '—'} • Room ${f.room_number || '—'} • 
             ${f.nationality ? `${f.nationality} • ` : ''}${f.gender || '—'} • 
-            <i class="bi bi-envelope"></i> ${f.tenant_email || '—'} • 
+            <i class="bi bi-envelope"></i> ${lkEsc(f.tenant_email || '—')} • 
             <i class="bi bi-calendar3"></i> ${f.created_at ? formatDate(f.created_at) : '—'} •
             <span class="badge" style="background:${userTypeLabel === 'Tenant' ? '#3498db' : userTypeLabel === 'Guest' ? '#9b59b6' : '#e67e22'};color:white;">${userTypeLabel}</span>
         `;
@@ -298,7 +298,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         document.getElementById("detailRatings").innerHTML = ratings.map(item => `
             <div class="breakdown-item">
-                <span class="label">${item.label}</span>
+                <span class="label">${lkEsc(item.label)}</span>
                 <span class="value" style="color:${item.value >= 7 ? 'var(--lk-green)' : item.value <= 5 ? 'var(--danger)' : 'var(--warning)'}">${item.value}/10</span>
             </div>
         `).join('');

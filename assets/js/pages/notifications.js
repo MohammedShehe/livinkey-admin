@@ -138,7 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
         select.innerHTML = '<option value="">Select PG...</option>' +
             allPGs.map(p => {
                 const count = pgTenantCounts[p.id] || 0;
-                return `<option value="${p.id}">${p.name} (${count} tenants)</option>`;
+                return `<option value="${p.id}">${lkEsc(p.name)} (${count} tenants)</option>`;
             }).join('');
     }
 
@@ -242,8 +242,8 @@ document.addEventListener("DOMContentLoaded", () => {
                      style="border-bottom:1px solid var(--border);cursor:pointer;" 
                      onclick="toggleTenant(${t.id})">
                     <div>
-                        <span class="fw-semibold">${t.full_name || '—'}</span>
-                        <span class="text-muted-soft small ms-2">${t.room_number || '—'} · ${t.pg_name || '—'}</span>
+                        <span class="fw-semibold">${lkEsc(t.full_name || '—')}</span>
+                        <span class="text-muted-soft small ms-2">${lkEsc(t.room_number || '—')} · ${lkEsc(t.pg_name || '—')}</span>
                     </div>
                     <div>
                         ${isSelected ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-circle text-muted"></i>'}
@@ -313,11 +313,11 @@ document.addEventListener("DOMContentLoaded", () => {
         
         container.innerHTML = items.map(item => {
             if (item.type === 'empty') {
-                return `<span class="text-muted-soft small">${item.label}</span>`;
+                return `<span class="text-muted-soft small">${lkEsc(item.label)}</span>`;
             }
             return `
                 <span class="tenant-tag">
-                    ${item.label}
+                    ${lkEsc(item.label)}
                     ${item.id ? `<span class="remove-tag" onclick="event.stopPropagation(); toggleTenant(${item.id})">&times;</span>` : ''}
                     ${item.type === 'pg' ? `<span class="remove-tag" onclick="event.stopPropagation(); removePG('${item.label}')">&times;</span>` : ''}
                 </span>
@@ -480,7 +480,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="history-item" data-id="${h.id}" style="cursor:pointer;" title="Click to view recipients">
                     <div class="d-flex justify-content-between align-items-start">
                         <div style="flex:1;min-width:0;">
-                            <div class="h-title">${h.title || 'Untitled'}</div>
+                            <div class="h-title">${lkEsc(h.title || 'Untitled')}</div>
                             <div class="h-meta">
                                 <span class="h-badge ${badgeClass}">${badgeLabel}</span>
                                 ${pushIcon} ${emailIcon}
@@ -489,7 +489,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         </div>
                         <div class="text-end" style="flex-shrink:0;">
                             <div class="h-meta">${formatDateTime(h.sent_at)}</div>
-                            <div class="h-meta">by ${h.admin_name || 'Admin'}</div>
+                            <div class="h-meta">by ${lkEsc(h.admin_name || 'Admin')}</div>
                             ${canDelete ? `
                                 <button class="btn btn-sm btn-icon history-delete-btn" 
                                         data-id="${h.id}" 
@@ -500,7 +500,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             ` : ''}
                         </div>
                     </div>
-                    <div class="h-meta mt-1 text-truncate" style="max-width:300px;">${h.message || ''}</div>
+                    <div class="h-meta mt-1 text-truncate" style="max-width:300px;">${lkEsc(h.message || '')}</div>
                 </div>
             `;
         }).join('');
@@ -550,7 +550,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const res = await API.adminNotifications.recipients(id);
             if (!res.success) {
-                body.innerHTML = `<div class="text-danger">${res.message || 'Failed to load'}</div>`;
+                body.innerHTML = `<div class="text-danger">${lkEsc(res.message || 'Failed to load')}</div>`;
                 return;
             }
             const { log, recipients, note } = res.data;

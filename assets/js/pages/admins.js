@@ -500,7 +500,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const actions = ["view", "add", "edit", "delete", "message", "export"];
                 return `
                 <tr>
-                    <td class="fw-semibold">${m.label}</td>
+                    <td class="fw-semibold">${lkEsc(m.label)}</td>
                     ${actions.map(p => {
                         const isActivity = m.key === "activity_logs";
                         const isDisabled =

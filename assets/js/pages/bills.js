@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!select) return;
         const current = select.value || "all";
         select.innerHTML = `<option value="all">All PGs</option>` +
-            allPgs.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+            allPgs.map(p => `<option value="${p.id}">${lkEsc(p.name)}</option>`).join("");
         select.value = current;
     }
 
@@ -70,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
             String(b.room_id || b.room_number), b
         ])).values()].sort((a,b) => String(a.room_number).localeCompare(String(b.room_number)));
         select.innerHTML = `<option value="all">All Rooms</option>` +
-            rooms.map(r => `<option value="${String(r.room_id || r.room_number)}">${r.pg_name || 'PG'} — Room ${r.room_number}</option>`).join("");
+            rooms.map(r => `<option value="${String(r.room_id || r.room_number)}">${lkEsc(r.pg_name || 'PG')} — Room ${lkEsc(r.room_number)}</option>`).join("");
         select.value = current;
     }
 
@@ -79,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!select) return;
         const current = select.value || "all";
         select.innerHTML = `<option value="all">All PGs</option>` +
-            allPgs.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+            allPgs.map(p => `<option value="${p.id}">${lkEsc(p.name)}</option>`).join("");
         select.value = current;
     }
 
@@ -226,7 +226,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="col-6 col-md-4 col-lg">
                 <div class="stat-card hover-lift" onclick="switchTab('${s.key}')">
                     <div class="stat-icon" style="background:${s.color}22;color:${s.color};"><i class="bi ${s.icon}"></i></div>
-                    <div><div class="stat-value${s.isMoney ? ' fs-6' : ''}">${s.value}</div><div class="stat-label">${s.label}</div></div>
+                    <div><div class="stat-value${s.isMoney ? ' fs-6' : ''}">${s.value}</div><div class="stat-label">${lkEsc(s.label)}</div></div>
                 </div>
             </div>
         `).join("");
@@ -253,7 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="stat-icon" style="background:${s.color}22;color:${s.color};"><i class="bi ${s.icon}"></i></div>
                     <div>
                         <div class="stat-value">${s.value}</div>
-                        <div class="stat-label">${s.label}</div>
+                        <div class="stat-label">${lkEsc(s.label)}</div>
                         ${s.sub ? `<div class="small text-muted-soft mt-1">${s.sub}</div>` : ''}
                     </div>
                 </div>
@@ -285,7 +285,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ];
         
         document.getElementById("billTabs").innerHTML = tabs.map(t => `
-            <button class="filter-pill ${activeTab === t.key ? "active" : ""}" onclick="switchTab('${t.key}')">${t.label}</button>
+            <button class="filter-pill ${activeTab === t.key ? "active" : ""}" onclick="switchTab('${t.key}')">${lkEsc(t.label)}</button>
         `).join("");
     }
 
@@ -411,11 +411,11 @@ document.addEventListener("DOMContentLoaded", () => {
             return `
                 <tr>
                     <td>
-                        <span class="fw-semibold">${p.tenant_name || '—'}</span>
-                        <div class="small text-muted-soft">${p.tenant_email || '—'}</div>
+                        <span class="fw-semibold">${lkEsc(p.tenant_name || '—')}</span>
+                        <div class="small text-muted-soft">${lkEsc(p.tenant_email || '—')}</div>
                     </td>
-                    <td>${p.pg_name || '—'}</td>
-                    <td>${p.room_number || '—'}</td>
+                    <td>${lkEsc(p.pg_name || '—')}</td>
+                    <td>${lkEsc(p.room_number || '—')}</td>
                     <td>
                         <span class="fw-semibold">₹${(p.amount_paid || 0).toLocaleString('en-IN')}</span>
                         <div class="small ${billTotalClass}">of ${billTotalDisplay}</div>
@@ -480,12 +480,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="row g-3">
                     <div class="col-md-6">
                         <div class="fw-bold small text-muted-soft">Tenant</div>
-                        <div>${p.tenant_name || '—'}</div>
-                        <div class="small text-muted-soft">${p.tenant_email || '—'}</div>
+                        <div>${lkEsc(p.tenant_name || '—')}</div>
+                        <div class="small text-muted-soft">${lkEsc(p.tenant_email || '—')}</div>
                     </div>
                     <div class="col-md-6">
                         <div class="fw-bold small text-muted-soft">PG / Room</div>
-                        <div>${p.pg_name || '—'} / ${p.room_number || '—'}</div>
+                        <div>${lkEsc(p.pg_name || '—')} / ${lkEsc(p.room_number || '—')}</div>
                     </div>
                     <div class="col-md-4">
                         <div class="fw-bold small text-muted-soft">Amount Paid</div>
@@ -661,8 +661,8 @@ document.addEventListener("DOMContentLoaded", () => {
             
             let bodyHtml = `
             <div class="row g-2 small">
-                <div class="col-6"><span class="text-muted-soft">PG:</span> <strong>${b.pg_name || '—'}</strong></div>
-                <div class="col-6"><span class="text-muted-soft">Room:</span> <strong>${b.room_number || '—'}</strong></div>
+                <div class="col-6"><span class="text-muted-soft">PG:</span> <strong>${lkEsc(b.pg_name || '—')}</strong></div>
+                <div class="col-6"><span class="text-muted-soft">Room:</span> <strong>${lkEsc(b.room_number || '—')}</strong></div>
                 ${b.is_group_bill ? `<div class="col-12"><span class="text-muted-soft">Billing Type:</span> <span class="badge bg-info-subtle text-info-emphasis">Group Bill · ${Number(b.group_member_count || b.group_members?.length || 0)} tenants</span></div>` : ''}
                 <div class="col-6"><span class="text-muted-soft">Rent:</span> <strong>${fmtINR(parseFloat(b.rent_amount) || 0)}</strong></div>
                 <div class="col-6"><span class="text-muted-soft">Electricity:</span> <strong>${fmtINR(parseFloat(b.electricity_amount) || 0)}</strong></div>
@@ -693,7 +693,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${b.billing_month ? `<div class="col-6"><span class="text-muted-soft">Billing Month:</span> <strong>${b.billing_month}</strong></div>` : ''}
                 ${(b.electricity_meter_image || b.electricity_meter_image_2) ? `<div class="col-12"><span class="text-muted-soft">Meter Image${(b.electricity_meter_image && b.electricity_meter_image_2) ? 's' : ''}:</span> ${b.electricity_meter_image ? `<a href="${b.electricity_meter_image}" target="_blank" class="text-brand">View 1</a>` : ''}${(b.electricity_meter_image && b.electricity_meter_image_2) ? ' | ' : ''}${b.electricity_meter_image_2 ? `<a href="${b.electricity_meter_image_2}" target="_blank" class="text-brand">View 2</a>` : ''}</div>` : ''}
                 ${(b.payment_bank_name || b.payment_account_holder_name || b.payment_account_number || b.payment_ifsc_code || b.payment_upi_id) ? `<div class="col-12 mt-2 p-2 border rounded-2" style="background:var(--bg);"><div class="fw-semibold mb-1">Payment Details</div><div class="row g-1"><div class="col-md-6">Bank: <strong>${b.payment_bank_name || '—'}</strong></div><div class="col-md-6">Holder: <strong>${b.payment_account_holder_name || '—'}</strong></div><div class="col-md-6">Account: <strong>${b.payment_account_number || '—'}</strong></div><div class="col-md-6">IFSC: <strong>${b.payment_ifsc_code || '—'}</strong></div><div class="col-md-6">UPI: <strong>${b.payment_upi_id || '—'}</strong></div></div>${b.payment_details_qr ? `<div class="mt-2">QR: <img src="${b.payment_details_qr}" style="height:90px;width:90px;object-fit:contain;border:1px solid var(--border);border-radius:4px;background:#fff;"></div>` : ''}</div>` : ''}
-                ${b.is_group_bill && Array.isArray(b.group_members) ? `<div class="col-12 mt-2 p-2 border rounded-2"><div class="fw-semibold mb-1">Shared With</div>${b.group_members.map(m => `<div class="small py-1">${m.full_name || 'Tenant'}${m.email ? ` <span class="text-muted-soft">· ${m.email}</span>` : ''}</div>`).join('')}</div>` : ''}
+                ${b.is_group_bill && Array.isArray(b.group_members) ? `<div class="col-12 mt-2 p-2 border rounded-2"><div class="fw-semibold mb-1">Shared With</div>${b.group_members.map(m => `<div class="small py-1">${lkEsc(m.full_name || 'Tenant')}${m.email ? ` <span class="text-muted-soft">· ${m.email}</span>` : ''}</div>`).join('')}</div>` : ''}
                 ${b.payment_qr ? `<div class="col-12"><span class="text-muted-soft">Generated Payment QR:</span> <img src="${b.payment_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
                 ${b.admin_qr ? `<div class="col-12"><span class="text-muted-soft">Admin QR:</span> <img src="${b.admin_qr}" style="height:60px;width:60px;object-fit:contain;border:1px solid var(--border);border-radius:4px;"></div>` : ''}
             </div>`;
@@ -1045,7 +1045,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("messageAttachInput")?.addEventListener("change", function() {
         if (this.files.length > 0) {
             messageFile = this.files[0];
-            document.getElementById("messageAttachmentStatus").innerHTML = `<i class="bi bi-paperclip me-1"></i> ${messageFile.name}`;
+            document.getElementById("messageAttachmentStatus").innerHTML = `<i class="bi bi-paperclip me-1"></i> ${lkEsc(messageFile.name)}`;
         }
     });
 
@@ -1202,7 +1202,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (this.files.length > 0) {
             editBillAttachment = this.files[0];
             document.getElementById("editBillAttachmentStatus").innerHTML =
-                `<i class="bi bi-paperclip me-1"></i> ${editBillAttachment.name}`;
+                `<i class="bi bi-paperclip me-1"></i> ${lkEsc(editBillAttachment.name)}`;
         }
     });
 
@@ -1283,7 +1283,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const ids = new Set(getBillSelectedTenantIds());
         if (select) {
             select.innerHTML = billEligibleTenants.map(t =>
-                `<option value="${t.id}" ${ids.has(String(t.id)) ? "selected" : ""}>${t.full_name || "Tenant"}</option>`
+                `<option value="${t.id}" ${ids.has(String(t.id)) ? "selected" : ""}>${lkEsc(t.full_name || "Tenant")}</option>`
             ).join("");
         }
         const count = document.getElementById("billTenantCount");
@@ -1325,8 +1325,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 <input class="form-check-input mt-0" type="checkbox" name="billTenantChoice"
                        value="${t.id}" ${selected.has(String(t.id)) ? "checked" : ""}>
                 <span class="flex-grow-1">
-                  <span class="fw-semibold">${t.full_name || "Tenant"}</span>
-                  <span class="text-muted-soft small d-block">${t.pg_name || "PG"} · Room ${t.room_number || "—"} · ${last}</span>
+                  <span class="fw-semibold">${lkEsc(t.full_name || "Tenant")}</span>
+                  <span class="text-muted-soft small d-block">${lkEsc(t.pg_name || "PG")} · Room ${lkEsc(t.room_number || "—")} · ${last}</span>
                 </span>
               </label>`;
         }).join("");
@@ -1349,7 +1349,7 @@ document.addEventListener("DOMContentLoaded", () => {
             .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 
         select.innerHTML = `<option value="">Select PG...</option>` +
-            pgs.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+            pgs.map(p => `<option value="${p.id}">${lkEsc(p.name)}</option>`).join("");
     }
 
     function populateBillCreateRooms() {
@@ -1366,7 +1366,7 @@ document.addEventListener("DOMContentLoaded", () => {
         roomSelect.disabled = !pgId;
         roomSelect.innerHTML = pgId
             ? `<option value="">Select room...</option>` +
-              rooms.map(r => `<option value="${r.room_id}">Room ${r.room_number || "—"}</option>`).join("")
+              rooms.map(r => `<option value="${r.room_id}">Room ${lkEsc(r.room_number || "—")}</option>`).join("")
             : `<option value="">Select a PG first...</option>`;
 
         roomSelect.value = "";
@@ -1577,7 +1577,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("billAttachInput")?.addEventListener("change", function() {
         if (this.files.length > 0) {
             billAttachment = this.files[0];
-            document.getElementById("billAttachmentStatus").innerHTML = `<i class="bi bi-paperclip me-1"></i> ${billAttachment.name}`;
+            document.getElementById("billAttachmentStatus").innerHTML = `<i class="bi bi-paperclip me-1"></i> ${lkEsc(billAttachment.name)}`;
         }
     });
 

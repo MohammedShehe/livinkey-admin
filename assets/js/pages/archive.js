@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const field = (label, val) =>
-                `<div class="col-md-4 mb-2"><div class="small text-muted">${label}</div><div class="fw-semibold">${escapeHtml(val == null || val === '' ? '—' : String(val))}</div></div>`;
+                `<div class="col-md-4 mb-2"><div class="small text-muted">${lkEsc(label)}</div><div class="fw-semibold">${escapeHtml(val == null || val === '' ? '—' : String(val))}</div></div>`;
 
             let html = `
               <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (action === 'dl') {
                         const token = (typeof Auth !== 'undefined' && Auth.getToken) ? Auth.getToken() : localStorage.getItem('token');
                         if (!token) { showToast('Please login to download', 'warning'); return; }
-                        window.open(`${API_CONFIG.baseURL}/documents/admin/${docId}/download?token=${encodeURIComponent(token)}`, '_blank');
+                        window.openAuthorizedUrl(`/documents/admin/${encodeURIComponent(docId)}/download`);
                     } else if (action === 'del') {
                         if (!confirm('Delete this document permanently?')) return;
                         try {

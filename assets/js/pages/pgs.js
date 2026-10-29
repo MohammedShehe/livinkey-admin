@@ -111,7 +111,7 @@ TERMS & CONDITIONS
             <div class="col-6 col-md-4 col-lg">
                 <div class="stat-card hover-lift">
                     <div class="stat-icon" style="background:${s.color}22;color:${s.color};"><i class="bi ${s.icon}"></i></div>
-                    <div><div class="stat-value">${s.value}</div><div class="stat-label">${s.label}</div></div>
+                    <div><div class="stat-value">${s.value}</div><div class="stat-label">${lkEsc(s.label)}</div></div>
                 </div>
             </div>
         `).join("");
@@ -151,8 +151,8 @@ TERMS & CONDITIONS
                 <div class="border rounded-4 p-3 h-100 hover-lift pg-card" onclick="viewPgDetail('${p.id}')">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
-                            <div class="fw-bold h6 mb-0">${p.name || '—'}</div>
-                            <div class="small text-muted-soft">${p.location || '—'}</div>
+                            <div class="fw-bold h6 mb-0">${lkEsc(p.name || '—')}</div>
+                            <div class="small text-muted-soft">${lkEsc(p.location || '—')}</div>
                         </div>
                         <span class="chip ${chipClass}">${status}</span>
                     </div>
@@ -211,7 +211,7 @@ TERMS & CONDITIONS
             const p = res.data;
             document.getElementById("pgDetailName").textContent = p.name || 'PG Detail';
             
-            let html = `<p class="text-muted-soft small mb-3">${p.location || '—'}</p>`;
+            let html = `<p class="text-muted-soft small mb-3">${lkEsc(p.location || '—')}</p>`;
             html += `<div class="row g-2 small mb-3">`;
             html += `<div class="col-6"><span class="text-muted-soft">Rent:</span> <strong>${fmtINR(p.rent || 0)}/month</strong></div>`;
             html += `<div class="col-6"><span class="text-muted-soft">Security Fee:</span> <strong>${fmtINR(p.security_fee || 0)}</strong></div>`;
@@ -250,9 +250,9 @@ TERMS & CONDITIONS
             html += `<div class="mb-3 p-3 border rounded-3" style="background:var(--bg);">
                 <div class="fw-semibold mb-2">Payment Details</div>
                 <div class="row g-2 small">
-                  <div class="col-md-6"><span class="text-muted-soft">Bank:</span> <strong>${p.payment_bank_name || '—'}</strong></div>
-                  <div class="col-md-6"><span class="text-muted-soft">Holder:</span> <strong>${p.payment_account_holder_name || '—'}</strong></div>
-                  <div class="col-md-6"><span class="text-muted-soft">Account:</span> <strong>${p.payment_account_number || '—'}</strong></div>
+                  <div class="col-md-6"><span class="text-muted-soft">Bank:</span> <strong>${lkEsc(p.payment_bank_name || '—')}</strong></div>
+                  <div class="col-md-6"><span class="text-muted-soft">Holder:</span> <strong>${lkEsc(p.payment_account_holder_name || '—')}</strong></div>
+                  <div class="col-md-6"><span class="text-muted-soft">Account:</span> <strong>${lkEsc(p.payment_account_number || '—')}</strong></div>
                   <div class="col-md-6"><span class="text-muted-soft">IFSC:</span> <strong>${p.payment_ifsc_code || '—'}</strong></div>
                   <div class="col-md-6"><span class="text-muted-soft">UPI ID:</span> <strong>${p.payment_upi_id || '—'}</strong></div>
                 </div>
@@ -261,7 +261,7 @@ TERMS & CONDITIONS
             
             if (p.floors && p.floors.length > 0) {
                 p.floors.forEach(floor => {
-                    html += `<h6 class="mt-3">Floor ${floor.floor_number}</h6><div class="row g-2">`;
+                    html += `<h6 class="mt-3">Floor ${lkEsc(floor.floor_number)}</h6><div class="row g-2">`;
                     if (floor.rooms && floor.rooms.length > 0) {
                         floor.rooms.forEach(r => {
                             const status = r.is_full ? 'Full' : r.occupied_count > 0 ? 'Partial' : 'Vacant';
@@ -270,7 +270,7 @@ TERMS & CONDITIONS
                             <div class="col-md-6 col-lg-4">
                                 <div class="border rounded-3 p-2 small">
                                     <div class="d-flex justify-content-between">
-                                        <span class="fw-bold">Room ${r.room_number}</span>
+                                        <span class="fw-bold">Room ${lkEsc(r.room_number)}</span>
                                         <span class="chip ${chipClass}">${status}</span>
                                     </div>
                                     <div><i class="bi bi-people me-1 text-muted-soft"></i>${r.occupied_count || 0}/${r.capacity || 0}</div>

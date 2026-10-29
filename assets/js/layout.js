@@ -502,7 +502,7 @@ function getStatusBadge(status) {
     };
     const cls = map[status] || 'status-pending';
     const label = labels[status] || status;
-    return `<span class="status-badge ${cls}">${label}</span>`;
+    return `<span class="status-badge ${cls}">${lkEsc(label)}</span>`;
 }
 // ============ PAGE DATA LOADING STATES ============
 // Shared loading UI for tables, grids, and content panels across all admin pages.
@@ -511,7 +511,7 @@ if (typeof window.PAGE_LOADER === 'undefined') {
         spinnerHtml(message = 'Loading...') {
             return `<div class="page-loading-state" role="status" aria-live="polite">
                 <div class="spinner-border text-brand spinner-border-sm" role="status" aria-hidden="true"></div>
-                <span>${message}</span>
+                <span>${lkEsc(message)}</span>
             </div>`;
         },
         table(tbody, colspan = 6, message = 'Loading...') {

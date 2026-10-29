@@ -1,3 +1,10 @@
+
+// Same rules as the server: 8+ characters with at least one letter and one number.
+function lkPasswordError(p) {
+    if (!p || p.length < 8) return "Password must be at least 8 characters long.";
+    if (!/[A-Za-z]/.test(p) || !/\d/.test(p)) return "Password must include at least one letter and one number.";
+    return null;
+}
 // Livinkey Admin - Authentication Flow
 // Full backend integration
 
@@ -7,7 +14,7 @@ if (typeof LOADER === 'undefined') {
             if (!button) return;
             button.disabled = true;
             button._originalText = button.innerHTML;
-            button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${text || 'Loading...'}`;
+            button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${lkEsc(text || 'Loading...')}`;
         },
         hide(button) {
             if (!button) return;
@@ -148,7 +155,7 @@ function showChangePasswordUI(data) {
             </div>
             <div class="mb-3">
                 <label class="form-label">New Password</label>
-                <input type="password" class="form-control" id="changeNewPwd" placeholder="At least 6 characters" required>
+                <input type="password" class="form-control" id="changeNewPwd" placeholder="8+ characters, letters and numbers" required>
             </div>
             <div class="mb-4">
                 <label class="form-label">Confirm New Password</label>
@@ -174,8 +181,9 @@ function showChangePasswordUI(data) {
         const newPassword = document.getElementById("changeNewPwd").value;
         const confirmPassword = document.getElementById("changeConfirmPwd").value;
 
-        if (newPassword.length < 6) {
-            errorBox.textContent = "Password must be at least 6 characters long.";
+        const pwErr = lkPasswordError(newPassword);
+        if (pwErr) {
+            errorBox.textContent = pwErr;
             errorBox.classList.remove("d-none");
             return;
         }
@@ -457,8 +465,9 @@ function initForgotPasswordPage() {
         const p2 = document.getElementById("confirmPwd").value;
         const errorBox = document.getElementById("fpResetError");
 
-        if (p1.length < 6) {
-            errorBox.textContent = "Password must be at least 6 characters.";
+        const pwErr2 = lkPasswordError(p1);
+        if (pwErr2) {
+            errorBox.textContent = pwErr2;
             errorBox.classList.remove("d-none");
             LOADER.hide(btn);
             return;

@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const canDelete = Permissions.canDelete('about_livinkey');
 
   const showAlert=(message,type='success')=>{
-    alertBox.innerHTML=`<div class="alert alert-${type} py-2">${message}</div>`;
+    alertBox.innerHTML=`<div class="alert alert-${type} py-2">${lkEsc(message)}</div>`;
     setTimeout(()=>alertBox.innerHTML='',3500);
   };
 
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
       notices=res.data||[];
       document.getElementById('noticeCount').textContent=`${notices.length} / 5`;
       renderNotices();
-    }catch(e){grid.innerHTML=`<div class="col-12"><div class="alert alert-danger">${e.message||'Unable to load notices.'}</div></div>`;}
+    }catch(e){grid.innerHTML=`<div class="col-12"><div class="alert alert-danger">${lkEsc(e.message||'Unable to load notices.')}</div></div>`;}
   }
 
   function renderNotices(){
