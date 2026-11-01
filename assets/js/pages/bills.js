@@ -665,7 +665,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="col-6"><span class="text-muted-soft">Room:</span> <strong>${lkEsc(b.room_number || '—')}</strong></div>
                 ${b.is_group_bill ? `<div class="col-12"><span class="text-muted-soft">Billing Type:</span> <span class="badge bg-info-subtle text-info-emphasis">Group Bill · ${Number(b.group_member_count || b.group_members?.length || 0)} tenants</span></div>` : ''}
                 <div class="col-6"><span class="text-muted-soft">Rent:</span> <strong>${fmtINR(parseFloat(b.rent_amount) || 0)}</strong></div>
-                <div class="col-6"><span class="text-muted-soft">Electricity:</span> <strong>${fmtINR(parseFloat(b.electricity_amount) || 0)}</strong></div>
+                <div class="col-6"><span class="text-muted-soft">Electricity:</span> <strong>${fmtINR(parseFloat(b.electricity_amount) || 0)}</strong></div>${b.current_reading !== null && b.current_reading !== undefined ? `<div class="col-6"><span class="text-muted-soft">Meter:</span> <strong>${Number(b.previous_reading || 0)} → ${Number(b.current_reading)}</strong> <span class="text-muted-soft">(${Number(b.units_consumed || 0)} units)</span></div>` : ""}
                 <div class="col-6"><span class="text-muted-soft">Maintenance:</span> <strong>${fmtINR(parseFloat(b.maintenance_amount) || 0)}</strong></div>
                 <div class="col-6"><span class="text-muted-soft">Other Charges:</span> <strong>${fmtINR(parseFloat(b.other_charges) || 0)}</strong></div>
                 ${b.other_charges_note ? `<div class="col-12"><span class="text-muted-soft">Other charges note:</span> <span>${b.other_charges_note}</span></div>` : ""}
@@ -1711,7 +1711,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 payment_account_number: paymentAccountNumber,
                 payment_ifsc_code: paymentIfsc,
                 payment_upi_id: paymentUpi,
-                bill_mode: billMode === "full" ? "group" : "split"
+                bill_mode: billMode === "full" ? "group" : "split",
+                ...(window.LKElec ? window.LKElec.payload() : {})
             };
             
             const files = {};

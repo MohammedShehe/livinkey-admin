@@ -578,7 +578,26 @@
             </div>
             <div class="col-6"><label class="form-label">Rent (INR)</label><input type="number" class="form-control" id="billRent" required min="1" step="0.01" readonly>
                 <small class="text-muted-soft">Automatically calculated from the selected room's recorded rent.</small></div>
-            <div class="col-6"><label class="form-label" id="billElectricityLabel">Electricity bill (INR)</label><input type="number" class="form-control" id="billElectricity" value="0" min="0" step="1"></div>
+            <div class="col-12" id="elecBox">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+                <label class="form-label mb-0" id="billElectricityLabel">Electricity bill (INR)</label>
+                <div class="btn-group btn-group-sm" role="group" id="elecModeGroup">
+                  <input type="radio" class="btn-check" name="elecMode" id="elecModeAuto" value="auto" autocomplete="off">
+                  <label class="btn btn-outline-brand" for="elecModeAuto"><i class="bi bi-speedometer2"></i> From meter readings</label>
+                  <input type="radio" class="btn-check" name="elecMode" id="elecModeManual" value="manual" autocomplete="off" checked>
+                  <label class="btn btn-outline-brand" for="elecModeManual"><i class="bi bi-pencil"></i> Enter amount</label>
+                </div>
+              </div>
+              <div id="elecAutoPanel" class="d-none rounded-3 p-3 mb-2" style="background:var(--lk-green-50);border:1px solid var(--border)">
+                <div class="row g-2">
+                  <div class="col-6"><label class="form-label small mb-1">Previous reading</label><input type="number" class="form-control" id="elecPrev" min="0" step="0.01" inputmode="decimal"><small class="text-muted-soft" id="elecPrevHint"></small></div>
+                  <div class="col-6"><label class="form-label small mb-1">Current reading</label><input type="number" class="form-control" id="elecCurr" min="0" step="0.01" inputmode="decimal"></div>
+                </div>
+                <div id="elecResult" class="small mt-2"></div>
+              </div>
+              <input type="number" class="form-control" id="billElectricity" value="0" min="0" step="1">
+              <small class="text-muted-soft d-block mt-1" id="elecNote"></small>
+            </div>
             
             <div class="col-12">
               <label class="form-label">Meter Images (optional, up to 2)</label>
@@ -823,5 +842,6 @@
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/layout.js"></script>
 <script src="assets/js/pages/bills.js"></script>
+<script src="assets/js/pages/bills-electricity.js"></script>
 </body>
 </html>

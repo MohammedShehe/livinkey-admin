@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
         { key: "pgs", label: "PGs Management" },
         { key: "maintenance", label: "Maintenance" },
         { key: "documents", label: "Documents" },
+        { key: "expenses", label: "Expenses" },
         { key: "feedbacks", label: "Feedbacks" },
         { key: "activity_logs", label: "Activity Tracking" },
         { key: "conversations", label: "Conversations (WhatsApp)" },

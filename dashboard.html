@@ -32,13 +32,48 @@
         <div class="hero-actions" id="heroActions"></div>
       </section>
 
+      <!-- PG / period filter -->
+      <div class="section-card mb-3 dash-filter">
+        <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between">
+          <div>
+            <div class="small text-muted-soft fw-semibold mb-1"><i class="bi bi-funnel"></i> Viewing</div>
+            <div class="pg-filter-bar" id="pgPills"></div>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <select class="form-select form-select-sm d-lg-none" id="pgSelect" aria-label="Choose PG"></select>
+            <select class="form-select form-select-sm w-auto" id="periodSelect" aria-label="Period">
+              <option value="this_month">This month</option><option value="last_month">Last month</option>
+              <option value="last_3m">Last 3 months</option><option value="last_6m">Last 6 months</option>
+              <option value="this_year">This year</option><option value="all">All time</option>
+            </select>
+          </div>
+        </div>
+        <div class="small text-muted-soft mt-2" id="scopeLine"></div>
+      </div>
+
       <div class="row g-3 mb-3" id="kpiRow"></div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-8">
+          <div class="section-card h-100">
+            <div class="card-head"><div><h5>Billed, collected &amp; expenses</h5><p>Last 12 months for the selected PG.</p></div>
+              <div class="d-flex gap-3 small flex-wrap"><span><i class="bi bi-square-fill" style="color:#4A8FE0"></i> Billed</span><span><i class="bi bi-square-fill" style="color:var(--lk-green)"></i> Collected</span><span id="expLegend"><i class="bi bi-square-fill" style="color:#E0864A"></i> Expenses</span></div></div>
+            <div id="trendBody"></div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="section-card h-100">
+            <div class="card-head"><div><h5>Bill status</h5><p>Bills raised in the period.</p></div></div>
+            <div id="statusBody"></div>
+          </div>
+        </div>
+      </div>
 
       <div class="row g-3 mb-3">
         <div class="col-lg-7">
           <div class="section-card h-100" id="occCard">
             <div class="card-head">
-              <div><h5>Occupancy by PG</h5><p>Each block is one bed. Filled blocks are occupied.</p></div>
+              <div><h5 id="occTitle">Occupancy by PG</h5><p>Each block is one bed. Filled blocks are occupied.</p></div>
               <a href="pgs.html" class="btn btn-outline-brand btn-sm" data-perm="pgs">Manage PGs</a>
             </div>
             <div id="occBody"></div>
@@ -46,21 +81,30 @@
         </div>
         <div class="col-lg-5">
           <div class="section-card h-100">
-            <div class="card-head"><div><h5>Needs your attention</h5><p>Open items across all modules.</p></div></div>
+            <div class="card-head"><div><h5>Needs your attention</h5><p>Open items for this selection.</p></div></div>
             <div id="todoBody"></div>
           </div>
         </div>
       </div>
 
-      <div class="row g-3 mb-3">
-        <div class="col-lg-5">
-          <div class="section-card h-100">
-            <div class="card-head"><div><h5>Collections, last 6 months</h5><p>Payments received per month.</p></div></div>
-            <div id="revBody"></div>
+      <div class="row g-3 mb-3" id="cmpRow" hidden>
+        <div class="col-12">
+          <div class="section-card">
+            <div class="card-head"><div><h5>PG comparison</h5><p>How each property performs in the selected period. Click a row to open it.</p></div></div>
+            <div class="table-responsive"><table class="data-table"><thead><tr><th>PG</th><th>Occupancy</th><th class="text-end">Billed</th><th class="text-end">Collected</th><th class="text-end">Outstanding</th><th class="text-end">Expenses</th><th class="text-end">Net</th></tr></thead><tbody id="cmpBody"></tbody></table></div>
           </div>
         </div>
-        <div class="col-lg-7">
-          <div class="section-card h-100">
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-4"><div class="section-card h-100"><div class="card-head"><div><h5>Tenant mix</h5><p>Active tenants right now.</p></div></div><div id="mixBody"></div></div></div>
+        <div class="col-lg-4"><div class="section-card h-100"><div class="card-head"><div><h5>Highest dues</h5><p>Tenants owing the most.</p></div><a href="bills.html?tab=unpaid" class="btn btn-outline-brand btn-sm" data-perm="bills">View bills</a></div><div id="duesBody"></div></div></div>
+        <div class="col-lg-4"><div class="section-card h-100"><div class="card-head"><div><h5>Where money is spent</h5><p>Top expense categories.</p></div><a href="expenses.html" class="btn btn-outline-brand btn-sm" id="expLink">Expenses</a></div><div id="expBody"></div></div></div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-12">
+          <div class="section-card">
             <div class="card-head">
               <div><h5>Recent admin activity</h5><p>The latest changes made in this console.</p></div>
               <a href="audit.html" class="btn btn-outline-brand btn-sm" id="auditLink">Full audit log</a>
@@ -87,6 +131,7 @@
 <script src="assets/js/ui.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/auth.js"></script>
+<script src="assets/js/charts.js"></script>
 <script src="assets/js/layout.js"></script>
 <script src="assets/js/pages/dashboard.js"></script>
 </body>

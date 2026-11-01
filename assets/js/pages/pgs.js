@@ -177,6 +177,8 @@ TERMS & CONDITIONS
                     ${p.payment_qr ? `<div class="mt-2"><img src="${p.payment_qr}" style="height:36px;width:36px;object-fit:contain;border-radius:4px;border:1px solid var(--border);" alt="QR"></div>` : ''}
                     <div class="mt-3 d-flex gap-2" onclick="event.stopPropagation();">
                         ${canEditPGs ? `<button class="btn btn-outline-brand btn-sm flex-grow-1" onclick="editPg('${p.id}')"><i class="bi bi-pencil me-1"></i>Edit</button>` : ''}
+                        <button class="btn btn-ghost btn-sm" onclick="openOffers('${p.id}')" title="Offers"><i class="bi bi-gift"></i></button>
+                        ${(Auth.getSession() || {}).role === 'super_admin' ? `<button class="btn btn-ghost btn-sm" onclick="openElectricity('${p.id}')" title="Electricity formula"><i class="bi bi-lightning-charge"></i></button>` : ''}
                         ${canDeletePGs ? `<button class="btn-icon btn-delete-pg" onclick="deletePg('${p.id}')" data-pg-id="${p.id}"><i class="bi bi-trash3"></i></button>` : ''}
                     </div>
                 </div>

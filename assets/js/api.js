@@ -257,7 +257,7 @@ function getAdminPermissions() {
     const session = Auth.getSession();
     if (!session) return {};
     if (session.role === 'super_admin') {
-        const allModules = ['tenants', 'guests', 'bills', 'pgs', 'maintenance', 'documents', 'feedbacks', 'activity_logs'];
+        const allModules = ['tenants', 'guests', 'bills', 'pgs', 'maintenance', 'documents', 'feedbacks', 'activity_logs', 'expenses'];
         const perms = {};
         allModules.forEach(m => {
             perms[m] = { view: true, add: true, edit: true, delete: true };
@@ -299,6 +299,8 @@ window.Permissions = {
     hasPermission,
     getAdminPermissions
 };
+
+const lkQS = (params = {}) => { const q = new URLSearchParams(); Object.keys(params).forEach(k => { if (params[k] !== undefined && params[k] !== null && params[k] !== '') q.append(k, params[k]); }); const t = q.toString(); return t ? '?' + t : ''; };
 
 // ============ API ENDPOINTS ============
 const API = {
@@ -763,7 +765,11 @@ const API = {
                 apiRequest('/documents/admin/download', 'POST', { documentIds }),
             downloadSingle: (documentId) => 
                 apiRequest(`/documents/admin/${documentId}/download`, 'GET'),
-            statusSummary: () => apiRequest('/documents/admin/status-summary', 'GET')
+            statusSummary: () => apiRequest('/documents/admin/status-summary', 'GET'),
+            review: (id, action, note) => apiRequest(`/documents/admin/${id}/review`, 'POST', { action, note }),
+            reviewBulk: (ids, action, note) => apiRequest('/documents/admin/review/bulk', 'POST', { ids, action, note }),
+            reviewSummary: (pgId) => apiRequest('/documents/admin/review-summary' + lkQS({ pg_id: pgId }), 'GET'),
+            markSeen: (ids) => apiRequest('/documents/admin/mark-seen', 'POST', { ids })
         }
     },
 
@@ -971,6 +977,38 @@ const API = {
                 apiRequest('/public/pgs/stats', 'GET')
         }
     },
+
+    // ---- Offers (per PG) ----
+    offers: {
+        listForPg: (pgId) => apiRequest(`/pgs/${pgId}/offers`, 'GET'),
+        listAll: () => apiRequest('/pgs/offers/all', 'GET'),
+        create: (pgId, d) => apiRequest(`/pgs/${pgId}/offers`, 'POST', d),
+        update: (pgId, id, d) => apiRequest(`/pgs/${pgId}/offers/${id}`, 'PUT', d),
+        toggle: (pgId, id, active) => apiRequest(`/pgs/${pgId}/offers/${id}/toggle`, 'PATCH', { is_active: active }),
+        remove: (pgId, id) => apiRequest(`/pgs/${pgId}/offers/${id}`, 'DELETE')
+    },
+
+    // ---- Expenses ----
+    expenses: {
+        meta: () => apiRequest('/expenses/meta', 'GET'),
+        list: (p) => apiRequest('/expenses' + lkQS(p), 'GET'),
+        stats: (p) => apiRequest('/expenses/stats' + lkQS(p), 'GET'),
+        create: (fd) => apiRequest('/expenses', 'POST', fd, true),
+        update: (id, fd) => apiRequest(`/expenses/${id}`, 'PUT', fd, true),
+        remove: (id) => apiRequest(`/expenses/${id}`, 'DELETE')
+    },
+
+    // ---- Electricity formula ----
+    electricity: {
+        settings: () => apiRequest('/electricity/settings', 'GET'),
+        save: (pgId, d) => apiRequest(`/electricity/settings/${pgId}`, 'PUT', d),
+        copy: (pgId, ids) => apiRequest(`/electricity/settings/${pgId}/copy`, 'POST', { target_pg_ids: ids }),
+        calculate: (d) => apiRequest('/electricity/calculate', 'POST', d),
+        lastReading: (p) => apiRequest('/electricity/last-reading' + lkQS(p), 'GET')
+    },
+
+    // ---- PG-wise dashboard ----
+    analytics: (p) => apiRequest('/admins/analytics' + lkQS(p), 'GET'),
 
     // Manual website stats (properties + happy tenants boost)
     siteSettings: {

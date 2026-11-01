@@ -19,7 +19,9 @@ const NOTIF_PAGE_MAP = {
     document: 'documents.html',
     documents: 'documents.html',
     conversation: 'conversations.html',
-    conversations: 'conversations.html'
+    conversations: 'conversations.html',
+    expense: 'expenses.html',
+    expenses: 'expenses.html'
 };
 
 function resolveNotificationPage(n) {
@@ -102,7 +104,8 @@ const NAV_GROUPS = [
             { label: 'Paid', icon: 'bi-check-circle', href: 'bills.html?tab=paid' }
           ] },
         { key: 'proofs', label: 'Payment proofs', icon: 'bi-file-earmark-check', href: 'bills.html#proofs', permission: 'bills', badgeId: 'menuBadge_proofs' },
-        { key: 'payments', label: 'Payments', icon: 'bi-credit-card', href: 'payments.html', permission: 'bills', badgeId: 'menuBadge_payments' }
+        { key: 'payments', label: 'Payments', icon: 'bi-credit-card', href: 'payments.html', permission: 'bills', badgeId: 'menuBadge_payments' },
+        { key: 'expenses', label: 'Expenses', icon: 'bi-wallet2', href: 'expenses.html', permission: 'expenses' }
     ]},
     { label: 'Property', items: [
         { key: 'pgs', label: 'PGs', icon: 'bi-building', href: 'pgs.html', permission: 'pgs', badgeId: 'menuBadge_pgs',

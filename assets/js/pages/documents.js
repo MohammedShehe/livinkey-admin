@@ -33,6 +33,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // active | inactive | archived | checked_out | all
     let currentStatusFilter = "active";
     let currentVehicleFilter = "all"; // all | vehicle | non_vehicle
+    let currentReview = new URLSearchParams(location.search).get("review") || "all"; // all | pending | approved | rejected
+    const canReview = Permissions.canEdit('documents');
+    const REVIEW = {
+        pending: { label: "Needs review", cls: "chip-amber", icon: "bi-hourglass-split" },
+        approved: { label: "Approved", cls: "chip-green", icon: "bi-check-circle" },
+        rejected: { label: "Rejected", cls: "chip-red", icon: "bi-x-circle" }
+    };
+    const isNew = (d) => d.review_status === "pending" && !d.admin_seen_at;
     let selectedDocs = new Set();
     let allDocs = [];
     let pgList = [];
@@ -114,8 +122,24 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    function renderReviewFilter() {
+        const el = document.getElementById("reviewFilter");
+        if (!el) return;
+        const c = { all: allDocs.length, pending: 0, approved: 0, rejected: 0, fresh: 0 };
+        allDocs.forEach(d => { c[d.review_status || "approved"]++; if (isNew(d)) c.fresh++; });
+        const opts = [
+            { key: "all", label: "All", icon: "bi-collection" },
+            { key: "pending", label: "Needs review", icon: "bi-hourglass-split" },
+            { key: "approved", label: "Approved", icon: "bi-check-circle" },
+            { key: "rejected", label: "Rejected", icon: "bi-x-circle" }
+        ];
+        el.innerHTML = opts.map(o => `<button type="button" class="pg-pill ${currentReview === o.key ? "active" : ""}" data-review="${o.key}"><i class="bi ${o.icon}"></i> ${o.label} <b>${c[o.key]}</b>${o.key === "pending" && c.fresh ? ` <span class="chip chip-red" style="padding:0 .4rem">${c.fresh} new</span>` : ""}</button>`).join("");
+        el.querySelectorAll("[data-review]").forEach(b => b.addEventListener("click", () => { currentReview = b.dataset.review; selectedDocs.clear(); updateBulkActions(); renderGrid(); }));
+    }
+
     function getFilteredDocs() {
         let docs = allDocs;
+        if (currentReview !== "all") docs = docs.filter(d => (d.review_status || "approved") === currentReview);
         if (currentFilter === "all") {
             // keep all types
         } else if (currentFilter === "vehicle_all") {
@@ -224,6 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const filtered = getFilteredDocs();
 
         renderStats();
+        renderReviewFilter();
 
         if (filtered.length === 0) {
             grid.innerHTML = '';
@@ -263,6 +288,16 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="fw-bold">${docLabel}${VEHICLE_DOC_KEYS.includes(d.document_type) ? ' <span class="badge bg-teal-subtle text-teal" style="font-size:.65rem;background:#0d948833;color:#5eead4;">Vehicle</span>' : ''}</div>
                         <div class="small text-muted-soft">${lkEsc(d.tenant_name || '—')} · Room ${lkEsc(d.room_number || '—')}${d.vehicle_number ? ' · <i class="bi bi-car-front"></i> ' + d.vehicle_number : ''}</div>
                         <div class="small text-muted-soft"><i class="bi bi-building me-1"></i>${lkEsc(d.pg_name || '—')}</div>
+                        <div class="mt-1 d-flex flex-wrap gap-1 align-items-center">
+                            ${isNew(d) ? '<span class="chip chip-red">NEW</span>' : ''}
+                            <span class="chip ${(REVIEW[d.review_status] || REVIEW.approved).cls}"><i class="bi ${(REVIEW[d.review_status] || REVIEW.approved).icon}"></i> ${(REVIEW[d.review_status] || REVIEW.approved).label}</span>
+                        </div>
+                        <div class="small text-muted-soft mt-1" title="${lkEsc(LKUI.fmtDateTime(d.created_at))}"><i class="bi bi-cloud-upload me-1"></i>Uploaded ${lkEsc(LKUI.timeAgo(d.created_at))}${d.uploaded_by_type === 'admin' ? ' by admin' : ''}</div>
+                        ${d.review_status === 'rejected' && d.review_note ? `<div class="small text-danger mt-1"><i class="bi bi-chat-left-text me-1"></i>${lkEsc(d.review_note)}</div>` : ''}
+                        ${canReview && d.review_status !== 'approved' ? `<div class="d-flex gap-1 mt-2" onclick="event.stopPropagation()">
+                            <button class="btn btn-brand btn-sm flex-grow-1" onclick="reviewDoc('${d.id}','approve')"><i class="bi bi-check2"></i> Approve</button>
+                            ${d.review_status === 'pending' ? `<button class="btn btn-soft-danger btn-sm flex-grow-1" onclick="reviewDoc('${d.id}','reject')"><i class="bi bi-x-lg"></i> Reject</button>` : ''}</div>` : ''}
+                        ${canReview && d.review_status === 'approved' ? `<button class="btn btn-sm btn-ghost mt-2 w-100" onclick="event.stopPropagation(); reviewDoc('${d.id}','reject')"><i class="bi bi-arrow-counterclockwise"></i> Reject / ask for re-upload</button>` : ''}
                     </div>
                 </div>
             </div>`;
@@ -291,6 +326,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const bulkActions = document.getElementById("bulkActions");
         const bulkCount = document.getElementById("bulkCount");
         
+        ["bulkApproveBtn", "bulkRejectBtn"].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = canReview && count > 0 ? "" : "none"; });
         const bulkDeleteBtn = document.getElementById("bulkDeleteBtn");
         if (bulkDeleteBtn) {
             bulkDeleteBtn.style.display = canDeleteDocs && count > 0 ? '' : 'none';
@@ -500,6 +536,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function showPreviewModal(doc) {
         currentDocId = doc.id;
+        if (isNew(doc)) { doc.admin_seen_at = new Date().toISOString(); API.documents.admin.markSeen([doc.id]).catch(() => {}); setTimeout(renderGrid, 0); }
         const label = DOC_TYPES[doc.document_type]?.label || doc.document_type || 'Document';
         document.getElementById("docPreviewTitle").textContent = `${label} - ${doc.tenant_name || 'Tenant'}`;
         const url = doc.document_url || '';
@@ -521,8 +558,55 @@ document.addEventListener("DOMContentLoaded", () => {
             img.style.display = '';
             img.onerror = function() { this.src = 'https://placehold.co/600x400/E1E8D8/7C8A76?text=No+Image'; };
         }
+        const st = REVIEW[doc.review_status] || REVIEW.approved;
+        const panel = document.createElement("div");
+        panel.className = "mt-3 p-3 rounded-3 text-start";
+        panel.style.cssText = "background:var(--lk-green-50);border:1px solid var(--border)";
+        panel.innerHTML = `<div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div><span class="chip ${st.cls}"><i class="bi ${st.icon}"></i> ${st.label}</span>
+              <span class="small text-muted-soft ms-2">Uploaded ${lkEsc(LKUI.timeAgo(doc.created_at))}${doc.reviewed_at ? ` · reviewed ${lkEsc(LKUI.timeAgo(doc.reviewed_at))}${doc.reviewed_by_name ? ' by ' + lkEsc(doc.reviewed_by_name) : ''}` : ''}</span></div>
+            ${canReview ? `<div class="d-flex gap-2">${doc.review_status !== 'approved' ? `<button class="btn btn-brand btn-sm" id="pvApprove"><i class="bi bi-check2"></i> Approve</button>` : ''}<button class="btn btn-soft-danger btn-sm" id="pvReject"><i class="bi bi-x-lg"></i> Reject</button></div>` : ''}</div>
+            ${doc.review_note ? `<div class="small mt-2"><b>Note to tenant:</b> ${lkEsc(doc.review_note)}</div>` : ''}`;
+        if (body) body.appendChild(panel);
+        const a = panel.querySelector("#pvApprove"), r = panel.querySelector("#pvReject");
+        if (a) a.onclick = async () => { await window.reviewDoc(doc.id, "approve"); previewModal.hide(); };
+        if (r) r.onclick = async () => { if (await window.reviewDoc(doc.id, "reject")) previewModal.hide(); };
         previewModal.show();
     }
+
+    // ============================================
+    // REVIEW (approve / reject)
+    // ============================================
+    async function askReason(count) {
+        const note = await LKUI.prompt({ title: count > 1 ? `Reject ${count} documents` : "Reject this document", body: "Tell the tenant what is wrong so they can upload a correct one. They will get this as a notification.", placeholder: "e.g. The photo is blurry. Please upload a clear one.", confirmText: "Reject", required: true });
+        return note && note.trim() ? note.trim() : null;
+    }
+    window.reviewDoc = async function (id, action) {
+        let note = null;
+        if (action === "reject") { note = await askReason(1); if (!note) return false; }
+        try {
+            const res = await API.documents.admin.review(id, action, note);
+            const d = docsById[id];
+            if (d) { d.review_status = res.data.review_status; d.review_note = res.data.review_note; d.reviewed_at = new Date().toISOString(); d.admin_seen_at = d.admin_seen_at || d.reviewed_at; }
+            showToast(res.message, "success");
+            renderGrid();
+            return true;
+        } catch (e) { showToast(e.message || "Could not update the document", "danger"); return false; }
+    };
+    async function bulkReview(action) {
+        const ids = [...selectedDocs].map(Number);
+        if (!ids.length) return;
+        let note = null;
+        if (action === "reject") { note = await askReason(ids.length); if (!note) return; }
+        else if (!await LKUI.confirm({ title: `Approve ${ids.length} document${ids.length === 1 ? "" : "s"}?`, body: "The tenants will be notified.", tone: "ok", confirmText: "Approve" })) return;
+        try {
+            const res = await API.documents.admin.reviewBulk(ids, action, note);
+            showToast(res.message, res.success ? "success" : "warning");
+            selectedDocs.clear(); loadDocuments();
+        } catch (e) { showToast(e.message || "Bulk review failed", "danger"); }
+    }
+    document.getElementById("bulkApproveBtn")?.addEventListener("click", () => bulkReview("approve"));
+    document.getElementById("bulkRejectBtn")?.addEventListener("click", () => bulkReview("reject"));
 
     // ============================================
     // DOWNLOAD DOCUMENT - FIXED

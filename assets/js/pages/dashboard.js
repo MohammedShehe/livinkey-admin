@@ -32,70 +32,124 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // skeletons
     const sk = (n, h = '90px') => Array.from({ length: n }, () => `<div class="sk" style="height:${h};margin-bottom:.6rem"></div>`).join('');
-    document.getElementById('kpiRow').innerHTML = Array.from({ length: 4 }, () => `<div class="col-6 col-xl-3"><div class="kpi"><span class="sk" style="width:50%"></span><span class="sk" style="height:1.7rem;width:60%;margin-top:.5rem"></span></div></div>`).join('');
-    ['occBody', 'todoBody', 'revBody', 'actBody'].forEach(id => { document.getElementById(id).innerHTML = sk(3, '48px'); });
+    document.getElementById('kpiRow').innerHTML = Array.from({ length: 4 }, () => `<div class="col-6 col-xl-3"><div class="kpi"><span class="sk" style="width:50%"></span><span class="sk" style="height:1.7rem;width:60%;margin-top:.4rem"></span></div></div>`).join('');
+    ['occBody', 'todoBody', 'trendBody', 'statusBody', 'actBody', 'mixBody', 'duesBody', 'expBody'].forEach(id => { document.getElementById(id).innerHTML = sk(3, '48px'); });
+
+    const { inr: rupee, compact: cmp2 } = LKCharts;
+    const state = { pg: new URLSearchParams(location.search).get('pg') || localStorage.getItem('lk_dash_pg') || '', period: localStorage.getItem('lk_dash_period') || 'this_month' };
+    document.getElementById('periodSelect').value = state.period;
+    let overview = null;
 
     const kpi = (o) => `<div class="col-6 col-xl-3"><${o.href ? 'a href="' + E(o.href) + '"' : 'div'} class="kpi ${o.cls || ''}">
         <div class="k-top"><span>${E(o.label)}</span><span class="k-ico ${E(o.ico)}"><i class="bi ${E(o.icon)}"></i></span></div>
         <div class="k-val">${o.value}</div><div class="k-sub">${o.sub || ''}</div></${o.href ? 'a' : 'div'}></div>`;
+    const pgq = () => state.pg ? `?pg=${encodeURIComponent(state.pg)}` : '';
+
+    function paintPills(d) {
+        const opts = [{ id: '', name: 'All PGs' }, ...d.pg_options.map(p => ({ id: String(p.id), name: p.name }))];
+        document.getElementById('pgPills').innerHTML = opts.map(o => `<button class="pg-pill ${String(state.pg) === o.id ? 'active' : ''}" data-pg="${E(o.id)}">${E(o.name)}</button>`).join('');
+        const sel = document.getElementById('pgSelect');
+        sel.innerHTML = opts.map(o => `<option value="${E(o.id)}" ${String(state.pg) === o.id ? 'selected' : ''}>${E(o.name)}</option>`).join('');
+    }
 
     function render(d) {
-        // ---- KPIs
+        paintPills(d);
+        document.getElementById('scopeLine').innerHTML = `Showing <b>${E(d.scope.pg_name)}</b> · ${E(d.period.label)} <span class="text-muted-soft">(${E(d.period.from)} → ${E(d.period.to)})</span>`;
+        document.getElementById('occTitle').textContent = state.pg ? 'Occupancy' : 'Occupancy by PG';
+        const showExpenses = !!d.expenses;
+        document.getElementById('expLegend').hidden = !showExpenses;
+        document.getElementById('expLink').href = 'expenses.html' + pgq();
+        document.getElementById('expLink').hidden = !can('expenses');
+
+        // ---- KPIs (8)
         const k = [];
-        if (d.tenants) k.push(kpi({ label: 'Active tenants', icon: 'bi-people-fill', ico: 'stat-icon-green', value: d.tenants.active, href: 'tenants.html',
-            sub: `<b>${d.tenants.new_30d}</b> joined in 30 days · ${d.tenants.international} international` }));
-        if (d.pgs) k.push(kpi({ label: 'Occupancy', icon: 'bi-door-open-fill', ico: 'stat-icon-blue', value: d.pgs.occupancy_pct + '%', href: 'pgs.html',
-            sub: `<b>${d.pgs.occupied}</b> of ${d.pgs.capacity} beds · ${d.pgs.active}/${d.pgs.total} PGs live` }));
-        if (d.bills) {
-            k.push(kpi({ label: 'Collected this month', icon: 'bi-cash-stack', ico: 'stat-icon-green', value: inr(d.bills.collected_this_month), href: 'payments.html',
-                sub: `of <b>${inr(d.bills.billed_this_month)}</b> billed` }));
-            k.push(kpi({ label: 'Outstanding', icon: 'bi-exclamation-diamond-fill', ico: d.bills.outstanding ? 'stat-icon-red' : 'stat-icon-green', value: inr(d.bills.outstanding), href: 'bills.html?tab=unpaid',
-                cls: d.bills.overdue ? 'bad' : '', sub: `<b>${d.bills.overdue}</b> overdue · ${d.bills.unpaid + d.bills.partially_paid} open bills` }));
+        if (d.tenants) k.push(kpi({ label: 'Active tenants', icon: 'bi-people-fill', ico: 'stat-icon-green', value: d.tenants.active, href: 'tenants.html', sub: `<b>${d.tenants.joined}</b> joined in period · ${d.tenants.checked_out} checked out` }));
+        if (d.occupancy) k.push(kpi({ label: 'Occupancy', icon: 'bi-door-open-fill', ico: 'stat-icon-blue', value: d.occupancy.pct + '%', href: 'pgs.html', sub: `<b>${d.occupancy.occupied}</b> of ${d.occupancy.capacity} beds · <b>${d.occupancy.vacant}</b> vacant` }));
+        if (d.billing) {
+            k.push(kpi({ label: 'Collected', icon: 'bi-cash-stack', ico: 'stat-icon-green', value: rupee(d.billing.collected), href: 'payments.html', sub: `of <b>${rupee(d.billing.billed)}</b> billed · ${d.billing.collection_rate}%` }));
+            k.push(kpi({ label: 'Outstanding now', icon: 'bi-exclamation-diamond-fill', ico: d.billing.outstanding ? 'stat-icon-red' : 'stat-icon-green', value: rupee(d.billing.outstanding), href: 'bills.html?tab=unpaid', cls: d.billing.overdue_bills ? 'bad' : '', sub: `<b>${d.billing.overdue_bills}</b> overdue · fines ${cmp2(d.billing.fines_outstanding)}` }));
         }
-        if (k.length < 4 && d.maintenance) k.push(kpi({ label: 'Open maintenance', icon: 'bi-tools', ico: 'stat-icon-amber', value: d.maintenance.pending + d.maintenance.in_progress, href: 'maintenance.html', sub: `<b>${d.maintenance.completed_30d}</b> completed in 30 days` }));
-        if (k.length < 4 && d.feedback) k.push(kpi({ label: 'Average rating', icon: 'bi-star-fill', ico: 'stat-icon-amber', value: d.feedback.avg_rating || '—', href: 'feedbacks.html', sub: `<b>${d.feedback.total}</b> reviews · ${d.feedback.new_7d} this week` }));
-        if (k.length < 4 && d.guests) k.push(kpi({ label: 'Guests', icon: 'bi-person-badge', ico: 'stat-icon-blue', value: d.guests.total, href: 'guests.html', sub: `<b>${d.guests.new_7d}</b> new this week` }));
-        document.getElementById('kpiRow').innerHTML = k.slice(0, 4).join('') || '<div class="col-12"><div class="empty-state"><i class="bi bi-shield-lock"></i><p class="fw-semibold mb-0">No dashboard modules available</p><p class="small">Ask a Super Admin to grant you view access to a module.</p></div></div>';
+        if (d.expenses) {
+            const net = (d.billing ? d.billing.collected : 0) - d.expenses.total;
+            k.push(kpi({ label: 'Expenses', icon: 'bi-wallet2', ico: 'stat-icon-amber', value: rupee(d.expenses.total), href: 'expenses.html' + pgq(), sub: `<b>${d.expenses.count}</b> payments recorded` }));
+            if (d.billing) k.push(kpi({ label: net >= 0 ? 'Net surplus' : 'Net deficit', icon: net >= 0 ? 'bi-graph-up-arrow' : 'bi-graph-down-arrow', ico: net >= 0 ? 'stat-icon-green' : 'stat-icon-red', value: rupee(Math.abs(net)), cls: net < 0 ? 'bad' : '', sub: 'Collected minus expenses' }));
+        }
+        if (d.billing && d.billing.units_consumed) k.push(kpi({ label: 'Electricity', icon: 'bi-lightning-charge-fill', ico: 'stat-icon-amber', value: rupee(d.billing.electricity_billed), sub: `<b>${Math.round(d.billing.units_consumed)}</b> units metered` }));
+        if (d.maintenance) k.push(kpi({ label: 'Open maintenance', icon: 'bi-tools', ico: 'stat-icon-amber', value: d.maintenance.pending + d.maintenance.in_progress, href: 'maintenance.html', sub: `<b>${d.maintenance.pending}</b> new · <b>${d.maintenance.completed}</b> fixed in period` }));
+        if (d.documents) k.push(kpi({ label: 'Documents to review', icon: 'bi-files', ico: d.documents.pending_review ? 'stat-icon-amber' : 'stat-icon-green', value: d.documents.pending_review, href: 'documents.html?review=pending', sub: `<b>${d.documents.rejected}</b> rejected · ${d.documents.approved} approved` }));
+        if (d.feedback && k.length < 8) k.push(kpi({ label: 'Average rating', icon: 'bi-star-fill', ico: 'stat-icon-amber', value: d.feedback.avg_rating || '—', href: 'feedbacks.html', sub: `<b>${d.feedback.total}</b> reviews` }));
+        if (d.guests && k.length < 8) k.push(kpi({ label: 'Guests', icon: 'bi-person-badge', ico: 'stat-icon-blue', value: d.guests.total, href: 'guests.html', sub: `<b>${d.guests.joined}</b> new in period (all PGs)` }));
+        document.getElementById('kpiRow').innerHTML = k.slice(0, 8).join('') || '<div class="col-12"><div class="empty-state"><i class="bi bi-shield-lock"></i><p class="fw-semibold mb-0">No dashboard modules available</p></div></div>';
+
+        // ---- trend
+        const tr = document.getElementById('trendBody');
+        if (!d.trend) tr.innerHTML = '<p class="text-muted-soft mb-0">You do not have access to billing data.</p>';
+        else {
+            const series = [];
+            if (can('bills')) { series.push({ name: 'Billed', color: '#4A8FE0', values: d.trend.map(t => t.billed) }); series.push({ name: 'Collected', color: 'var(--lk-green)', values: d.trend.map(t => t.collected) }); }
+            if (showExpenses) series.push({ name: 'Expenses', color: '#E0864A', values: d.trend.map(t => t.expenses) });
+            tr.innerHTML = LKCharts.groupedBars(d.trend.map(t => new Date(t.month + '-01T00:00:00').toLocaleDateString('en-IN', { month: 'short' })), series, { height: 220 });
+        }
+
+        // ---- status donut
+        const st = document.getElementById('statusBody');
+        if (!d.billing) st.innerHTML = '<p class="text-muted-soft mb-0">No access to billing.</p>';
+        else { const s = d.billing.status; st.innerHTML = LKCharts.donut([{ label: 'Paid', value: s.paid }, { label: 'Partially paid', value: s.partially_paid }, { label: 'Unpaid', value: s.unpaid }, { label: 'Overdue', value: s.overdue }].filter(x => x.value > 0), { centerLabel: 'bills', format: (v) => v + '' }); }
 
         // ---- occupancy
         const occ = document.getElementById('occBody');
-        if (!d.pgs) occ.innerHTML = '<p class="text-muted-soft mb-0">You do not have access to PG data.</p>';
-        else if (!d.pgs.list.length) occ.innerHTML = '<div class="empty-state py-4"><i class="bi bi-building"></i><p class="fw-semibold mb-0">No PGs yet</p></div>';
-        else occ.innerHTML = d.pgs.list.map(p => {
-            const pct = p.capacity ? Math.round(p.occupied / p.capacity * 100) : 0;
+        if (!d.occupancy) occ.innerHTML = '<p class="text-muted-soft mb-0">You do not have access to PG data.</p>';
+        else if (!d.occupancy.list.length) occ.innerHTML = '<div class="empty-state py-4"><i class="bi bi-building"></i><p class="fw-semibold mb-0">No PGs yet</p></div>';
+        else occ.innerHTML = (state.pg ? `<div class="d-flex gap-4 mb-3 flex-wrap"><div><div class="fs-4 fw-bold">${d.occupancy.rooms}</div><small class="text-muted-soft">Rooms</small></div><div><div class="fs-4 fw-bold">${d.occupancy.rooms_full}</div><small class="text-muted-soft">Full</small></div><div><div class="fs-4 fw-bold">${d.occupancy.rooms_empty}</div><small class="text-muted-soft">Empty</small></div></div>` : '') + d.occupancy.list.map(p => {
             const MAX = 40, shown = Math.min(p.capacity, MAX);
             const filled = Math.round(shown * (p.capacity ? p.occupied / p.capacity : 0));
             const cells = Array.from({ length: shown }, (_, i) => `<i class="${i < filled ? 'on' : ''}"></i>`).join('') + (p.capacity > MAX ? `<i class="more">+${p.capacity - MAX}</i>` : '');
-            return `<a class="occ-row text-reset" href="pgs.html?pg=${E(p.id)}" title="Open ${E(p.name)}">
-                <div class="occ-name">${E(p.name)}<small>${p.occupied} / ${p.capacity} beds${p.is_active ? '' : ' · inactive'}</small></div>
-                <div class="occ-cells" aria-hidden="true">${cells}</div><div class="occ-pct">${pct}%</div></a>`;
+            return `<a class="occ-row text-reset" href="pgs.html?pg=${E(p.id)}"><div class="occ-name">${E(p.name)}<small>${p.occupied} / ${p.capacity} beds${p.is_active ? '' : ' · inactive'}</small></div><div class="occ-cells" aria-hidden="true">${cells}</div><div class="occ-pct">${p.pct}%</div></a>`;
         }).join('');
 
         // ---- to-do
         const todos = [];
         const add = (n, label, sub, href, mod) => { if (n > 0 && can(mod)) todos.push(`<a class="todo-item" href="${E(href)}"><span class="t-n">${n}</span><span class="t-l">${E(label)}<small>${E(sub)}</small></span><i class="bi bi-chevron-right"></i></a>`); };
+        if (d.documents) add(d.documents.pending_review, 'Documents waiting for review', 'Approve or reject uploads', 'documents.html?review=pending', 'documents');
         if (d.proofs) add(d.proofs.pending, 'Payment proofs to verify', 'Tenants are waiting for confirmation', 'bills.html#proofs', 'bills');
-        if (d.bills) { add(d.bills.overdue, 'Overdue bills', 'Fines are accruing on these', 'bills.html?tab=unpaid', 'bills'); }
+        if (d.billing) add(d.billing.overdue_bills, 'Overdue bills', 'Fines are accruing on these', 'bills.html?tab=unpaid', 'bills');
         if (d.maintenance) add(d.maintenance.pending, 'New maintenance requests', 'Not started yet', 'maintenance.html', 'maintenance');
-        if (d.conversations) add(d.conversations.unread, 'Unread WhatsApp messages', 'In the conversations inbox', 'conversations.html', 'conversations');
-        if (d.tenants) add(d.tenants.efrro_expiring_30d, 'e-FRRO expiring within 30 days', 'International tenants', 'tenants.html?filter=efrro-expiring', 'tenants');
-        if (d.documents) add(d.documents.incomplete, 'Tenants with missing documents', `${d.documents.complete} of ${d.documents.tenants} are complete`, 'tenants.html?docs=pending', 'documents');
-        if (d.feedback) add(d.feedback.new_7d, 'New feedback this week', 'Review what tenants are saying', 'feedbacks.html', 'feedbacks');
+        if (overview && overview.conversations) add(overview.conversations.unread, 'Unread WhatsApp messages', 'In the conversations inbox', 'conversations.html', 'conversations');
+        if (d.tenants) { add(d.tenants.efrro_expiring_30d, 'e-FRRO expiring within 30 days', 'International tenants', 'tenants.html?filter=efrro-expiring', 'tenants'); add(d.tenants.rent_due_soon, 'Rent period ending within 7 days', 'Raise the next bill', 'bills.html?new=1', 'bills'); }
         document.getElementById('todoBody').innerHTML = todos.length ? todos.join('') : '<div class="todo-ok"><i class="bi bi-check2-circle fs-5"></i>All clear. Nothing needs attention right now.</div>';
         const n = todos.length;
-        document.getElementById('heroSub').textContent = n ? `${n} item${n === 1 ? '' : 's'} need your attention today.` : 'Everything is up to date. Nice work.';
+        document.getElementById('heroSub').textContent = n ? `${n} item${n === 1 ? '' : 's'} need your attention${state.pg ? ' at ' + d.scope.pg_name : ' today'}.` : 'Everything is up to date. Nice work.';
 
-        // ---- revenue
-        const rev = document.getElementById('revBody');
-        if (!d.revenue_trend) rev.innerHTML = '<p class="text-muted-soft mb-0">You do not have access to billing data.</p>';
-        else {
-            const map = {}; d.revenue_trend.forEach(r => { map[r.month] = r.collected; });
-            const months = []; const now = new Date();
-            for (let i = 5; i >= 0; i--) { const dt = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ key: dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0'), label: dt.toLocaleDateString('en-IN', { month: 'short' }), cur: i === 0 }); }
-            const max = Math.max(1, ...months.map(m => map[m.key] || 0));
-            rev.innerHTML = `<div class="rev-bars">${months.map(m => { const v = map[m.key] || 0; return `<div class="rev-col ${m.cur ? 'cur' : ''}"><span class="bv">${v ? compact(v) : '–'}</span><div class="bar" style="height:${Math.max(2, v / max * 100)}%" title="${E(inr(v))}"></div><span class="bl">${E(m.label)}</span></div>`; }).join('')}</div>`;
-        }
+        // ---- PG comparison
+        const cr = document.getElementById('cmpRow');
+        if (d.pg_compare && d.pg_compare.length > 1) {
+            cr.hidden = false;
+            document.getElementById('cmpBody').innerHTML = d.pg_compare.map(p => `<tr style="cursor:pointer" data-open="${p.pg_id}"><td class="fw-semibold">${E(p.name)}${p.is_active ? '' : ' <span class="chip chip-gray">Inactive</span>'}</td>
+              <td>${p.occupied}/${p.capacity} <span class="text-muted-soft">(${p.occupancy_pct}%)</span></td><td class="text-end">${rupee(p.billed)}</td><td class="text-end">${rupee(p.collected)}</td>
+              <td class="text-end ${p.outstanding ? 'text-danger fw-semibold' : ''}">${rupee(p.outstanding)}</td><td class="text-end">${can('expenses') ? rupee(p.expenses) : '—'}</td>
+              <td class="text-end fw-bold ${p.net < 0 ? 'text-danger' : ''}">${can('expenses') ? rupee(p.net) : '—'}</td></tr>`).join('');
+        } else cr.hidden = true;
 
+        // ---- tenant mix
+        const mx = document.getElementById('mixBody');
+        if (!d.tenants) mx.innerHTML = '<p class="text-muted-soft mb-0">No access to tenants.</p>';
+        else mx.innerHTML = LKCharts.hbars([{ label: 'National', value: d.tenants.national, color: '#7FAE38' }, { label: 'International', value: d.tenants.international, color: '#4A8FE0' }, { label: 'Male', value: d.tenants.male, color: '#B06AD6' }, { label: 'Female', value: d.tenants.female, color: '#D6546A' }, { label: 'With vehicle', value: d.tenants.with_vehicle, color: '#E0B84A' }], { format: v => v + '' });
+
+        // ---- dues
+        const du = document.getElementById('duesBody');
+        if (!d.top_dues) du.innerHTML = '<p class="text-muted-soft mb-0">No access to billing.</p>';
+        else du.innerHTML = d.top_dues.length ? `<ul class="feed">${d.top_dues.map(t => `<li><span class="f-ico red"><i class="bi bi-person"></i></span><div class="f-main"><b>${E(t.name)}</b><div class="cell-sub">${E(t.pg_name || '')}${t.room ? ' · Room ' + E(t.room) : ''}</div></div><b class="text-danger">${rupee(t.due)}</b></li>`).join('')}</ul>` : '<div class="todo-ok"><i class="bi bi-check2-circle fs-5"></i>No dues. Everyone is paid up.</div>';
+
+        // ---- expenses mini
+        const ex = document.getElementById('expBody');
+        ex.innerHTML = !d.expenses ? '<p class="text-muted-soft mb-0">Expenses are visible to admins with Expenses access.</p>'
+            : (d.expenses.top_categories.length ? LKCharts.hbars(d.expenses.top_categories.map(c => ({ label: String(c.category).replace(/_/g, ' ').replace(/^./, m => m.toUpperCase()), value: c.total })), { color: '#E0864A' }) : '<div class="empty-state py-4"><i class="bi bi-wallet2"></i><p class="fw-semibold mb-0">No expenses recorded in this period</p></div>');
+
+        renderActivityAndAdmins();
+    }
+
+    function renderActivityAndAdmins() {
+        const d = overview || {};
         // ---- activity
         const act = document.getElementById('actBody');
         if (!d.recent_activity) act.innerHTML = '<p class="text-muted-soft mb-0">Activity is visible to admins with Activity access.</p>';
@@ -125,14 +179,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function load() {
         try {
-            const res = await API.admins.overview();
-            if (!res.success) throw new Error(res.message || 'Could not load overview');
+            const [res, ov] = await Promise.all([
+                API.analytics({ pg_id: state.pg, period: state.period }),
+                API.admins.overview().catch(() => null)
+            ]);
+            if (!res.success) throw new Error(res.message || 'Could not load the dashboard');
+            overview = ov && ov.success ? ov.data : null;
             render(res.data);
         } catch (e) {
             LKUI.toast(e.message || 'Could not load the dashboard', 'danger');
-            document.getElementById('kpiRow').innerHTML = `<div class="col-12"><div class="alert alert-danger d-flex align-items-center justify-content-between gap-2 mb-0"><span><i class="bi bi-wifi-off me-2"></i>${E(e.message || 'Could not load the dashboard.')}</span><button class="btn btn-sm btn-outline-danger" onclick="LKUI.refresh(true)">Try again</button></div></div>`;
+            document.getElementById('kpiRow').innerHTML = `<div class="col-12"><div class="alert alert-danger d-flex align-items-center justify-content-between gap-2 mb-0"><span><i class="bi bi-wifi-off me-2"></i>${E(e.message || 'Could not load the dashboard')}</span><button class="btn btn-sm btn-outline-danger" onclick="location.reload()">Retry</button></div></div>`;
         }
     }
+    const choose = (pg) => { state.pg = pg; localStorage.setItem('lk_dash_pg', pg); const u = new URL(location.href); pg ? u.searchParams.set('pg', pg) : u.searchParams.delete('pg'); history.replaceState(null, '', u); load(); };
+    document.getElementById('pgPills').addEventListener('click', (e) => { const b = e.target.closest('[data-pg]'); if (b) choose(b.dataset.pg); });
+    document.getElementById('pgSelect').addEventListener('change', (e) => choose(e.target.value));
+    document.getElementById('periodSelect').addEventListener('change', (e) => { state.period = e.target.value; localStorage.setItem('lk_dash_period', state.period); load(); });
+    document.getElementById('cmpBody').addEventListener('click', (e) => { const r = e.target.closest('[data-open]'); if (r) choose(r.dataset.open); });
     LKUI.onRefresh(load);
     load().then(() => { LKUI.refreshState.last = new Date(); document.dispatchEvent(new CustomEvent('lk:refresh-end')); });
 });
