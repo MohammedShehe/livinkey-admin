@@ -1464,3 +1464,8 @@ html[data-theme="dark"] .badge.bg-light{color:var(--ink)!important;}
 .autofill-box.drag-over{outline:2px dashed var(--lk-green); outline-offset:3px; background:var(--lk-green-50);}
 .ar-fields{list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:.15rem .8rem;}
 .ar-fields li{display:flex; justify-content:space-between; gap:.5rem;} .ar-fields .ar-l{color:var(--muted);}
+
+/* Fine-adjustment notice: readable in dark mode (was light text on a light yellow box) */
+html[data-theme="dark"] .fine-adjust-warning{background:var(--warning-bg); border-color:var(--warning-line); color:var(--warning);}
+html[data-theme="dark"] .fine-adjust-warning li,
+html[data-theme="dark"] .fine-adjust-warning i{color:inherit;}
