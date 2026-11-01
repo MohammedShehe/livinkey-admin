@@ -1469,3 +1469,10 @@ html[data-theme="dark"] .badge.bg-light{color:var(--ink)!important;}
 html[data-theme="dark"] .fine-adjust-warning{background:var(--warning-bg); border-color:var(--warning-line); color:var(--warning);}
 html[data-theme="dark"] .fine-adjust-warning li,
 html[data-theme="dark"] .fine-adjust-warning i{color:inherit;}
+
+
+/* ---- Automatic button loading state (api.js) ---- */
+.btn.is-loading, button.is-loading { pointer-events: none; cursor: progress; opacity: .85; }
+a.btn.is-loading { pointer-events: none; }
+.btn .lk-btn-spin { width: 1em; height: 1em; border-width: .15em; vertical-align: -.125em; margin-right: .1rem; }
+.btn-icon.is-loading .lk-btn-spin { margin-right: 0; }

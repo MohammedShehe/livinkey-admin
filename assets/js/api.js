@@ -113,17 +113,134 @@ async function apiRequest(endpoint, method, data = null, isFormData = false) {
         const hit = _getCache.get(endpoint);
         if (hit && Date.now() - hit.at < GET_CACHE_TTL && _cacheable(endpoint, method)) return hit.value;
         if (_inflight.has(endpoint)) return _inflight.get(endpoint);   // de-duplicate parallel identical GETs
-        const p = _apiRequest(endpoint, method, data, isFormData).then(res => {
+        const p = window.__lkTrack(_apiRequest(endpoint, method, data, isFormData)).then(res => {
             if (res && res.success && _cacheable(endpoint, method)) _getCache.set(endpoint, { at: Date.now(), value: res });
             return res;
         }).finally(() => _inflight.delete(endpoint));
         _inflight.set(endpoint, p);
         return p;
     }
-    const res = await _apiRequest(endpoint, method, data, isFormData);
+    const res = await window.__lkTrack(_apiRequest(endpoint, method, data, isFormData));
     if (res && res.success) _getCache.clear();
     return res;
 }
+
+// ============ BUTTON LOADING (global, automatic) ============
+// Any button / submit that triggers a request shows a spinner and is disabled until the
+// request finishes. This also blocks double-clicks (double payments, double fines, double emails).
+// Opt out with data-lk-noload on the button (or a parent).
+(function () {
+    if (window.__lkBtnBusy) return;
+    window.__lkBtnBusy = true;
+
+    const SKIP = '.btn-close,[data-bs-toggle="tab"],[data-bs-toggle="pill"],[data-bs-toggle="collapse"],[data-bs-toggle="dropdown"],[data-bs-dismiss],.nav-link,.page-link,.dropdown-item,.theme-toggle,[data-lk-noload]';
+    const SPIN = '<span class="spinner-border spinner-border-sm lk-btn-spin" role="status" aria-hidden="true"></span>';
+    const WINDOW_MS = 2500;
+    let last = { el: null, at: 0 };
+
+    function pick(t) {
+        if (!t || !t.closest) return null;
+        const el = t.closest('button,input[type=submit],input[type=button],a.btn,[role=button]');
+        if (!el || el.matches(SKIP) || el.closest('[data-lk-noload]')) return null;
+        return el;
+    }
+    document.addEventListener('click', (e) => {
+        const el = pick(e.target);
+        if (!el) return;
+        // Buttons inside confirm / prompt dialogs must not steal the spinner from the
+        // button that opened the dialog - they only keep the click "fresh".
+        if (el.hasAttribute('data-act')) { last.at = Date.now(); return; }
+        last = { el, at: Date.now() };
+    }, true);
+    document.addEventListener('submit', (e) => {
+        const el = e.submitter || (e.target.querySelector && e.target.querySelector('button[type=submit],input[type=submit]'));
+        if (el && !el.matches(SKIP)) last = { el, at: Date.now() };
+    }, true);
+    // A native confirm() blocks the page for as long as the person thinks - keep the click fresh afterwards.
+    const nativeConfirm = window.confirm;
+    window.confirm = function () { const r = nativeConfirm.apply(this, arguments); last.at = Date.now(); return r; };
+
+    function begin(el) {
+        if (!el || !el.isConnected) return null;
+        if (el._lkBusy) {                       // another request from the same click joins in
+            clearTimeout(el._lkBusy.timer);
+            el._lkBusy.n++;
+            return el;
+        }
+        if (el.disabled || el._lkLoading || el.classList.contains('disabled')) return null;
+        const hasText = !!(el.textContent || '').trim();
+        const original = el.innerHTML;
+        const w = el.offsetWidth;
+        let loadingHTML;
+        if (el.tagName === 'INPUT') {
+            el._lkBusy = { n: 1, original: el.value, input: true, minWidth: el.style.minWidth };
+            el.value = 'Please wait...';
+        } else {
+            const clone = el.cloneNode(true);
+            clone.querySelectorAll('i.bi,svg').forEach(n => n.remove());
+            loadingHTML = SPIN + (hasText ? ' ' + clone.innerHTML : '');
+            el._lkBusy = { n: 1, original, minWidth: el.style.minWidth };
+            el.style.minWidth = w + 'px';
+            el.innerHTML = loadingHTML;
+            el._lkBusy.loadingHTML = el.innerHTML;
+        }
+        el.disabled = true;
+        el.classList.add('is-loading');
+        el.setAttribute('aria-busy', 'true');
+        return el;
+    }
+    function finish(el) {
+        const b = el._lkBusy;
+        if (!b) return;
+        delete el._lkBusy;
+        if (b.input) el.value = b.original;
+        else if (el.innerHTML === b.loadingHTML) el.innerHTML = b.original;   // leave it alone if the page already changed it
+        el.style.minWidth = b.minWidth || '';
+        el.disabled = false;
+        el.classList.remove('is-loading');
+        el.removeAttribute('aria-busy');
+    }
+    function end(el) {
+        const b = el._lkBusy;
+        if (!b) return;
+        b.n--;
+        if (b.n > 0) return;
+        // small grace so a follow-up request from the same click (e.g. save -> reload list) joins instead of flickering
+        b.timer = setTimeout(() => finish(el), 150);
+    }
+
+    window.__lkTrack = function (promise) {
+        if (!last.el || Date.now() - last.at > WINDOW_MS) return promise;
+        const el = begin(last.el);
+        if (!el) return promise;
+        const guard = setTimeout(() => { if (el._lkBusy) { el._lkBusy.n = 1; end(el); } }, 130000);
+        const done = () => { clearTimeout(guard); end(el); };
+        promise.then(done, done);
+        return promise;
+    };
+
+    window.__lkFetch = function () { return window.__lkTrack(fetch.apply(window, arguments)); };
+
+    // Cooperative replacement for the old LOADER so explicit and automatic loading never fight.
+    window.LOADER = {
+        show(button, text = null) {
+            if (!button) return;
+            if (button._lkBusy) { clearTimeout(button._lkBusy.timer); finish(button); }   // drop automatic state first
+            if (button._lkLoading) return;
+            button._lkLoading = true;
+            button.disabled = true;
+            button._originalText = button.innerHTML;
+            button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${window.lkEsc(text || 'Loading...')}`;
+        },
+        hide(button) {
+            if (!button) return;
+            button.disabled = false;
+            if (button._lkLoading && button._originalText != null) button.innerHTML = button._originalText;
+            button._lkLoading = false;
+        }
+    };
+})();
+
 window.apiRequest = apiRequest;
 window.clearApiCache = () => _getCache.clear();
 
@@ -242,7 +359,7 @@ window.openAuthorizedUrl = async function (path) {
     // Open the tab immediately (inside the click) so pop-up blockers allow it.
     const win = window.open('', '_blank');
     try {
-        const t = await getDownloadToken();
+        const t = await window.__lkTrack(getDownloadToken());
         const url = `${API_CONFIG.baseURL}${path}${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(t)}`;
         if (win) { win.opener = null; win.location.href = url; }
         else { window.location.href = url; }

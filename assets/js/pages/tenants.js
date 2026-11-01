@@ -1838,7 +1838,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const token = Auth.getToken() || Auth.getTokenFromStorage();
             if (!token) { showToast("Please login again to download the agreement.", "warning"); return; }
             const url = `${API_CONFIG.baseURL}/tenants/${encodeURIComponent(id)}/agreement.pdf`;
-            const response = await fetch(url, {
+            const response = await window.__lkFetch(url, {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/pdf' }
             });
@@ -2340,7 +2340,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
             showToast("Preparing ZIP download...", "info");
-            const response = await fetch(`${API_CONFIG.baseURL}/documents/admin/download`, {
+            const response = await window.__lkFetch(`${API_CONFIG.baseURL}/documents/admin/download`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

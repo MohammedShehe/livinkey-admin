@@ -406,7 +406,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            const response = await fetch(`${API_CONFIG.baseURL}/documents/admin/download`, {
+            const response = await window.__lkFetch(`${API_CONFIG.baseURL}/documents/admin/download`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
