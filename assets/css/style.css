@@ -135,6 +135,10 @@ input[type=radio]{accent-color:var(--lk-green-dark);}
 }
 .auth-visual .brand-mark{display:flex; align-items:center; gap:.7rem; font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:#fff; position:relative; z-index:1;}
 .auth-visual .brand-mark img{height:40px; width:auto;}
+/* Larger, prominent branding on the login page */
+.auth-visual .login-brand-mark img{height:90px; width:auto; max-width:100%;}
+.login-mobile-logo{display:inline-block; width:min(100%, 300px); height:auto; max-height:90px; object-fit:contain;}
+
 .auth-visual .brand-dot{width:34px; height:34px; border-radius:9px; background:var(--lk-green); display:flex; align-items:center; justify-content:center; color:#0E1410; font-weight:800;}
 .auth-visual .tagline{max-width:440px; position:relative; z-index:1;}
 .auth-visual .tagline h2{color:#fff; font-size:2.15rem; line-height:1.15; letter-spacing:-.02em;}
