@@ -66,6 +66,13 @@
   .btn-status-completed:hover {
     background: #157347;
   }
+  .m-stat { width:100%; text-align:left; background:var(--bs-body-bg,#fff); border:1px solid var(--border,#e5e7eb); border-radius:12px; padding:.6rem .8rem; display:flex; flex-direction:column; cursor:pointer; transition:.15s; }
+  .m-stat:hover { transform: translateY(-1px); box-shadow:0 4px 14px rgba(0,0,0,.08); }
+  .m-stat.active { outline:2px solid var(--lk-green-600,#2f9e44); }
+  .m-stat-n { font-size:1.5rem; font-weight:800; line-height:1.1; }
+  .m-stat-l { font-size:.75rem; opacity:.7; }
+  .m-pending .m-stat-n { color:#b7791f; } .m-progress .m-stat-n { color:#2b6cb0; } .m-done .m-stat-n { color:#2f855a; } .m-overdue .m-stat-n { color:#c53030; }
+  .status-overdue { background:#f8d7da; color:#842029; margin-left:.25rem; }
   .btn-status-disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -85,11 +92,44 @@
             <h5 class="mb-0">Maintenance Requests</h5>
             <p class="text-muted-soft small mb-0">All tenant maintenance queries in one place.</p>
           </div>
-          <div class="table-search">
-            <i class="bi bi-search"></i>
-            <input type="text" class="form-control" style="width:260px;" id="maintenanceSearch" placeholder="Search by room, name or type">
+        </div>
+
+        <!-- Summary cards (click one to filter by it) -->
+        <div class="row g-2 mb-3" id="mStats">
+          <div class="col-6 col-md"><button type="button" class="m-stat" data-st=""><span class="m-stat-n" id="stTotal">–</span><span class="m-stat-l">All requests</span></button></div>
+          <div class="col-6 col-md"><button type="button" class="m-stat m-pending" data-st="pending"><span class="m-stat-n" id="stPending">–</span><span class="m-stat-l">Pending</span></button></div>
+          <div class="col-6 col-md"><button type="button" class="m-stat m-progress" data-st="in_progress"><span class="m-stat-n" id="stProgress">–</span><span class="m-stat-l">In progress</span></button></div>
+          <div class="col-6 col-md"><button type="button" class="m-stat m-done" data-st="completed"><span class="m-stat-n" id="stDone">–</span><span class="m-stat-l">Completed</span></button></div>
+          <div class="col-12 col-md"><button type="button" class="m-stat m-overdue" data-st="overdue"><span class="m-stat-n" id="stOverdue">–</span><span class="m-stat-l">Overdue</span></button></div>
+        </div>
+
+        <!-- Filters -->
+        <div class="row g-2 align-items-end mb-3" id="mFilters">
+          <div class="col-12 col-md-4"><label class="form-label small mb-1">Search</label>
+            <div class="table-search"><i class="bi bi-search"></i><input type="text" class="form-control" id="maintenanceSearch" placeholder="Tenant, phone, room, PG, issue…"></div></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">Status</label>
+            <select class="form-select form-select-sm" id="fStatus"><option value="">All statuses</option><option value="open">Open (pending + in progress)</option><option value="pending">Pending</option><option value="in_progress">In progress</option><option value="completed">Completed</option></select></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">PG</label>
+            <select class="form-select form-select-sm" id="fPg"><option value="">All PGs</option></select></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">Issue type</label>
+            <select class="form-select form-select-sm" id="fType"><option value="">All types</option></select></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">Sort by</label>
+            <select class="form-select form-select-sm" id="fSort"><option value="status">Status (pending first)</option><option value="newest">Newest requested</option><option value="oldest">Oldest requested</option><option value="service_asc">Service date ↑</option><option value="service_desc">Service date ↓</option><option value="pg">PG &amp; room</option></select></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">Month</label>
+            <select class="form-select form-select-sm" id="fMonth"><option value="">All months</option></select></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">Month / dates by</label>
+            <select class="form-select form-select-sm" id="fDateField"><option value="created">Date requested</option><option value="service">Service date</option></select></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">From</label><input type="date" class="form-control form-control-sm" id="fFrom"></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">To</label><input type="date" class="form-control form-control-sm" id="fTo"></div>
+          <div class="col-6 col-md-2"><label class="form-label small mb-1">Photo</label>
+            <select class="form-select form-select-sm" id="fImage"><option value="">Any</option><option value="1">With photo</option><option value="0">Without photo</option></select></div>
+          <div class="col-6 col-md-2 d-flex align-items-center gap-2">
+            <div class="form-check mb-0 mt-3"><input class="form-check-input" type="checkbox" id="fOverdue"><label class="form-check-label small" for="fOverdue">Overdue only</label></div>
+            <button type="button" class="btn btn-ghost btn-sm mt-3" id="fClear" title="Clear all filters"><i class="bi bi-x-circle"></i> Clear</button>
           </div>
         </div>
+        <div class="small text-muted-soft mb-2" id="mSummary"></div>
+
         <div class="table-responsive">
           <table class="data-table" id="maintenanceTable">
             <thead>
@@ -99,6 +139,7 @@
                 <th>Name</th>
                 <th>Email</th>
                 <th>Type</th>
+                <th>Requested</th>
                 <th>Service Date</th>
                 <th>Free Time</th>
                 <th>Description</th>
@@ -107,7 +148,7 @@
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
-            <tbody id="maintenanceTbody"><tr><td colspan="12" class="text-center py-5"><div class="page-loading-state" role="status"><div class="spinner-border text-brand spinner-border-sm" role="status" aria-hidden="true"></div><span>Loading maintenance requests...</span></div></td></tr></tbody>
+            <tbody id="maintenanceTbody"><tr><td colspan="13" class="text-center py-5"><div class="page-loading-state" role="status"><div class="spinner-border text-brand spinner-border-sm" role="status" aria-hidden="true"></div><span>Loading maintenance requests...</span></div></td></tr></tbody>
           </table>
         </div>
         <div id="maintenanceEmpty" class="empty-state d-none">

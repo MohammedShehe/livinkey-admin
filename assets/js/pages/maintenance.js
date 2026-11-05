@@ -13,17 +13,83 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let maintenanceData = [];
     let searchTerm = "";
+    const $id = (i) => document.getElementById(i);
+    const F = { status: "", pg_id: "", issue_type: "", month: "", date_field: "created", from: "", to: "", has_image: "", overdue: false, sort: "status" };
+    let pgsLoaded = false;
+
+    function currentParams() {
+        const p = { sort: F.sort, date_field: F.date_field };
+        if (searchTerm.trim()) p.search = searchTerm.trim();
+        if (F.status) p.status = F.status;
+        if (F.pg_id) p.pg_id = F.pg_id;
+        if (F.issue_type) p.issue_type = F.issue_type;
+        if (F.month) p.month = F.month;
+        if (F.from) p.from = F.from;
+        if (F.to) p.to = F.to;
+        if (F.has_image !== "") p.has_image = F.has_image;
+        if (F.overdue) p.overdue = 1;
+        return p;
+    }
 
     // ============================================
-    // FETCH MAINTENANCE REQUESTS
+    // FILTER DROP-DOWNS (PGs, issue types, months)
     // ============================================
-    async function loadMaintenance() {
-        PAGE_LOADER.table(document.getElementById("maintenanceTbody"), 12, "Loading maintenance requests...");
-        PAGE_LOADER.hideEmpty("maintenanceEmpty");
+    async function loadPgOptions() {
+        if (pgsLoaded) return;
         try {
-            const params = {};
-            if (searchTerm) params.search = searchTerm;
-            const res = await API.maintenance.admin.getAll(params);
+            const res = await API.pgs.getAll();
+            if (res.success) {
+                const sel = $id("fPg");
+                (res.data || []).forEach(pg => sel.insertAdjacentHTML("beforeend", `<option value="${lkEsc(pg.id)}">${lkEsc(pg.name)}</option>`));
+                pgsLoaded = true;
+            }
+        } catch (e) { console.error("PG list:", e); }
+    }
+
+    const monthLabel = (m) => { const [y, mo] = m.split("-"); return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" }); };
+
+    function fillSelect(id, items, current, allLabel) {
+        const sel = $id(id);
+        sel.innerHTML = `<option value="">${allLabel}</option>` + items.map(i => `<option value="${lkEsc(i.value)}">${lkEsc(i.label)}</option>`).join("");
+        // keep the current choice even if it has no rows right now
+        if (current && !items.some(i => i.value === current)) sel.insertAdjacentHTML("beforeend", `<option value="${lkEsc(current)}">${lkEsc(current)}</option>`);
+        sel.value = current || "";
+    }
+
+    async function loadStats() {
+        try {
+            const p = currentParams(); delete p.sort; delete p.status; delete p.overdue;
+            const res = await API.maintenance.admin.stats(p);
+            if (!res.success) return;
+            const d = res.data;
+            $id("stTotal").textContent = d.total; $id("stPending").textContent = d.pending;
+            $id("stProgress").textContent = d.in_progress; $id("stDone").textContent = d.completed; $id("stOverdue").textContent = d.overdue;
+            fillSelect("fType", (d.types || []).map(t => ({ value: t.issue_type, label: `${t.issue_type} (${t.count})` })), F.issue_type, "All types");
+            fillSelect("fMonth", (d.months || []).map(m => ({ value: m.month, label: `${monthLabel(m.month)} (${m.count})` })), F.month, "All months");
+            window.__mAvgHours = d.avg_resolution_hours;
+            markActiveStat();
+        } catch (e) { console.error("Maintenance stats:", e); }
+    }
+
+    function markActiveStat() {
+        document.querySelectorAll("#mStats .m-stat").forEach(b => {
+            const st = b.dataset.st;
+            b.classList.toggle("active", st === "overdue" ? F.overdue : (!F.overdue && st === F.status));
+        });
+    }
+
+    // ============================================
+    // FETCH MAINTENANCE REQUESTS (filtering is done by the server)
+    // ============================================
+    let reqSeq = 0;
+    async function loadMaintenance() {
+        const seq = ++reqSeq;
+        PAGE_LOADER.table(document.getElementById("maintenanceTbody"), 13, "Loading maintenance requests...");
+        PAGE_LOADER.hideEmpty("maintenanceEmpty");
+        loadPgOptions();
+        try {
+            const [res] = await Promise.all([API.maintenance.admin.getAll(currentParams()), loadStats()]);
+            if (seq !== reqSeq) return; // a newer filter change is already loading
             if (res.success) {
                 maintenanceData = res.data || [];
                 renderTable();
@@ -32,26 +98,20 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (error) {
             const tbody = document.getElementById("maintenanceTbody");
-            if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center py-5 text-danger">Failed to load maintenance requests. Please try again.</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="13" class="text-center py-5 text-danger">Failed to load maintenance requests. Please try again.</td></tr>`;
             showToast("Error loading maintenance: " + error.message, "danger");
         }
     }
 
     function renderTable() {
-        const f = searchTerm.trim().toLowerCase();
-        let filtered = maintenanceData;
-        if (f) {
-            filtered = maintenanceData.filter(m =>
-                (m.pg_name || '').toLowerCase().includes(f) ||
-                (m.room_number || '').toLowerCase().includes(f) ||
-                (m.tenant_name || '').toLowerCase().includes(f) ||
-                (m.issue_type || '').toLowerCase().includes(f) ||
-                (m.tenant_email || '').toLowerCase().includes(f)
-            );
-        }
-
+        const filtered = maintenanceData;
         const tbody = document.getElementById("maintenanceTbody");
         if (!tbody) return;
+
+        const activeFilters = Object.entries(F).some(([k, v]) => v && !(k === "sort" && v === "status") && !(k === "date_field" && v === "created")) || searchTerm.trim();
+        const avg = window.__mAvgHours;
+        $id("mSummary").textContent = `Showing ${filtered.length} request${filtered.length === 1 ? "" : "s"}` + (activeFilters ? " (filtered)" : "") +
+            (avg != null ? ` · average time to complete: ${avg < 48 ? avg + " h" : (avg / 24).toFixed(1) + " days"}` : "");
 
         if (filtered.length === 0) {
             tbody.innerHTML = '';
@@ -68,13 +128,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td>${X(m.tenant_name) || '—'}</td>
                 <td>${X(m.tenant_email) || '—'}</td>
                 <td><span class="chip chip-blue">${X(m.issue_type) || '—'}</span></td>
+                <td>${m.request_date ? formatDate(m.request_date) : '—'}</td>
                 <td>${m.service_date ? formatDate(m.service_date) : '—'}</td>
                 <td>${X(m.free_time) || '—'}</td>
                 <td>${X(m.description) || '—'}</td>
                 <td>
                     ${m.image_url ? `<img src="${m.image_url}" alt="Issue" style="width:40px;height:30px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="window.previewImage('${m.id}')">` : "—"}
                 </td>
-                <td>${getStatusBadge(m.status || 'pending')}</td>
+                <td>${getStatusBadge(m.status || 'pending')}${Number(m.is_overdue) ? '<span class="status-badge status-overdue" title="Service date has passed">Overdue</span>' : ''}</td>
                 <td class="text-end">
                     <div class="d-flex gap-1 justify-content-end align-items-center">
                         ${getStatusActionButton(m)}
@@ -86,10 +147,29 @@ document.addEventListener("DOMContentLoaded", () => {
         `).join("");
     }
 
-    document.getElementById("maintenanceSearch")?.addEventListener("input", function(e) {
+    // ---- filter events ----
+    let searchTimer = null;
+    $id("maintenanceSearch")?.addEventListener("input", function (e) {
         searchTerm = e.target.value;
-        renderTable();
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(loadMaintenance, 300);
     });
+    const bind = (id, key, isCheck) => $id(id)?.addEventListener("change", (e) => { F[key] = isCheck ? e.target.checked : e.target.value; if (key === "month" && F.month) { F.from = ""; F.to = ""; $id("fFrom").value = ""; $id("fTo").value = ""; } if ((key === "from" || key === "to") && e.target.value) { F.month = ""; $id("fMonth").value = ""; } markActiveStat(); loadMaintenance(); });
+    bind("fStatus", "status"); bind("fPg", "pg_id"); bind("fType", "issue_type"); bind("fMonth", "month"); bind("fDateField", "date_field");
+    bind("fFrom", "from"); bind("fTo", "to"); bind("fImage", "has_image"); bind("fOverdue", "overdue", true); bind("fSort", "sort");
+    $id("fClear")?.addEventListener("click", () => {
+        Object.assign(F, { status: "", pg_id: "", issue_type: "", month: "", date_field: "created", from: "", to: "", has_image: "", overdue: false, sort: "status" });
+        searchTerm = ""; $id("maintenanceSearch").value = "";
+        ["fStatus", "fPg", "fType", "fMonth", "fImage", "fFrom", "fTo"].forEach(i => $id(i).value = "");
+        $id("fDateField").value = "created"; $id("fSort").value = "status"; $id("fOverdue").checked = false;
+        loadMaintenance();
+    });
+    document.querySelectorAll("#mStats .m-stat").forEach(b => b.addEventListener("click", () => {
+        const st = b.dataset.st;
+        if (st === "overdue") { F.overdue = !F.overdue; F.status = ""; } else { F.overdue = false; F.status = st; }
+        $id("fOverdue").checked = F.overdue; $id("fStatus").value = F.status;
+        loadMaintenance();
+    }));
 
     // ============================================
     // STATUS BADGE
@@ -349,7 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // INIT
     // ============================================
     LKUI.table('#maintenanceTable', {
-        key: 'maintenance', noun: 'request', csv: 'maintenance-requests', skipCols: [8, 10],
+        key: 'maintenance', noun: 'request', csv: 'maintenance-requests', skipCols: [9, 11],
         bulk: { idOf: tr => tr.dataset.id, actions: [
             { label: 'Delete', icon: 'bi-trash3', danger: true, visible: () => canDeleteMaintenance, run: async (ids) => {
                 if (!await LKUI.confirm({ title: `Delete ${ids.length} request${ids.length === 1 ? '' : 's'}?`, body: 'This cannot be undone.', confirmText: 'Delete' })) return false;

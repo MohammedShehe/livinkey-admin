@@ -874,6 +874,8 @@ const API = {
             },
             getByTenant: (tenantId) => 
                 apiRequest(`/documents/admin/tenant/${tenantId}`, 'GET'),
+            getVehicle: (tenantId) => 
+                apiRequest(`/documents/admin/tenant/${tenantId}/vehicle`, 'GET'),
             delete: (documentId) => 
                 apiRequest(`/documents/admin/${documentId}`, 'DELETE'),
             deleteAll: (tenantId) => 
@@ -911,8 +913,14 @@ const API = {
                 });
                 return apiRequest(`/maintenance/admin/all?${qs.toString()}`, 'GET');
             },
-            stats: (pg_id = null) => 
-                apiRequest(`/maintenance/admin/stats${pg_id ? `?pg_id=${pg_id}` : ''}`, 'GET'),
+            // Accepts a pg_id (old style) or a filter object {pg_id, month, issue_type, ...}
+            stats: (params = null) => {
+                const o = (params && typeof params === 'object') ? params : (params ? { pg_id: params } : {});
+                const qs = new URLSearchParams();
+                Object.keys(o).forEach(k => { if (o[k] !== undefined && o[k] !== null && o[k] !== '') qs.append(k, o[k]); });
+                const q = qs.toString();
+                return apiRequest(`/maintenance/admin/stats${q ? `?${q}` : ''}`, 'GET');
+            },
             getById: (id) => 
                 apiRequest(`/maintenance/admin/${id}`, 'GET'),
             start: (id) => 
@@ -1103,6 +1111,12 @@ const API = {
         update: (pgId, id, d) => apiRequest(`/pgs/${pgId}/offers/${id}`, 'PUT', d),
         toggle: (pgId, id, active) => apiRequest(`/pgs/${pgId}/offers/${id}/toggle`, 'PATCH', { is_active: active }),
         remove: (pgId, id) => apiRequest(`/pgs/${pgId}/offers/${id}`, 'DELETE')
+    },
+
+    // Manual room counts shown on the website / guest app
+    roomDisplay: {
+        get: (pgId) => apiRequest(`/pgs/${pgId}/room-display`, 'GET'),
+        save: (pgId, d) => apiRequest(`/pgs/${pgId}/room-display`, 'PUT', d)
     },
 
     // ---- Expenses ----

@@ -2179,8 +2179,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     'arrival_stamp': 'Arrival Stamp',
                     'c_form': 'C-Form',
                     'efrro': 'E-FRRO',
-                    'agreement': 'Agreement'
+                    'agreement': 'Agreement',
+                    // Vehicle documents (shown in their own section below)
+                    'vehicle_photo': 'Vehicle Photo',
+                    'vehicle_rc': 'RC Photo',
+                    'driver_license': 'Driver License'
                 };
+                const vehicleKeys = ['vehicle_photo', 'vehicle_rc', 'driver_license'];
                 let docs = [];
                 
                 if (docRes.success && docRes.data) {
@@ -2204,7 +2209,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 documentStatusCache[id] = missing.length === 0;
                 updatePendingDocsBadge();
 
-                document.getElementById("docsGrid").innerHTML = docTypes.map(key => {
+                const renderDocCard = (key) => {
                     const has = uploadedTypes.includes(key);
                     const doc = docs.find(d => d.document_type === key);
                     const dUrl = (doc?.document_url || '').toLowerCase();
@@ -2227,7 +2232,34 @@ document.addEventListener("DOMContentLoaded", () => {
                             </div>
                         </div>
                     </div>`;
-                }).join("");
+                };
+
+                // ---- Vehicle documents (photo, RC, driving licence) ----
+                let vehicle = { has_vehicle: false, vehicle_number: null };
+                try {
+                    const vRes = await API.documents.admin.getVehicle(id);
+                    if (vRes && vRes.success && vRes.data) vehicle = vRes.data;
+                } catch (vErr) { console.warn("Vehicle info unavailable:", vErr); }
+                const hasVehicleDocs = vehicleKeys.some(k => uploadedTypes.includes(k));
+                let vehicleHtml = '';
+                if (vehicle.has_vehicle || hasVehicleDocs) {
+                    const vUploaded = vehicleKeys.filter(k => uploadedTypes.includes(k)).length;
+                    vehicleHtml = `
+                    <div class="col-12 mt-2">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top pt-3">
+                            <h6 class="mb-0"><i class="bi bi-car-front me-2"></i>Vehicle documents
+                                <span class="chip ${vUploaded === vehicleKeys.length ? 'chip-green' : 'chip-amber'} ms-1">${vUploaded}/${vehicleKeys.length} uploaded</span></h6>
+                            <div class="small">
+                                ${vehicle.vehicle_number
+                                    ? `<span class="text-muted-soft">Vehicle number:</span> <strong>${lkEsc(vehicle.vehicle_number)}</strong>`
+                                    : '<span class="text-muted-soft">Vehicle number not entered</span>'}
+                            </div>
+                        </div>
+                        ${!vehicle.has_vehicle ? '<div class="small text-muted-soft mt-1">The tenant has switched off “Has vehicle”, but these documents are still on file.</div>' : ''}
+                    </div>` + vehicleKeys.map(renderDocCard).join("");
+                }
+
+                document.getElementById("docsGrid").innerHTML = docTypes.map(renderDocCard).join("") + vehicleHtml;
 
                 docsModal.show();
             } catch (docError) {

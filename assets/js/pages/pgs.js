@@ -178,6 +178,7 @@ TERMS & CONDITIONS
                     <div class="mt-3 d-flex gap-2" onclick="event.stopPropagation();">
                         ${canEditPGs ? `<button class="btn btn-outline-brand btn-sm flex-grow-1" onclick="editPg('${p.id}')"><i class="bi bi-pencil me-1"></i>Edit</button>` : ''}
                         <button class="btn btn-ghost btn-sm" onclick="openOffers('${p.id}')" title="Offers"><i class="bi bi-gift"></i></button>
+                        ${Permissions.hasPermission('pgs', 'edit') ? `<button class="btn btn-ghost btn-sm" onclick="openRooms('${p.id}')" title="Room counts shown to visitors"><i class="bi bi-door-open"></i></button>` : ''}
                         ${(Auth.getSession() || {}).role === 'super_admin' ? `<button class="btn btn-ghost btn-sm" onclick="openElectricity('${p.id}')" title="Electricity formula"><i class="bi bi-lightning-charge"></i></button>` : ''}
                         ${canDeletePGs ? `<button class="btn-icon btn-delete-pg" onclick="deletePg('${p.id}')" data-pg-id="${p.id}"><i class="bi bi-trash3"></i></button>` : ''}
                     </div>

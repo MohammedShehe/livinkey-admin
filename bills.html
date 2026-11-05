@@ -594,6 +594,11 @@
                   <div class="col-6"><label class="form-label small mb-1">Previous reading</label><input type="number" class="form-control" id="elecPrev" min="0" step="0.01" inputmode="decimal"><small class="text-muted-soft" id="elecPrevHint"></small></div>
                   <div class="col-6"><label class="form-label small mb-1">Current reading</label><input type="number" class="form-control" id="elecCurr" min="0" step="0.01" inputmode="decimal"></div>
                 </div>
+                <div class="row g-2 mt-1 d-none" id="elecInvBox">
+                  <div class="col-12"><div class="small fw-semibold text-brand"><i class="bi bi-battery-charging me-1"></i>Inverter meter</div></div>
+                  <div class="col-6"><label class="form-label small mb-1">Inverter previous reading</label><input type="number" class="form-control" id="elecInvPrev" min="0" step="0.01" inputmode="decimal"><small class="text-muted-soft" id="elecInvPrevHint"></small></div>
+                  <div class="col-6"><label class="form-label small mb-1">Inverter current reading</label><input type="number" class="form-control" id="elecInvCurr" min="0" step="0.01" inputmode="decimal"></div>
+                </div>
                 <div id="elecResult" class="small mt-2"></div>
               </div>
               <input type="number" class="form-control" id="billElectricity" value="0" min="0" step="1">

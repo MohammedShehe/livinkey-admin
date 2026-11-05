@@ -11,7 +11,7 @@
     const pgName = (id) => { const c = document.querySelector(`[onclick*="viewPgDetail('${id}')"] .fw-bold`); return c ? c.textContent : 'PG'; };
 
     // =============================== OFFERS ===============================
-    let offPg = null, offModal = null, offers = [], editingOffer = null;
+    let offPg = null, offModal = null, offers = [], editingOffer = null, pgRent = 0;
 
     window.openOffers = async function (pgId) {
         offPg = pgId;
@@ -33,7 +33,7 @@
 
     async function loadOffers() {
         $('offList').innerHTML = '<div class="text-center text-muted-soft py-4">Loading…</div>';
-        try { offers = (await API.offers.listForPg(offPg)).data; renderOffers(); }
+        try { const r = await API.offers.listForPg(offPg); offers = r.data; pgRent = Number(r.pg_rent) || 0; renderOffers(); }
         catch (e) { $('offList').innerHTML = `<div class="alert alert-danger">${E(e.message || 'Could not load offers')}</div>`; }
     }
 
@@ -45,7 +45,8 @@
             return `<div class="offer-card ${o.is_active ? '' : 'off'}">
               <span class="offer-badge">${E(o.headline)}</span>
               <div class="flex-grow-1 min-w-0"><div class="fw-semibold">${E(o.title)} ${state}</div>
-                <div class="small text-muted-soft">${E([o.coupon_code && 'Code ' + o.coupon_code, o.valid_from && 'from ' + fmtD(o.valid_from), o.valid_until && 'till ' + fmtD(o.valid_until)].filter(Boolean).join(' · ') || 'No end date')}</div></div>
+                ${o.has_price_cut ? `<div class="small"><s class="text-muted-soft">${inr(o.original_price)}</s> <i class="bi bi-arrow-right"></i> <strong class="text-success">${inr(o.offer_price)}</strong><span class="text-muted-soft"> /month</span></div>` : ''}
+                <div class="small text-muted-soft">${E([o.coupon_code && 'Code ' + o.coupon_code, o.valid_from && 'from ' + fmtD(o.valid_from), o.valid_until && 'till ' + fmtD(o.valid_until) + (o.valid_until_time ? ' ' + o.valid_until_time : '')].filter(Boolean).join(' · ') || 'No end date')}</div></div>
               ${canEdit() ? `<div class="form-check form-switch m-0" title="Turn on / off"><input class="form-check-input" type="checkbox" role="switch" data-tg="${o.id}" ${o.is_active ? 'checked' : ''}></div>
               <button class="btn btn-sm btn-ghost" data-ed="${o.id}" title="Edit"><i class="bi bi-pencil"></i></button>
               <button class="btn btn-sm btn-ghost text-danger" data-dl="${o.id}" title="Delete"><i class="bi bi-trash3"></i></button>` : ''}
@@ -73,9 +74,11 @@
           <div class="col-md-4" id="ofValWrap"><label class="form-label" id="ofValLbl">Discount</label><input type="number" class="form-control" id="ofVal" min="0" step="0.01" value="${o && o.offer_value != null ? o.offer_value : ''}"></div>
           <div class="col-md-4"><label class="form-label">Badge text <span class="text-muted-soft small">(optional)</span></label><input class="form-control" id="ofBadge" maxlength="40" placeholder="Auto: 10% OFF" value="${E(o ? o.badge_text : '')}"></div>
           <div class="col-12"><label class="form-label">Details</label><textarea class="form-control" id="ofDesc" rows="2" maxlength="1000" placeholder="What does the visitor get?">${E(o ? o.description : '')}</textarea></div>
-          <div class="col-md-4"><label class="form-label">Coupon code</label><input class="form-control" id="ofCode" maxlength="40" style="text-transform:uppercase" value="${E(o ? o.coupon_code : '')}"></div>
-          <div class="col-md-4"><label class="form-label">Starts on</label><input type="date" class="form-control" id="ofFrom" value="${E(o ? o.valid_from || '' : '')}"></div>
-          <div class="col-md-4"><label class="form-label">Ends on</label><input type="date" class="form-control" id="ofTo" value="${E(o ? o.valid_until || '' : '')}"></div>
+          <div class="col-md-3"><label class="form-label">Coupon code</label><input class="form-control" id="ofCode" maxlength="40" style="text-transform:uppercase" value="${E(o ? o.coupon_code : '')}"></div>
+          <div class="col-md-3"><label class="form-label">Starts on</label><input type="date" class="form-control" id="ofFrom" value="${E(o ? o.valid_from || '' : '')}"></div>
+          <div class="col-md-3"><label class="form-label">Ends on</label><input type="date" class="form-control" id="ofTo" value="${E(o ? o.valid_until || '' : '')}"></div>
+          <div class="col-md-3"><label class="form-label">Ends at <span class="text-muted-soft small">(time)</span></label><input type="time" class="form-control" id="ofToTime" value="${E(o ? o.valid_until_time || '' : '')}"><div class="form-text">Blank = end of day. Visitors see a live countdown.</div></div>
+          <div class="col-12 d-none" id="ofPricePrev"></div>
           <div class="col-12"><label class="form-label">Terms &amp; conditions</label><textarea class="form-control" id="ofTerms" rows="2" maxlength="1000">${E(o ? o.terms : '')}</textarea></div>
           <div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="ofActive" ${!o || o.is_active ? 'checked' : ''}><label class="form-check-label" for="ofActive">Switch this offer on</label></div></div>
           ${o ? '' : '<div class="col-md-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="ofNotify" checked><label class="form-check-label" for="ofNotify">Notify guests on their phones</label></div></div>'}
@@ -84,12 +87,19 @@
         <div class="d-flex justify-content-end gap-2 mt-3"><button class="btn btn-ghost" id="ofCancel">Back</button><button class="btn btn-brand" id="ofSave"><i class="bi bi-check2"></i> Save offer</button></div>`;
         $('ofType').value = o ? o.offer_type : 'percent';
         const sync = () => { const t = $('ofType').value; $('ofValWrap').style.display = (t === 'percent' || t === 'flat') ? '' : 'none'; $('ofValLbl').textContent = t === 'percent' ? 'Discount (%)' : 'Discount (₹)'; };
-        $('ofType').onchange = sync; sync();
+        const pricePrev = () => {
+            const t = $('ofType').value, v = Number($('ofVal').value), box = $('ofPricePrev');
+            if (!(pgRent > 0) || !(v > 0) || (t !== 'percent' && t !== 'flat')) { box.classList.add('d-none'); return; }
+            const off = Math.min(Math.round(t === 'percent' ? pgRent * Math.min(v, 100) / 100 : v), pgRent);
+            box.classList.remove('d-none');
+            box.innerHTML = `<div class="p-2 rounded-3 small" style="background:var(--lk-green-50);border:1px solid var(--border)"><i class="bi bi-eye me-1"></i>Visitors will see: <s class="text-muted-soft">${inr(pgRent)}</s> <strong class="text-success">${inr(pgRent - off)}</strong> /month <span class="text-muted-soft">(you save ${inr(off)})</span></div>`;
+        };
+        $('ofType').onchange = () => { sync(); pricePrev(); }; $('ofVal').oninput = pricePrev; sync(); pricePrev();
         $('ofCancel').onclick = renderOffers;
         $('ofSave').onclick = async () => {
             const err = (m) => { $('ofErr').textContent = m; $('ofErr').classList.remove('d-none'); };
             const d = { title: $('ofTitle').value.trim(), offer_type: $('ofType').value, offer_value: $('ofVal').value, badge_text: $('ofBadge').value.trim(), description: $('ofDesc').value.trim(),
-                coupon_code: $('ofCode').value.trim(), valid_from: $('ofFrom').value, valid_until: $('ofTo').value, terms: $('ofTerms').value.trim(), is_active: $('ofActive').checked };
+                coupon_code: $('ofCode').value.trim(), valid_from: $('ofFrom').value, valid_until: $('ofTo').value, valid_until_time: $('ofTo').value ? $('ofToTime').value : '', terms: $('ofTerms').value.trim(), is_active: $('ofActive').checked };
             if (!o) d.notify_guests = $('ofNotify').checked;
             if (!d.title) return err('Please give the offer a title.');
             if ((d.offer_type === 'percent' || d.offer_type === 'flat') && !(Number(d.offer_value) > 0)) return err('Enter a discount value greater than 0.');
@@ -100,12 +110,52 @@
         };
     }
 
+    // ============================ ROOM COUNTS =============================
+    window.openRooms = async function (pgId) {
+        if (!canEdit()) return LKUI.toast('You do not have permission to edit PGs.', 'warning');
+        let d; try { d = (await API.roomDisplay.get(pgId)).data; } catch (e) { return LKUI.toast(e.message || 'Could not load', 'danger'); }
+        const m = mk('roomsModal', `<div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+          <div class="modal-header"><div><h5 class="modal-title mb-0"><i class="bi bi-door-open me-2"></i>Room counts · ${E(d.pg_name)}</h5>
+            <div class="small text-muted-soft">Choose what visitors see on the website and in the guest app.</div></div><button class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="p-3 rounded-3 mb-3 small" style="background:var(--lk-green-50);border:1px solid var(--border)">
+              <div class="fw-semibold mb-1">Live data from your PG</div>
+              <div><i class="bi bi-door-closed me-1"></i><strong>${d.real.total_rooms}</strong> rooms &nbsp;·&nbsp; <i class="bi bi-door-open me-1"></i><strong>${d.real.vacant_rooms}</strong> completely vacant rooms</div></div>
+            <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="rmManual" ${d.manual_enabled ? 'checked' : ''}><label class="form-check-label fw-semibold" for="rmManual">Set room counts manually</label>
+              <div class="form-text">When on, visitors see the numbers below instead of the live data (the same way manual Properties / Happy Tenants work).</div></div>
+            <div class="row g-3" id="rmFields">
+              <div class="col-6"><label class="form-label">Total rooms</label><input type="number" min="0" step="1" class="form-control" id="rmTotal" value="${d.manual_total_rooms ?? d.real.total_rooms}"></div>
+              <div class="col-6"><label class="form-label">Vacant rooms</label><input type="number" min="0" step="1" class="form-control" id="rmVacant" value="${d.manual_vacant_rooms ?? d.real.vacant_rooms}"></div>
+              <div class="col-12"><div class="small text-muted-soft" id="rmPrev"></div></div>
+            </div>
+            <div class="alert alert-danger py-2 mt-3 mb-0 d-none" id="rmErr"></div>
+          </div>
+          <div class="modal-footer"><button class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button><button class="btn btn-brand" id="rmSave"><i class="bi bi-check2"></i> Save</button></div>
+        </div></div>`);
+        m.show();
+        const sync = () => {
+            const on = $('rmManual').checked;
+            ['rmTotal', 'rmVacant'].forEach(id => $(id).disabled = !on);
+            $('rmPrev').innerHTML = on ? `Visitors will see: <strong>🛏 ${E($('rmTotal').value || 0)} rooms</strong> · <strong>🏠 ${E($('rmVacant').value || 0)} vacant rooms</strong>` : 'Visitors will see the live numbers above.';
+        };
+        ['rmManual', 'rmTotal', 'rmVacant'].forEach(id => $(id).addEventListener('input', sync)); $('rmManual').addEventListener('change', sync); sync();
+        $('rmSave').onclick = async () => {
+            const b = $('rmSave'); b.disabled = true; $('rmErr').classList.add('d-none');
+            try {
+                const r = await API.roomDisplay.save(pgId, { manual_enabled: $('rmManual').checked, manual_total_rooms: $('rmTotal').value, manual_vacant_rooms: $('rmVacant').value });
+                LKUI.toast(r.message, 'success'); m.hide();
+            } catch (e) { $('rmErr').textContent = e.message || 'Could not save'; $('rmErr').classList.remove('d-none'); } finally { b.disabled = false; }
+        };
+    };
+
     // ============================ ELECTRICITY =============================
-    const calc = (s, prev, cur) => {
-        const units = Math.round((cur - prev) * (s.multiplier || 1) * 100) / 100, lines = [];
+    const calc = (s, prev, cur, ip, ic) => {
+        const dual = s.meter_mode === 'dual', mf = s.multiplier || 1;
+        const mainU = Math.round((cur - prev) * mf * 100) / 100, invU = dual ? Math.round((ic - ip) * mf * 100) / 100 : 0;
+        const units = Math.round((mainU + invU) * 100) / 100, lines = [];
         let energy = 0;
         if (s.billing_mode === 'slab') { let from = 0, left = units; for (const sl of s.slabs) { if (left <= 0) break; const cap = sl.upto == null ? Infinity : sl.upto - from; const used = Math.min(left, cap); if (used > 0) { lines.push([`${from}–${sl.upto == null ? 'above' : sl.upto} units`, used, sl.rate, used * sl.rate]); energy += used * sl.rate; } left -= used; if (sl.upto != null) from = sl.upto; } }
-        else { energy = units * s.rate_per_unit; lines.push(['Energy charge', units, s.rate_per_unit, energy]); }
+        else { energy = units * s.rate_per_unit; if (dual) { lines.push(['Main meter energy', mainU, s.rate_per_unit, mainU * s.rate_per_unit]); lines.push(['Inverter meter energy', invU, s.rate_per_unit, invU * s.rate_per_unit]); } else lines.push(['Energy charge', units, s.rate_per_unit, energy]); }
         let sub = energy + (s.fixed_charge || 0), minHit = false; if (s.min_charge > 0 && sub < s.min_charge) { sub = s.min_charge; minHit = true; }
         const tax = sub * (s.tax_percent || 0) / 100; let total = sub + tax; if (s.round_to_rupee) total = Math.round(total);
         return { units, lines, energy, fixed: s.fixed_charge || 0, minHit, sub, tax, total };
@@ -118,8 +168,10 @@
         let slabs = (cur.slabs && cur.slabs.length ? cur.slabs : [{ upto: 100, rate: 6 }, { upto: null, rate: 8 }]).map(s => ({ ...s }));
         const m = mk('elecModal', `<div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"><div class="modal-content">
           <div class="modal-header"><div><h5 class="modal-title mb-0"><i class="bi bi-lightning-charge me-2"></i>Electricity formula · ${E(cur.pg_name)}</h5>
-            <div class="small text-muted-soft">Set once. Billing staff then only enter the previous and current meter readings.</div></div><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="small text-muted-soft">Set once. Billing staff then only enter the meter readings (previous + current).</div></div><button class="btn-close" data-bs-dismiss="modal"></button></div>
           <div class="modal-body"><div class="row g-3">
+            <div class="col-12"><label class="form-label">How many electricity meters does this PG have?</label><select class="form-select" id="elMeters"><option value="single">One meter</option><option value="dual">Two meters — Main meter + Inverter meter</option></select>
+              <div class="form-text" id="elMetersHelp"></div></div>
             <div class="col-md-6"><label class="form-label">How is it charged?</label><select class="form-select" id="elMode"><option value="flat">One rate for every unit</option><option value="slab">Slabs (rate changes as usage grows)</option></select></div>
             <div class="col-md-6" id="elRateWrap"><label class="form-label">Cost per unit (₹)</label><input type="number" class="form-control" id="elRate" min="0" step="0.01" value="${cur.rate_per_unit || ''}"></div>
             <div class="col-12 d-none" id="elSlabWrap"><label class="form-label">Slabs</label><div id="elSlabs"></div><button class="btn btn-sm btn-ghost mt-2" id="elAddSlab" type="button"><i class="bi bi-plus"></i> Add slab</button></div>
@@ -132,13 +184,14 @@
             <div class="col-12"><div class="p-3 rounded-3" style="background:var(--lk-green-50);border:1px solid var(--border)">
               <div class="fw-semibold mb-2"><i class="bi bi-calculator me-1"></i>Try it</div>
               <div class="row g-2"><div class="col-6"><input type="number" class="form-control" id="elPrev" placeholder="Previous reading" value="1000"></div><div class="col-6"><input type="number" class="form-control" id="elCurr" placeholder="Current reading" value="1150"></div></div>
+              <div class="row g-2 mt-1 d-none" id="elInvRow"><div class="col-6"><input type="number" class="form-control" id="elInvPrev" placeholder="Inverter previous" value="200"></div><div class="col-6"><input type="number" class="form-control" id="elInvCurr" placeholder="Inverter current" value="230"></div></div>
               <div id="elPreview" class="mt-2 small"></div></div></div>
           </div><div class="alert alert-danger py-2 mt-3 mb-0 d-none" id="elErr"></div></div>
           <div class="modal-footer justify-content-between"><button class="btn btn-ghost" id="elCopy" ${all.length < 2 ? 'hidden' : ''}><i class="bi bi-copy"></i> Copy to other PGs…</button>
             <div class="d-flex gap-2"><button class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button><button class="btn btn-brand" id="elSave"><i class="bi bi-check2"></i> Save formula</button></div></div>
         </div></div>`);
-        m.show(); $('elMode').value = cur.billing_mode;
-        const read = () => ({ billing_mode: $('elMode').value, rate_per_unit: Number($('elRate').value) || 0, slabs: slabs.map(s => ({ upto: s.upto === '' || s.upto == null ? null : Number(s.upto), rate: Number(s.rate) || 0 })),
+        m.show(); $('elMode').value = cur.billing_mode; $('elMeters').value = cur.meter_mode === 'dual' ? 'dual' : 'single';
+        const read = () => ({ meter_mode: $('elMeters').value, billing_mode: $('elMode').value, rate_per_unit: Number($('elRate').value) || 0, slabs: slabs.map(s => ({ upto: s.upto === '' || s.upto == null ? null : Number(s.upto), rate: Number(s.rate) || 0 })),
             fixed_charge: Number($('elFixed').value) || 0, min_charge: Number($('elMin').value) || 0, multiplier: Number($('elMul').value) || 1, tax_percent: Number($('elTax').value) || 0, round_to_rupee: $('elRound').checked ? 1 : 0, is_active: $('elActive').checked ? 1 : 0 });
         const drawSlabs = () => {
             $('elSlabs').innerHTML = slabs.map((s, i) => { const last = i === slabs.length - 1; return `<div class="row g-2 align-items-center mb-2">
@@ -150,16 +203,20 @@
             $('elSlabs').querySelectorAll('[data-sd]').forEach(b => b.onclick = () => { slabs.splice(b.dataset.sd, 1); slabs[slabs.length - 1].upto = null; drawSlabs(); preview(); });
         };
         const preview = () => {
-            const s = read(), p = Number($('elPrev').value), c = Number($('elCurr').value);
+            const s = read(), p = Number($('elPrev').value), c = Number($('elCurr').value), ip = Number($('elInvPrev').value), ic = Number($('elInvCurr').value);
+            const dual = s.meter_mode === 'dual';
+            $('elInvRow').classList.toggle('d-none', !dual);
+            $('elMetersHelp').textContent = dual ? 'Billing staff will enter 4 readings: previous + current for the Main meter and for the Inverter meter. Units of both meters are added and charged with this formula.' : 'Billing staff will enter a previous and a current reading.';
             if (!(c >= p)) return $('elPreview').innerHTML = '<span class="text-danger">Current reading must be higher than the previous one.</span>';
-            const r = calc(s, p, c);
+            if (dual && !(ic >= ip)) return $('elPreview').innerHTML = '<span class="text-danger">Inverter current reading must be higher than its previous reading.</span>';
+            const r = calc(s, p, c, ip, ic);
             $('elPreview').innerHTML = `<div>${r.units} units${s.multiplier !== 1 ? ` (after ×${s.multiplier})` : ''}</div>` + r.lines.map(l => `<div class="d-flex justify-content-between"><span>${E(l[0])}: ${l[1]} × ₹${l[2]}</span><span>${inr(l[3])}</span></div>`).join('') +
               (r.fixed ? `<div class="d-flex justify-content-between"><span>Fixed charge</span><span>${inr(r.fixed)}</span></div>` : '') + (r.minHit ? `<div class="text-muted-soft">Minimum bill applied</div>` : '') + (r.tax ? `<div class="d-flex justify-content-between"><span>Tax ${s.tax_percent}%</span><span>${inr(r.tax)}</span></div>` : '') +
               `<div class="d-flex justify-content-between fw-bold border-top pt-1 mt-1"><span>Electricity bill</span><span>${inr(r.total)}</span></div>`;
         };
         const mode = () => { const sl = $('elMode').value === 'slab'; $('elSlabWrap').classList.toggle('d-none', !sl); $('elRateWrap').classList.toggle('d-none', sl); if (sl) drawSlabs(); preview(); };
         $('elMode').onchange = mode; $('elAddSlab').onclick = () => { slabs[slabs.length - 1].upto = (Number(slabs[slabs.length - 2]?.upto || 0) + 100) || 100; slabs.push({ upto: null, rate: '' }); drawSlabs(); preview(); };
-        ['elRate', 'elFixed', 'elMin', 'elMul', 'elTax', 'elRound', 'elPrev', 'elCurr'].forEach(id => $(id).addEventListener('input', preview)); mode();
+        ['elMeters', 'elRate', 'elFixed', 'elMin', 'elMul', 'elTax', 'elRound', 'elPrev', 'elCurr', 'elInvPrev', 'elInvCurr'].forEach(id => $(id).addEventListener('input', preview)); mode();
         $('elSave').onclick = async () => {
             const b = $('elSave'); b.disabled = true;
             try { const r = await API.electricity.save(pgId, read()); LKUI.toast(r.message, 'success'); m.hide(); }
