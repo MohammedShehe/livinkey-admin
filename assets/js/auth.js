@@ -1,4 +1,19 @@
 
+// Where did the one-time code go? (WhatsApp first, then SMS, then email - the server tells us which worked)
+function describeOtpDestination(res, email) {
+    const d = res && res.data ? res.data : {};
+    const via = { whatsapp: "WhatsApp", sms: "SMS", email: "email" }[d.channel];
+    if (via && d.sent_to) return `${via} · ${d.sent_to}`;
+    return email;
+}
+function rememberOtpDestination(res, email) {
+    try { sessionStorage.setItem("lk_otp_dest", describeOtpDestination(res, email)); } catch (_) {}
+}
+function otpToastText(res) {
+    const via = { whatsapp: "WhatsApp", sms: "SMS", email: "email" }[res && res.data && res.data.channel];
+    return via ? `OTP sent by ${via}. Please enter the code.` : "OTP sent. Check WhatsApp, SMS or email for the code.";
+}
+
 // Same rules as the server: 8+ characters with at least one letter and one number.
 function lkPasswordError(p) {
     if (!p || p.length < 8) return "Password must be at least 8 characters long.";
@@ -108,10 +123,11 @@ function initLoginPage() {
                 }
 
                 Auth.setPending("lk_login_pending", { email, purpose: "login" });
+                rememberOtpDestination(res, email);
                 if (res.demoOTP) {
-                    showToast(`📧 Demo OTP: ${res.demoOTP}. Check your email for the actual code.`, "info");
+                    showToast(`Demo OTP: ${res.demoOTP}.`, "info");
                 } else {
-                    showToast("📧 OTP sent to your email. Please check and enter the code.", "info");
+                    showToast(otpToastText(res), "info");
                 }
                 window.location.href = "otp-verify.html";
             } else {
@@ -265,7 +281,7 @@ function initOtpPage() {
     }
 
     const email = purpose === "login" ? loginPending.email : resetPending.email;
-    document.getElementById("otpEmailTarget").textContent = email;
+    document.getElementById("otpEmailTarget").textContent = sessionStorage.getItem("lk_otp_dest") || email;
 
     const inputs = Array.from(document.querySelectorAll(".otp-box"));
     inputs.forEach((box, i) => {
@@ -376,7 +392,9 @@ function initOtpPage() {
                 if (res.demoOTP) {
                     showToast(`📧 New Demo OTP: ${res.demoOTP}`, "info");
                 } else {
-                    showToast(res.message || "New OTP sent successfully.", "success");
+                    rememberOtpDestination(res, email);
+                    document.getElementById("otpEmailTarget").textContent = describeOtpDestination(res, email);
+                    showToast(otpToastText(res), "success");
                 }
             } else {
                 showToast(res.message || "Failed to resend OTP.", "danger");
@@ -435,10 +453,11 @@ function initForgotPasswordPage() {
             if (res.success) {
                 errorBox.classList.add("d-none");
                 Auth.setPending("lk_reset_pending", { email, verified: false });
+                rememberOtpDestination(res, email);
                 if (res.demoOTP) {
-                    showToast(`📧 Demo OTP: ${res.demoOTP}. Check your email for the actual code.`, "info");
+                    showToast(`Demo OTP: ${res.demoOTP}.`, "info");
                 } else {
-                    showToast("📧 OTP sent to your email for password reset.", "info");
+                    showToast(otpToastText(res), "info");
                 }
                 setTimeout(() => {
                     window.location.href = "otp-verify.html";

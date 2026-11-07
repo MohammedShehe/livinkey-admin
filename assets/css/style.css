@@ -1480,3 +1480,29 @@ html[data-theme="dark"] .fine-adjust-warning i{color:inherit;}
 a.btn.is-loading { pointer-events: none; }
 .btn .lk-btn-spin { width: 1em; height: 1em; border-width: .15em; vertical-align: -.125em; margin-right: .1rem; }
 .btn-icon.is-loading .lk-btn-spin { margin-right: 0; }
+
+/* =====================================================================
+   v3 · Sidebar brand — collapsed rail + theme-safe logos
+   Bug fixed: in dark mode the theme rule (specificity 0,3,1) beat the
+   collapsed rule (0,2,3), so the FULL white logo was drawn next to the
+   key icon and spilled out of the 76px rail over the menu and page.
+   ===================================================================== */
+.side-brand .brand-key{background:var(--lk-green); color:#0E1410; box-shadow:inset 0 1px 0 rgba(255,255,255,.35);}
+@media (min-width:992px){
+  body.sidebar-collapsed .sidebar .side-brand{padding:0 6px; justify-content:center; gap:4px; overflow:hidden;}
+  body.sidebar-collapsed .sidebar .side-brand > a{flex:0 0 auto; width:auto;}
+  body.sidebar-collapsed .sidebar .side-brand img,
+  body.sidebar-collapsed .sidebar .side-brand .logo-light,
+  body.sidebar-collapsed .sidebar .side-brand .logo-dark{display:none!important;}
+  body.sidebar-collapsed .sidebar .side-brand .brand-key{display:inline-flex!important; width:34px; height:34px; flex:0 0 34px;}
+  /* expand button sits INSIDE the rail beside the mark (it used to hang over the page header) */
+  body.sidebar-collapsed .sidebar .side-collapse{position:static; flex:0 0 24px; width:24px; height:24px; box-shadow:none; border-radius:7px; z-index:auto;}
+}
+/* drawer mode (<992px): exactly one logo, matching the theme, whatever the collapsed flag says */
+@media (max-width:991px){
+  body.sidebar-collapsed .sidebar .side-brand .brand-key{display:none!important;}
+  html:not([data-theme="dark"]) body.sidebar-collapsed .sidebar .side-brand .logo-dark,
+  html[data-theme="dark"] body.sidebar-collapsed .sidebar .side-brand .logo-light{display:none!important;}
+  html:not([data-theme="dark"]) body.sidebar-collapsed .sidebar .side-brand .logo-light,
+  html[data-theme="dark"] body.sidebar-collapsed .sidebar .side-brand .logo-dark{display:block!important;}
+}

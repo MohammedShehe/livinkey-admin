@@ -140,7 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="d-flex gap-1 justify-content-end align-items-center">
                         ${getStatusActionButton(m)}
                         ${canDeleteMaintenance ? `<button class="btn-icon" title="Delete" onclick="window.deleteRequest('${m.id}')"><i class="bi bi-trash3"></i></button>` : ''}
-                        ${m.status === 'pending' && canEditMaintenance ? `<button class="btn-icon" title="Forward to WhatsApp" onclick="window.forwardToWhatsApp('${m.id}')" style="color:#25D366;border-color:#25D366;"><i class="bi bi-whatsapp"></i></button>` : ''}
+                         ${canEditMaintenance ? `<button class="btn-icon" title="Forward details to a phone" aria-label="Forward details to a phone" onclick="window.forwardToWhatsApp('${m.id}')" style="color:#25D366;border-color:#25D366;"><i class="bi bi-whatsapp"></i></button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -205,71 +205,148 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================
-    // FORWARD TO WHATSAPP - NEW FEATURE
+    // FORWARD DETAILS TO ANY PHONE (sent by the server: WhatsApp, then SMS)
     // ============================================
-    window.forwardToWhatsApp = async function(id) {
-        if (!canEditMaintenance) {
-            showToast("You don't have permission to forward maintenance requests.", "warning");
-            return;
-        }
+    const FWD_CODES = [["+91","India"],["+255","Tanzania"],["+254","Kenya"],["+256","Uganda"],["+971","UAE"],["+966","Saudi Arabia"],["+1","US / Canada"],["+44","UK"],["+977","Nepal"],["+880","Bangladesh"],["+94","Sri Lanka"],["+92","Pakistan"],["+234","Nigeria"],["+27","South Africa"],["+61","Australia"],["+65","Singapore"]];
+    const escF = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    let fwdModal = null, fwdBusy = false, fwdRequestId = null;
 
-        // Get admin's phone number from session
-        const session = Auth.getSession();
-        if (!session) {
-            showToast("Please login again to access your profile.", "warning");
-            return;
-        }
+    function ensureForwardModal() {
+        if (document.getElementById("forwardModal")) return;
+        document.body.insertAdjacentHTML("beforeend", `
+<style>
+  #forwardModal .fw-sum{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:.7rem .85rem;font-size:.85rem}
+  #forwardModal .fw-sum b{color:var(--heading)}
+  #forwardModal .fw-chip{border:1px solid var(--border-strong);background:var(--surface);border-radius:999px;padding:.2rem .65rem;font-size:.78rem;cursor:pointer;color:var(--ink-soft)}
+  #forwardModal .fw-chip:hover{border-color:var(--lk-green);background:var(--lk-green-50)}
+  #forwardModal .fw-hist{font-size:.8rem;border-top:1px dashed var(--border);margin-top:1rem;padding-top:.7rem}
+  #forwardModal .fw-hist div{display:flex;justify-content:space-between;gap:.5rem;padding:.2rem 0}
+  #forwardModal .fw-st{font-weight:600}
+  #forwardModal .fw-st.ok{color:var(--lk-green-darker)} #forwardModal .fw-st.bad{color:var(--danger)} #forwardModal .fw-st.wait{color:var(--muted)}
+  #forwardModal .fw-phone{display:flex;gap:.5rem} #forwardModal .fw-phone select{max-width:150px;flex:0 0 auto}
+  @media (max-width:575px){#forwardModal .fw-phone{flex-direction:column}#forwardModal .fw-phone select{max-width:none}}
+</style>
+<div class="modal fade" id="forwardModal" tabindex="-1" aria-labelledby="fwTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="fwTitle"><i class="bi bi-whatsapp me-2" style="color:#25D366"></i>Forward request</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="fwForm" novalidate>
+        <div class="modal-body">
+          <div class="fw-sum mb-3" id="fwSummary"></div>
+          <label class="form-label fw-semibold" for="fwPhone">Send to (WhatsApp number)</label>
+          <div class="fw-phone">
+            <select class="form-select" id="fwCode" aria-label="Country code">${FWD_CODES.map(([c, n]) => `<option value="${c}">${c} ${n}</option>`).join("")}</select>
+            <input type="tel" class="form-control" id="fwPhone" inputmode="tel" autocomplete="off" placeholder="98765 43210" required>
+          </div>
+          <div class="form-text">Type the local number, or paste a full number starting with +. The details go straight to that WhatsApp (SMS if WhatsApp isn't available).</div>
+          <div class="d-flex flex-wrap gap-2 mt-2" id="fwQuick"></div>
+          <div class="row g-2 mt-1">
+            <div class="col-sm-5"><label class="form-label fw-semibold" for="fwName">Name <span class="text-muted fw-normal">(optional)</span></label><input class="form-control" id="fwName" maxlength="80" placeholder="e.g. Raju (plumber)"></div>
+            <div class="col-sm-7"><label class="form-label fw-semibold" for="fwNote">Note <span class="text-muted fw-normal">(optional)</span></label><input class="form-control" id="fwNote" maxlength="300" placeholder="e.g. Please call the tenant before visiting"></div>
+          </div>
+          <div class="form-check mt-3" id="fwStartWrap"><input class="form-check-input" type="checkbox" id="fwStart" checked><label class="form-check-label" for="fwStart">Mark this request as <b>In Progress</b> after sending</label></div>
+          <div class="alert alert-danger py-2 mt-3 mb-0 d-none" id="fwError" role="alert"></div>
+          <div class="fw-hist d-none" id="fwHist"><div class="fw-semibold mb-1">Previously forwarded</div><div id="fwHistList" style="display:block"></div></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-brand" id="fwSend"><i class="bi bi-send-fill me-1"></i>Send details</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>`);
+        fwdModal = new bootstrap.Modal(document.getElementById("forwardModal"));
+        document.getElementById("fwForm").addEventListener("submit", submitForward);
+        document.getElementById("fwQuick").addEventListener("click", (e) => {
+            const b = e.target.closest("[data-phone]"); if (!b) return;
+            document.getElementById("fwPhone").value = b.dataset.phone;
+            if (b.dataset.name) document.getElementById("fwName").value = b.dataset.name;
+        });
+    }
 
-        // Build phone number - remove ALL non-numeric characters
-        let rawPhone = session.phone;
-        if (!rawPhone) {
-            rawPhone = (session.country_code || '') + (session.phone || '');
-        }
-        
-        // Remove all non-numeric characters (+, -, spaces, etc.)
-        const adminPhone = rawPhone.replace(/[^0-9]/g, '');
+    function statusClass(st) { return st === "failed" ? "bad" : (st === "delivered" || st === "read") ? "ok" : "wait"; }
+    function statusWord(f) {
+        const via = f.channel === "sms" ? "SMS" : "WhatsApp";
+        return { failed: "Not delivered", read: `Read (${via})`, delivered: `Delivered (${via})`, sent: `Sent (${via})`, queued: "Sending…" }[f.status] || f.status;
+    }
 
-        // Validate phone number (at least 10 digits)
-        if (!adminPhone || adminPhone.length < 10) {
-            showToast("Your phone number is not set or invalid in your profile. Please update your profile first.", "warning");
-            return;
-        }
-
-        // Find the maintenance request
-        const numericId = typeof id === 'string' ? parseInt(id) : id;
-        const m = maintenanceData.find(x => x.id === numericId);
-        
-        if (!m) {
-            showToast("Maintenance request not found. Please refresh the page.", "warning");
-            return;
-        }
-
-        if (m.status !== 'pending') {
-            showToast("Only pending requests can be forwarded.", "warning");
-            return;
-        }
-
-        // Build WhatsApp message
-        const message = buildWhatsAppMessage(m);
-        const encodedMessage = encodeURIComponent(message);
-        const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodedMessage}`;
-
-        // Open WhatsApp in new tab
-        window.open(whatsappUrl, '_blank');
-
-        // Update status to in_progress
+    async function loadForwardExtras(id) {
+        const hist = document.getElementById("fwHist"), list = document.getElementById("fwHistList"), quick = document.getElementById("fwQuick");
+        hist.classList.add("d-none"); quick.innerHTML = "";
+        const own = (Auth.getSession()?.phone || Auth.getSession()?.admin?.phone || "").trim();
+        const chips = [];
+        if (own) chips.push(`<button type="button" class="fw-chip" data-phone="${escF(own)}"><i class="bi bi-person-fill"></i> My number</button>`);
+        quick.innerHTML = chips.join("");
         try {
-            const res = await API.maintenance.admin.start(id);
-            if (res.success) {
-                showToast(res.message || "Maintenance forwarded to WhatsApp and status updated to In Progress.", "success");
-                loadMaintenance();
-            } else {
-                showToast(res.message || "Failed to update status after forwarding.", "danger");
+            const [h, r] = await Promise.all([API.getMaintenanceForwards(id), API.getForwardRecipients()]);
+            if (id !== fwdRequestId) return;
+            const rows = h.data || [];
+            if (rows.length) {
+                list.innerHTML = rows.map((f) => `<div><span>${escF(f.to_name || f.to_phone)}${f.to_name ? ` · ${escF(f.to_phone)}` : ""}<br><small class="text-muted">${escF(new Date(f.created_at).toLocaleString())}${f.admin_name ? " · " + escF(f.admin_name) : ""}</small></span><span class="fw-st ${statusClass(f.status)}" ${f.error_message ? `title="${escF(f.error_message)}"` : ""}>${escF(statusWord(f))}</span></div>`).join("");
+                hist.classList.remove("d-none");
             }
-        } catch (error) {
-            showToast("Error updating status: " + error.message, "danger");
-        }
+            const recent = (r.data || []).slice(0, 5);
+            quick.innerHTML = chips.concat(recent.map((x) => `<button type="button" class="fw-chip" data-phone="${escF(x.to_phone)}" data-name="${escF(x.to_name || "")}"><i class="bi bi-clock-history"></i> ${escF(x.to_name || x.to_phone)}</button>`)).join("");
+        } catch (_) { /* extras are optional */ }
+    }
+
+    window.forwardToWhatsApp = function(id) {
+        if (!canEditMaintenance) { showToast("You don't have permission to forward maintenance requests.", "warning"); return; }
+        const numericId = typeof id === "string" ? parseInt(id, 10) : id;
+        const m = maintenanceData.find((x) => x.id === numericId);
+        if (!m) { showToast("Maintenance request not found. Please refresh the page.", "warning"); return; }
+        ensureForwardModal();
+        fwdRequestId = numericId;
+        document.getElementById("fwForm").reset();
+        document.getElementById("fwError").classList.add("d-none");
+        document.getElementById("fwTitle").innerHTML = `<i class="bi bi-whatsapp me-2" style="color:#25D366"></i>Forward request #${numericId}`;
+        document.getElementById("fwSummary").innerHTML = `<b>${escF(m.issue_type || "Maintenance")}</b> · Room ${escF(m.room_number || "—")}${m.pg_name ? " · " + escF(m.pg_name) : ""}<br>${escF(m.tenant_name || "Tenant")}${m.service_date ? " · " + escF(new Date(m.service_date).toLocaleDateString()) : ""}<br><span class="text-muted">${escF((m.description || "No description").slice(0, 140))}</span>`;
+        const pending = m.status === "pending";
+        document.getElementById("fwStartWrap").classList.toggle("d-none", !pending);
+        document.getElementById("fwStart").checked = pending;
+        const code = FWD_CODES.find(([c]) => String(Auth.getSession()?.phone || "").startsWith(c));
+        document.getElementById("fwCode").value = code ? code[0] : "+91";
+        fwdModal.show();
+        setTimeout(() => document.getElementById("fwPhone").focus(), 250);
+        loadForwardExtras(numericId);
     };
+
+    async function submitForward(e) {
+        e.preventDefault();
+        if (fwdBusy) return;
+        const err = document.getElementById("fwError"), btn = document.getElementById("fwSend");
+        const raw = document.getElementById("fwPhone").value.trim();
+        const digits = raw.replace(/\D/g, "");
+        err.classList.add("d-none");
+        if (digits.length < 7 || digits.length > 15) {
+            err.textContent = "Enter a valid phone number (7–15 digits).";
+            err.classList.remove("d-none"); document.getElementById("fwPhone").focus(); return;
+        }
+        fwdBusy = true; btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending…';
+        try {
+            const res = await API.forwardMaintenance(fwdRequestId, {
+                phone: raw,
+                country_code: raw.startsWith("+") ? null : document.getElementById("fwCode").value,
+                name: document.getElementById("fwName").value.trim() || null,
+                note: document.getElementById("fwNote").value.trim() || null,
+                mark_in_progress: document.getElementById("fwStart").checked && !document.getElementById("fwStartWrap").classList.contains("d-none"),
+            });
+            fwdModal.hide();
+            showToast(res.message || "Details sent.", res.data?.warning ? "warning" : "success");
+            if (res.data?.warning) showToast(res.data.warning, "warning");
+            loadMaintenance();
+        } catch (error) {
+            err.textContent = error?.message || "Could not send the details. Please try again.";
+            err.classList.remove("d-none");
+            loadForwardExtras(fwdRequestId);
+        } finally {
+            fwdBusy = false; btn.disabled = false; btn.innerHTML = '<i class="bi bi-send-fill me-1"></i>Send details';
+        }
+    }
 
     // ============================================
     // BUILD WHATSAPP MESSAGE - FIXED WITH CORRECT FIELDS

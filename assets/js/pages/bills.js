@@ -835,7 +835,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             if (res.success) {
-                showToast(res.message || "OTP sent to tenant's email.", "success");
+                showToast(res.message || "OTP sent to the tenant (WhatsApp, SMS or email).", "success");
                 document.getElementById("cashOtpSection").classList.remove("d-none");
                 resetCashOtpBoxes();
 

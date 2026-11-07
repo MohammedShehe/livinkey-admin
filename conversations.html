@@ -16,123 +16,108 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" integrity="sha384-tViUnnbYAV00FLIhhi3v/dWt3Jxw4gZQcNoSCxCIFNJVCx7/D55/wXsrNIRANwdD" crossorigin="anonymous" rel="stylesheet">
 <link href="assets/css/style.css?v=2" rel="stylesheet">
 <style>
-  .conv-layout {
-    display: grid;
-    grid-template-columns: 340px 1fr;
-    height: calc(100vh - 160px);
-    min-height: 480px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    background: var(--surface);
+  /* ===== Conversations · responsive WhatsApp-style inbox ===== */
+  .cv-page-head{display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.9rem;}
+  .cv{display:grid; grid-template-columns:minmax(300px,380px) 1fr; height:calc(100vh - var(--topbar-h) - 6.5rem); height:calc(100dvh - var(--topbar-h) - 6.5rem); min-height:460px;
+      border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--surface); box-shadow:var(--shadow-xs);}
+  .cv-list{display:flex; flex-direction:column; min-width:0; min-height:0; border-right:1px solid var(--border); background:var(--surface);}
+  .cv-list-head{padding:.8rem .8rem .5rem; border-bottom:1px solid var(--border);}
+  .cv-search{position:relative;}
+  .cv-search i{position:absolute; left:.8rem; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none;}
+  .cv-search input{padding-left:2.2rem; border-radius:999px; background:var(--surface-2);}
+  .cv-chips{display:flex; gap:.4rem; margin-top:.6rem; overflow-x:auto; padding-bottom:.25rem; scrollbar-width:none;}
+  .cv-chips::-webkit-scrollbar{display:none;}
+  .cv-chip{flex:0 0 auto; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink-soft); font-size:.78rem; font-weight:600; padding:.28rem .7rem; border-radius:999px; cursor:pointer; white-space:nowrap;}
+  .cv-chip:hover{border-color:var(--lk-green);}
+  .cv-chip.active{background:var(--lk-green); border-color:#7FAE38; color:#0E1410;}
+  .cv-chip .n{margin-left:.3rem; background:rgba(0,0,0,.14); border-radius:999px; padding:0 .4rem; font-size:.7rem;}
+  .cv-items{flex:1; overflow-y:auto; overscroll-behavior:contain;}
+  .cv-item{display:flex; gap:.7rem; padding:.75rem .85rem; width:100%; text-align:left; background:none; border:0; border-bottom:1px solid var(--border); color:inherit; cursor:pointer;}
+  .cv-item:hover{background:var(--surface-2);}
+  .cv-item.active{background:var(--lk-green-50); box-shadow:inset 3px 0 0 var(--lk-green-dark);}
+  .cv-av{flex:0 0 44px; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.95rem; color:#fff; letter-spacing:.02em; user-select:none;}
+  .cv-av.sm{flex-basis:38px; width:38px; height:38px; font-size:.82rem;}
+  .cv-main{flex:1; min-width:0;}
+  .cv-row{display:flex; align-items:center; justify-content:space-between; gap:.5rem;}
+  .cv-name{font-weight:600; font-size:.92rem; color:var(--heading); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cv-time{font-size:.72rem; color:var(--muted); flex:0 0 auto;}
+  .cv-item.unread .cv-time{color:var(--lk-green-darker); font-weight:700;}
+  .cv-prev{font-size:.82rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; display:flex; align-items:center; gap:.25rem;}
+  .cv-prev .t{overflow:hidden; text-overflow:ellipsis;}
+  .cv-item.unread .cv-prev{color:var(--ink); font-weight:500;}
+  .cv-badge{flex:0 0 auto; min-width:20px; height:20px; padding:0 .38rem; border-radius:999px; background:var(--lk-green-dark); color:#fff; font-size:.7rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center;}
+  .cv-tag{font-size:.64rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:.08rem .38rem; border-radius:5px; background:var(--surface-2); color:var(--muted); border:1px solid var(--border);}
+  .cv-state{padding:2.5rem 1.25rem; text-align:center; color:var(--muted); font-size:.9rem;}
+  .cv-state i{display:block; font-size:2rem; opacity:.45; margin-bottom:.5rem;}
+  .cv-skel{height:68px; margin:.5rem .85rem; border-radius:10px; background:linear-gradient(90deg,var(--surface-2),var(--border),var(--surface-2)); background-size:200% 100%; animation:cvsk 1.2s infinite;}
+  @keyframes cvsk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  .cv-more{display:block; width:calc(100% - 1.6rem); margin:.6rem .8rem;}
+
+  .cv-chat{display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--bg); position:relative;}
+  .cv-empty{margin:auto; text-align:center; color:var(--muted); padding:2rem;}
+  .cv-empty i{font-size:3.2rem; opacity:.35; display:block; margin-bottom:.6rem;}
+  .cv-head{display:flex; align-items:center; gap:.7rem; padding:.65rem .9rem; background:var(--surface); border-bottom:1px solid var(--border);}
+  .cv-head .who{flex:1; min-width:0;}
+  .cv-head .nm{font-weight:700; color:var(--heading); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cv-head .sub{font-size:.78rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cv-back{display:none;}
+  .cv-banner{display:flex; gap:.55rem; align-items:flex-start; padding:.5rem .9rem; font-size:.78rem; line-height:1.35; border-bottom:1px solid var(--border);}
+  .cv-banner.ok{background:var(--lk-green-50); color:var(--lk-green-darker);}
+  .cv-banner.warn{background:#FFF6E0; color:#7A5300;}
+  html[data-theme="dark"] .cv-banner.warn{background:#3A2E10; color:#F1D58A;}
+  html[data-theme="dark"] .cv-item.active{background:rgba(146,194,74,.12);}
+  html[data-theme="dark"] .cv-banner.ok{background:rgba(146,194,74,.12); color:var(--lk-green);}
+  .cv-banner i{margin-top:.1rem;}
+  .cv-msgs{flex:1; overflow-y:auto; padding:1rem .9rem; display:flex; flex-direction:column; gap:.18rem; overscroll-behavior:contain; scroll-behavior:smooth;
+           background-image:radial-gradient(var(--border) 1px, transparent 1px); background-size:22px 22px;}
+  .cv-day{align-self:center; margin:.7rem 0 .4rem; font-size:.72rem; font-weight:600; color:var(--muted); background:var(--surface); border:1px solid var(--border); padding:.18rem .7rem; border-radius:999px;}
+  .cv-b{max-width:min(78%,560px); padding:.45rem .7rem .3rem; border-radius:14px; font-size:.9rem; line-height:1.42; position:relative; word-wrap:break-word; overflow-wrap:anywhere; box-shadow:0 1px 1px rgba(0,0,0,.06);}
+  .cv-b.in{align-self:flex-start; background:var(--surface); color:var(--ink); border-top-left-radius:4px;}
+  .cv-b.out{align-self:flex-end; background:color-mix(in srgb,var(--lk-green) 26%,var(--surface)); color:var(--ink); border-top-right-radius:4px;}
+  .cv-b.first{margin-top:.45rem;}
+  .cv-b.fail{background:#FDECEC; border:1px solid #F3B6B6;}
+  html[data-theme="dark"] .cv-b.fail{background:#3B1D1D; border-color:#7A3030;}
+  .cv-text{white-space:pre-wrap;}
+  .cv-text a{text-decoration:underline; word-break:break-all;}
+  .cv-kind{display:inline-flex; align-items:center; gap:.3rem; font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--lk-green-darker); margin-bottom:.15rem;}
+  html[data-theme="dark"] .cv-kind{color:var(--lk-green);}
+  .cv-otp{display:flex; align-items:center; gap:.5rem; color:var(--ink-soft); font-size:.86rem;}
+  .cv-meta{display:flex; justify-content:flex-end; align-items:center; gap:.3rem; font-size:.68rem; color:var(--muted); margin-top:.1rem; user-select:none;}
+  .cv-meta .read{color:#2D9CDB;}
+  .cv-meta .bad{color:var(--danger);}
+  .cv-err{font-size:.72rem; color:var(--danger); margin-top:.1rem;}
+  .cv-img{display:block; max-width:100%; max-height:280px; border-radius:10px; margin-bottom:.25rem; cursor:zoom-in; background:var(--surface-2); min-height:60px;}
+  .cv-file{display:inline-flex; align-items:center; gap:.4rem; padding:.4rem .6rem; border:1px solid var(--border-strong); border-radius:8px; font-size:.82rem; background:var(--surface-2); margin-bottom:.25rem; cursor:pointer;}
+  .cv-jump{position:absolute; right:1rem; bottom:5.2rem; width:38px; height:38px; border-radius:50%; border:1px solid var(--border-strong); background:var(--surface); box-shadow:var(--shadow-md); display:none; align-items:center; justify-content:center; z-index:3;}
+  .cv-jump.show{display:flex;}
+  .cv-jump .dot{position:absolute; top:-4px; right:-4px; background:var(--lk-green-dark); color:#fff; border-radius:999px; font-size:.64rem; min-width:17px; height:17px; display:flex; align-items:center; justify-content:center; font-weight:700;}
+  .cv-compose{background:var(--surface); border-top:1px solid var(--border); padding:.6rem .75rem calc(.6rem + env(safe-area-inset-bottom));}
+  .cv-compose-row{display:flex; align-items:flex-end; gap:.5rem;}
+  .cv-compose textarea{flex:1; resize:none; max-height:140px; min-height:42px; border-radius:21px; padding:.6rem 1rem; line-height:1.35; overflow-y:auto;}
+  .cv-send{flex:0 0 42px; width:42px; height:42px; border-radius:50%; border:1px solid #7FAE38; background:var(--lk-green); color:#0E1410; display:flex; align-items:center; justify-content:center; font-size:1.05rem;}
+  .cv-send:disabled{opacity:.5;}
+  .cv-compose-foot{display:flex; justify-content:space-between; gap:.5rem; font-size:.72rem; color:var(--muted); padding:.3rem .5rem 0;}
+  .cv-quick{position:relative;}
+  .cv-quick-menu{position:absolute; bottom:calc(100% + .4rem); left:0; width:min(340px,86vw); background:var(--surface); border:1px solid var(--border-strong); border-radius:12px; box-shadow:var(--shadow-lg); padding:.35rem; display:none; z-index:5; max-height:260px; overflow-y:auto;}
+  .cv-quick-menu.show{display:block;}
+  .cv-quick-menu button{display:block; width:100%; text-align:left; background:none; border:0; padding:.5rem .65rem; border-radius:8px; font-size:.83rem; color:var(--ink);}
+  .cv-quick-menu button:hover{background:var(--lk-green-50);}
+  .cv-quick-menu b{display:block; font-size:.76rem; color:var(--lk-green-darker);}
+
+  /* tablet */
+  @media (max-width:1199px){ .cv{grid-template-columns:minmax(280px,320px) 1fr;} }
+  /* phone / small tablet: one pane at a time */
+  @media (max-width:991px){
+    .cv{grid-template-columns:1fr; height:calc(100vh - var(--topbar-h) - 1.8rem); height:calc(100dvh - var(--topbar-h) - 1.8rem); border-radius:var(--radius-sm);}
+    .cv-page-head{display:none;}
+    .cv .cv-chat{display:none;}
+    .cv.chat-open .cv-list{display:none;}
+    .cv.chat-open .cv-chat{display:flex;}
+    .cv-back{display:inline-flex;}
+    .cv-b{max-width:88%;}
+    .cv-hide-sm{display:none!important;}
   }
-  .conv-list {
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    background: var(--bg);
-  }
-  .conv-list-header {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-  }
-  .conv-list-body {
-    overflow-y: auto;
-    flex: 1;
-  }
-  .conv-item {
-    padding: 0.9rem 1rem;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .conv-item:hover { background: var(--surface); }
-  .conv-item.active {
-    background: var(--lk-green-100);
-    border-left: 3px solid var(--lk-green);
-  }
-  .conv-item .name { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.15rem; }
-  .conv-item .preview {
-    font-size: 0.78rem;
-    color: var(--muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .conv-item .meta { font-size: 0.7rem; color: var(--muted); margin-top: 0.25rem; }
-  .conv-item .badge-unread {
-    background: var(--lk-green);
-    color: #000;
-    font-size: 0.65rem;
-    font-weight: 700;
-    border-radius: 10px;
-    padding: 0.1rem 0.4rem;
-  }
-  .conv-chat {
-    display: flex;
-    flex-direction: column;
-    background: var(--surface);
-  }
-  .conv-chat-header {
-    padding: 0.9rem 1.2rem;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--bg);
-  }
-  .conv-chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1.2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    background: var(--surface-2);
-  }
-  .msg-bubble {
-    max-width: 70%;
-    padding: 0.7rem 1rem;
-    border-radius: 12px;
-    font-size: 0.9rem;
-    line-height: 1.45;
-  }
-  .msg-bubble.outbound {
-    align-self: flex-end;
-    background: var(--lk-green);
-    color: #000;
-    border-bottom-right-radius: 4px;
-  }
-  .msg-bubble.inbound {
-    align-self: flex-start;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-bottom-left-radius: 4px;
-  }
-  .msg-bubble .msg-meta {
-    font-size: 0.68rem;
-    opacity: 0.7;
-    margin-top: 0.3rem;
-  }
-  .msg-bubble.outbound .msg-meta { text-align: right; }
-  .conv-chat-input {
-    padding: 0.9rem 1.2rem;
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-  }
-  .conv-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--muted);
-  }
-  .conv-empty i { font-size: 3rem; margin-bottom: 0.75rem; opacity: 0.4; }
-  @media (max-width: 768px) {
-    .conv-layout { grid-template-columns: 1fr; }
-  }
+  @media (prefers-reduced-motion:reduce){ .cv-msgs{scroll-behavior:auto;} .cv-skel{animation:none;} }
 </style>
 </head>
 <body>
@@ -141,56 +126,49 @@
   <div class="main-area">
     <div id="topbarMount"></div>
     <main class="content-area">
-      <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="cv-page-head">
         <div>
           <h5 class="mb-0 fw-bold">Conversations</h5>
-          <small class="text-muted">WhatsApp & message inbox</small>
+          <small class="text-muted">Every WhatsApp, SMS and email we send or receive — replies go WhatsApp → SMS → email</small>
         </div>
-        <button class="btn btn-sm btn-outline-secondary" id="conv-refresh">
-          <i class="bi bi-arrow-clockwise"></i> Refresh
-        </button>
+        <button class="btn btn-sm btn-outline-secondary" id="cvRefresh"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
       </div>
 
-      <div class="conv-layout" id="conv-layout">
-        <!-- Left: conversation list -->
-        <div class="conv-list">
-          <div class="conv-list-header">
-            <input type="text" class="form-control form-control-sm" id="conv-search" placeholder="Search name, phone, email...">
+      <div class="cv" id="cv">
+        <section class="cv-list" aria-label="Conversations">
+          <div class="cv-list-head">
+            <label class="cv-search"><i class="bi bi-search"></i>
+              <input type="search" class="form-control form-control-sm" id="cvSearch" placeholder="Search name, phone or email" autocomplete="off" aria-label="Search conversations"></label>
+            <div class="cv-chips" id="cvChips" role="tablist"></div>
           </div>
-          <div class="conv-list-body" id="conv-list-body">
-            <div class="text-center text-muted py-4">Loading...</div>
-          </div>
-        </div>
+          <div class="cv-items" id="cvItems" aria-live="polite"></div>
+        </section>
 
-        <!-- Right: chat area -->
-        <div class="conv-chat" id="conv-chat">
-          <div class="conv-empty" id="conv-empty">
-            <i class="bi bi-chat-dots"></i>
-            <div>Select a conversation to view messages</div>
-          </div>
-
-          <div id="conv-chat-active" style="display:none; flex-direction:column; height:100%;">
-            <div class="conv-chat-header">
-              <div>
-                <div class="fw-bold" id="chat-name">—</div>
-                <small class="text-muted" id="chat-meta">—</small>
+        <section class="cv-chat" id="cvChat" aria-label="Chat">
+          <div class="cv-empty" id="cvEmpty"><i class="bi bi-chat-dots"></i><div class="fw-semibold">Select a conversation</div><small>Pick a contact on the left to read the history and reply.</small></div>
+          <div id="cvActive" style="display:none; flex-direction:column; min-height:0; flex:1;">
+            <header class="cv-head">
+              <button class="btn-icon cv-back" id="cvBack" aria-label="Back to conversations"><i class="bi bi-arrow-left"></i></button>
+              <div class="cv-av sm" id="cvAv"></div>
+              <div class="who"><div class="nm" id="cvName">—</div><div class="sub" id="cvSub"></div></div>
+              <button class="btn-icon" id="cvArchive" title="Archive" aria-label="Archive conversation"><i class="bi bi-archive"></i></button>
+            </header>
+            <div id="cvBanner"></div>
+            <div class="cv-msgs" id="cvMsgs" tabindex="0" aria-live="polite"></div>
+            <button class="cv-jump" id="cvJump" aria-label="Jump to latest"><i class="bi bi-chevron-double-down"></i><span class="dot" id="cvJumpN" hidden></span></button>
+            <div class="cv-compose">
+              <div class="cv-compose-row">
+                <div class="cv-quick">
+                  <button class="btn-icon" id="cvQuickBtn" type="button" title="Quick replies" aria-label="Quick replies" style="width:42px;height:42px;border-radius:50%"><i class="bi bi-lightning-charge"></i></button>
+                  <div class="cv-quick-menu" id="cvQuick"></div>
+                </div>
+                <textarea class="form-control" id="cvInput" rows="1" maxlength="1500" placeholder="Type a message" aria-label="Message"></textarea>
+                <button class="cv-send" id="cvSend" aria-label="Send"><i class="bi bi-send-fill"></i></button>
               </div>
-              <button class="btn btn-sm btn-outline-secondary" id="chat-archive" title="Archive">
-                <i class="bi bi-archive"></i>
-              </button>
-            </div>
-            <div class="conv-chat-messages" id="chat-messages"></div>
-            <div class="conv-chat-input">
-              <div class="input-group">
-                <input type="text" class="form-control" id="chat-input" placeholder="Type a reply..." autocomplete="off">
-                <button class="btn btn-success" id="chat-send">
-                  <i class="bi bi-send-fill"></i> Send
-                </button>
-              </div>
-              <small class="text-muted">Replies go via WhatsApp (email fallback if needed)</small>
+              <div class="cv-compose-foot"><span id="cvRoute"></span><span id="cvCount" class="cv-hide-sm">Enter to send · Shift+Enter for a new line</span></div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </main>
   </div>

@@ -1,3 +1,11 @@
+# v3 – Messaging chain, WhatsApp inbox, maintenance forwarding (Nov 2026)
+* **WhatsApp → SMS → Email** for every OTP, bill, fine, reminder, notice and reply, including *late* failures via the Twilio status webhook. See `TWILIO_SETUP.md`.
+* Payment reminders, weekly (Monday) document reminders, maintenance-completion reminders and stay-expiry notices now use the same chain.
+* Bug fixes: webhook attached inbound WhatsApp messages to the wrong conversation; delivery-status callbacks crashed; admin OTPs were logged as *tenant* conversations; strangers who wrote to us collided on one conversation; OTPs were stored in message metadata; numbers without a country code ignored the user's own code.
+* New: `POST /api/maintenance/admin/:id/forward` (+ `/forwards`, `/forward-recipients`), attachment proxy for inbound media, conversation filters/search/unread and 24-hour-window info.
+* Admin: new responsive Conversations UI, forward-to-phone modal in Maintenance, collapsed-sidebar logo fix, bigger logo on OTP/forgot-password pages, channel-neutral OTP wording.
+* Action: set the new Twilio values in `.env` (the old ones are expired), configure the two webhooks, create the WhatsApp templates.
+
 # Livinkey – security & app overhaul (what changed and what you must do)
 
 ## Do these first (cannot be done from code)

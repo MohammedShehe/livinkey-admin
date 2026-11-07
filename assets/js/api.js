@@ -1315,8 +1315,29 @@ API.replyToConversation = async function(id, message) {
     return apiRequest(`/conversations/${id}/reply`, 'POST', { message });
 };
 
-API.archiveConversation = async function(id) {
-    return apiRequest(`/conversations/${id}/archive`, 'PATCH');
+API.archiveConversation = async function(id, archived = true) {
+    return apiRequest(`/conversations/${id}/archive`, 'PATCH', { archived });
+};
+
+// Attachment sent by a contact: fetched with the admin's token and returned as a blob URL
+API.getConversationMediaUrl = async function(conversationId, messageId) {
+    const res = await fetch(`${API_CONFIG.baseURL}/conversations/${conversationId}/messages/${messageId}/media`, {
+        headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+    });
+    if (!res.ok) throw new Error('Attachment unavailable');
+    const blob = await res.blob();
+    return { url: URL.createObjectURL(blob), type: blob.type };
+};
+
+// ============ MAINTENANCE · forward details to any phone ============
+API.forwardMaintenance = async function(id, payload) {
+    return apiRequest(`/maintenance/admin/${id}/forward`, 'POST', payload);
+};
+API.getMaintenanceForwards = async function(id) {
+    return apiRequest(`/maintenance/admin/${id}/forwards`, 'GET');
+};
+API.getForwardRecipients = async function() {
+    return apiRequest('/maintenance/admin/forward-recipients', 'GET');
 };
 
 API.getConversationUnreadCount = async function() {
